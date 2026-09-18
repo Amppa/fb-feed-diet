@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FB Diet — Options</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <div class="logo-badge">FD</div>
+        <div>
+          <h1 class="title">FB Diet Options</h1>
+          <p class="subtitle">Configure your feed diet preferences</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- Stat Counter Dashboard -->
+    <div class="stat-card">
+      <div class="stat-main">
+        <div class="stat-info">
+          <span class="stat-number" id="totalCount">0</span>
+          <span class="stat-title">Items Folded on Diet</span>
+        </div>
+        <button class="reset-btn" id="resetBtn" title="Reset all counter stats">Reset</button>
+      </div>
+
+      <!-- Sub-counters breakdown -->
+      <div class="stat-breakdown">
+        <div class="stat-sub-item">
+          <span class="sub-label">Sponsored</span>
+          <span class="sub-value" id="sponsoredCount">0</span>
+        </div>
+        <div class="stat-sub-item">
+          <span class="sub-label">Suggested</span>
+          <span class="sub-value" id="suggestedCount">0</span>
+        </div>
+        <div class="stat-sub-item">
+          <span class="sub-label">Groups</span>
+          <span class="sub-value" id="suggestedGroupCount">0</span>
+        </div>
+        <div class="stat-sub-item">
+          <span class="sub-label">Market</span>
+          <span class="sub-value" id="marketCount">0</span>
+        </div>
+        <div class="stat-sub-item">
+          <span class="sub-label">Search</span>
+          <span class="sub-value" id="searchCount">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feature Switches List -->
+    <div class="section-label">DIET OPTIONS</div>
+    <div class="features-list" id="featuresList">
+
+      <!-- 1. Remove Sponsored -->
+      <div class="feature-item">
+        <div class="feature-meta">
+          <span class="feature-icon">🛡️</span>
+          <div>
+            <div class="feature-title">Remove Sponsored</div>
+            <div class="feature-desc">Fold sponsored ads & sidebar promos</div>
+          </div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="removeSponsored">
+          <span class="slider round"></span>
+        </label>
+      </div>
+
+      <!-- 2. Remove Suggested Posts -->
+      <div class="feature-item">
+        <div class="feature-meta">
+          <span class="feature-icon">💡</span>
+          <div>
+            <div class="feature-title">Remove Suggested Posts</div>
+            <div class="feature-desc">Fold recommended posts, pages & people</div>
+          </div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="removeSuggested">
+          <span class="slider round"></span>
+        </label>
+      </div>
+
+      <!-- 3. Remove Suggested Groups -->
+      <div class="feature-item">
+        <div class="feature-meta">
+          <span class="feature-icon">👥</span>
+          <div>
+            <div class="feature-title">Remove Suggested Groups</div>
+            <div class="feature-desc">Fold recommended groups & community suggestions</div>
+          </div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="removeSuggestedGroup">
+          <span class="slider round"></span>
+        </label>
+      </div>
+
+      <!-- 4. Remove Market Ads -->
+      <div class="feature-item">
+        <div class="feature-meta">
+          <span class="feature-icon">🛒</span>
+          <div>
+            <div class="feature-title">Remove Market Ads</div>
+            <div class="feature-desc">Fold sponsored items in Marketplace</div>
+          </div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="removeMarketAds">
+          <span class="slider round"></span>
+        </label>
+      </div>
+
+      <!-- 5. Remove Searching Ads -->
+      <div class="feature-item">
+        <div class="feature-meta">
+          <span class="feature-icon">🔍</span>
+          <div>
+            <div class="feature-title">Remove Searching Ads</div>
+            <div class="feature-desc">Fold ad results in search page</div>
+          </div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="removeSearchingAds">
+          <span class="slider round"></span>
+        </label>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
