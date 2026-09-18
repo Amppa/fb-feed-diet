@@ -201,6 +201,9 @@ window.FBDietClassify = (() => {
     if (evidence.storyType && REELS_STORY_TYPES.indexOf(evidence.storyType) !== -1) {
       return { category: CATEGORY.REELS, reason: 'showcase_story_type' };
     }
+    if (evidence.unitTypename === 'ShowcaseFeedUnit') {
+      return { category: CATEGORY.REELS, reason: 'unitTypename:ShowcaseFeedUnit' };
+    }
 
     return { category: null, reason: evidence.ids.length ? 'unknown' : 'no-unit-id' };
   }
@@ -221,6 +224,10 @@ window.FBDietClassify = (() => {
       const picked = pickCategory(evidence);
       result.category = picked.category;
       result.reason = picked.reason;
+
+      if (result.category) {
+        console.info('[FB Diet][Classify] Matched:', result.category, 'for unit:', result.unitId || '-', '(' + (result.unitTypename || 'no-type') + ')', 'reason:', result.reason);
+      }
 
       return result;
     } catch (e) {

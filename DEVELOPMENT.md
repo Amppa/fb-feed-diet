@@ -42,10 +42,11 @@ graph TD
 
 ### Core Design Principles
 
-1. **Zero CSP Violations**: No `eval()`, `new Function()`, or inline `<script>` tags. Interception is done purely via prototype & object property wrappers (`Proxy`, getters/setters) on live references.
-2. **Non-Destructive React Tree**: Feed units are never unmounted or removed from the DOM. `fold.js` wraps the original component and applies `display: none` (or squash overlay). Facebook's internal render cycles, visibility trackers, and Relay subscriptions stay intact.
-3. **Defense-in-Depth Fallback**: If the MAIN world proxy fails to register (e.g. older browser or race condition), an 8-second timer triggers conservative DOM detection in `src/content/content.js`. Once the proxy announces itself, full-page DOM scanning is permanently disabled.
-4. **Resilient Lifecycle (`shutdown`)**: To eliminate `Extension context invalidated` errors when developers reload the extension, open tabs safely disconnect `MutationObserver` instances, clear pending timers, and silence storage flushes.
+1. **CSP Relaxation for Reliable Injection (`rules.json`)**: Uses `declarativeNetRequest` to remove Facebook's restrictive CSP header limits, enabling synchronous function compiling for module source hooks.
+2. **Authoritative Relay Store Capture**: Automatically rewrites `relay-runtime/store/RelayPublishQueue` on module definition to assign the live `RelayRecordSourceProxy` instance to `window.___rs`.
+3. **Non-Destructive React Tree (1x1 Squash)**: Feed units are never removed or destroyed. `fold.js` wraps the original component and applies a `1x1` squash container with `overflow: hidden`, ensuring Facebook video players and IntersectionObserver monitors stay stable.
+4. **Dual Engine Modes (Proxy Mode vs DOM Mode)**: Users can toggle between high-speed MAIN world Proxy mode (default) and traditional ISOLATED world DOM mode in the Options page.
+5. **Resilient Lifecycle (`shutdown`)**: To eliminate `Extension context invalidated` errors when developers reload the extension, open tabs safely disconnect `MutationObserver` instances, clear pending timers, and silence storage flushes.
 
 ---
 
@@ -53,7 +54,8 @@ graph TD
 
 ```text
 fb-diet/
-├── manifest.json              # MV3 configuration with dual-world content scripts
+├── manifest.json              # MV3 configuration with dual-world content scripts & DNR
+├── rules.json                 # DeclarativeNetRequest rule relaxing Facebook CSP
 ├── package.json               # Test script and package metadata
 ├── README.md                  # User-facing summary and installation instructions
 ├── DEVELOPMENT.md             # This architecture and developer reference

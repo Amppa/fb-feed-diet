@@ -5,6 +5,7 @@
 
 const DEFAULT_SETTINGS = {
   enabled: true,
+  mode: 'proxy',
   removeSponsored: true,
   removeSuggested: true,
   removeSuggestedGroup: true,

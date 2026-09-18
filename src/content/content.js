@@ -169,6 +169,13 @@
    */
   function activateProxyMode() {
     if (isShutDown || proxyActive) return;
+
+    if (currentSettings.mode === 'dom') {
+      console.info('[FB Diet] Operating in DOM mode: skipping proxy activation');
+      startObservation();
+      return;
+    }
+
     proxyActive = true;
 
     if (fallbackTimer) {
@@ -665,4 +672,18 @@
       subtree: true
     });
   }
+
+  window.__fbDietDebug = () => {
+    const info = {
+      mode: currentSettings.mode || 'proxy',
+      enabled: currentSettings.enabled !== false,
+      proxyActive,
+      isShutDown,
+      recentMainReports: mainReports.slice(-10),
+      countBuffer,
+      relayStoreReady: window.FBDietRelay ? window.FBDietRelay.isReady() : (window.___rs ? true : 'main-world')
+    };
+    console.log('[FB Diet Diagnostics]', info);
+    return info;
+  };
 })();

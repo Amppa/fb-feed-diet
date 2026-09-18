@@ -217,14 +217,40 @@ window.FBDietRelay = (() => {
    * Public API
    * ------------------------------------------------------------------ */
 
+  let loggedRsSuccess = false;
+
+  function checkGlobalStore() {
+    if (window.___rs && typeof window.___rs.get === 'function') {
+      if (!loggedRsSuccess) {
+        loggedRsSuccess = true;
+        console.info('[FB Diet][Relay] Store successfully captured from window.___rs!');
+      }
+      rememberSource(window.___rs);
+      ready = true;
+      return true;
+    }
+    return false;
+  }
+
   /**
    * Reads a path for the first record id that resolves to a value.
    * recordIds may be a string or an array of candidates (a feed unit exposes both
    * feedUnit.id and feedUnit.__id, and only one of them is a Relay data id).
    */
   function read(recordIds, path, options) {
+    checkGlobalStore();
     const ids = Array.isArray(recordIds) ? recordIds : [recordIds];
 
+    // 1. Try window.___rs directly
+    if (window.___rs && typeof window.___rs.get === 'function') {
+      for (const id of ids) {
+        if (typeof id !== 'string' || !id) continue;
+        const value = readPath(window.___rs, id, path, options);
+        if (value !== undefined && value !== null) return value;
+      }
+    }
+
+    // 2. Try captured sources
     for (const id of ids) {
       if (typeof id !== 'string' || !id) continue;
       for (const source of sources) {
@@ -247,16 +273,21 @@ window.FBDietRelay = (() => {
 
   install();
 
+  // Export compatible storeFinder for easy console probing
+  window.___sf = (id, path, options) => read([id], path, options);
+
   return {
     RELAY_PROXY_MODULE,
     read,
     readFirst,
-    isReady: () => ready,
-    getSourceCount: () => sources.length,
+    isReady: () => Boolean(window.___rs || sources.length > 0 || ready),
+    getSourceCount: () => (window.___rs ? Math.max(1, sources.length) : sources.length),
     getLastError: () => lastError,
     /** Debug helper: dumps the fields visible on a record */
     describe(recordId) {
-      for (const source of sources) {
+      checkGlobalStore();
+      const allSources = window.___rs ? [window.___rs, ...sources] : sources;
+      for (const source of allSources) {
         try {
           const record = source.get(recordId);
           if (record) return record;

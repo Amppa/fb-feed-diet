@@ -25,6 +25,7 @@ window.FBDietBridge = (() => {
   // Folding is enabled out of the box; per-category switches stay available for tuning.
   const DEFAULT_SETTINGS = {
     enabled: true,
+    mode: 'proxy',
     removeSponsored: true,
     removeSuggested: true,
     removeSuggestedGroup: true,

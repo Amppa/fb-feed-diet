@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const featuresList = document.getElementById('featuresList');
   const masterToggle = document.getElementById('enabled');
   const masterStatus = document.getElementById('masterStatus');
+  const modeProxy = document.getElementById('modeProxy');
+  const modeDom = document.getElementById('modeDom');
 
   const switches = {
     removeSponsored: document.getElementById('removeSponsored'),
@@ -52,13 +54,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  function updateModeUI(mode) {
+    if (mode === 'dom') {
+      if (modeDom) modeDom.checked = true;
+    } else {
+      if (modeProxy) modeProxy.checked = true;
+    }
+  }
+
   // Load initial settings and counts
   const data = await chrome.storage.local.get(['settings', 'counts']);
   const settings = data.settings || {};
   const counts = data.counts || {};
 
-  // Initialize master switch & feature switches
+  // Initialize master switch, mode & feature switches
   updateMasterUI(settings.enabled !== false);
+  updateModeUI(settings.mode || 'proxy');
 
   for (const [key, checkbox] of Object.entries(switches)) {
     if (checkbox) {
@@ -77,6 +88,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       const { settings: current } = await chrome.storage.local.get('settings');
       const updated = { ...current, enabled: active };
       await chrome.storage.local.set({ settings: updated });
+    });
+  }
+
+  // Handle Engine Mode toggle
+  async function handleModeSelect(selectedMode) {
+    const { settings: current } = await chrome.storage.local.get('settings');
+    const updated = { ...current, mode: selectedMode };
+    await chrome.storage.local.set({ settings: updated });
+  }
+
+  if (modeProxy) {
+    modeProxy.addEventListener('change', () => {
+      if (modeProxy.checked) handleModeSelect('proxy');
+    });
+  }
+  if (modeDom) {
+    modeDom.addEventListener('change', () => {
+      if (modeDom.checked) handleModeSelect('dom');
     });
   }
 
@@ -110,8 +139,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       if (changes.settings) {
         const s = changes.settings.newValue;
-        if (s && s.enabled !== undefined) {
-          updateMasterUI(s.enabled !== false);
+        if (s) {
+          if (s.enabled !== undefined) updateMasterUI(s.enabled !== false);
+          if (s.mode) updateModeUI(s.mode);
         }
       }
     }

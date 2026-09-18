@@ -69,6 +69,25 @@
       </div>
     </div>
 
+    <!-- Engine Mode Selection (Proxy vs DOM) -->
+    <div class="section-label">DETECTION ENGINE MODE</div>
+    <div class="mode-selector">
+      <label class="mode-option" id="modeProxyLabel">
+        <input type="radio" name="engineMode" value="proxy" id="modeProxy" checked>
+        <div class="mode-content">
+          <div class="mode-title">⚡ Proxy Mode <span class="badge-recommended">Recommended</span></div>
+          <div class="mode-desc">Direct React & Relay interceptor. Zero CPU overhead, runs at native Facebook 60fps speed.</div>
+        </div>
+      </label>
+      <label class="mode-option" id="modeDomLabel">
+        <input type="radio" name="engineMode" value="dom" id="modeDom">
+        <div class="mode-content">
+          <div class="mode-title">🔍 DOM Mode</div>
+          <div class="mode-desc">Traditional MutationObserver text scanner. Scans on-screen text and attributes directly.</div>
+        </div>
+      </label>
+    </div>
+
     <!-- Feature Switches List -->
     <div class="section-label">DIET OPTIONS</div>
     <div class="features-list" id="featuresList">

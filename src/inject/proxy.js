@@ -32,6 +32,7 @@ window.FBDietProxy = (() => {
 
   const registrations = new Map(); // moduleName -> entry[]
   const factoryHooks = new Map(); // moduleName -> cb[]
+  const sourceHooks = new Map(); // moduleName -> replacer[]
   const moduleArgs = new Map(); // moduleName -> last seen factory args
   const errors = [];
   const stats = { intercepted: 0, patched: 0, hookRuns: 0, patchedModules: [] };
@@ -324,12 +325,73 @@ function wrapFactory(moduleName, factory) {
    * __d interception
    * ------------------------------------------------------------------ */
 
+  function compileFunctionString(codeString) {
+    try {
+      const fnId = 'id_' + Math.random().toString(36).substring(2, 11);
+      window.__fnCache = window.__fnCache || {};
+      const script = document.createElement('script');
+      script.textContent = `window.__fnCache["${fnId}"] = (${codeString});`;
+      (document.head || document.documentElement).appendChild(script);
+      script.remove();
+      const fn = window.__fnCache[fnId];
+      delete window.__fnCache[fnId];
+      if (typeof fn === 'function') return fn;
+    } catch (e) {
+      recordError('compileScript', e);
+    }
+    try {
+      return (0, eval)('(' + codeString + ')');
+    } catch (e2) {
+      recordError('compileEval', e2);
+      return null;
+    }
+  }
+
+  function registerSourceHook(moduleName, replacer) {
+    if (typeof moduleName !== 'string' || typeof replacer !== 'function') return false;
+    const list = sourceHooks.get(moduleName) || [];
+    list.push(replacer);
+    sourceHooks.set(moduleName, list);
+    return true;
+  }
+
   function transformDArgs(args) {
     try {
-      if (registrations.size === 0 && factoryHooks.size === 0) return args;
+      if (registrations.size === 0 && factoryHooks.size === 0 && sourceHooks.size === 0) return args;
 
       const info = readDArgs(args);
       if (!info || !info.moduleName) return args;
+
+      // 1. Source replacement hooks (e.g. RelayPublishQueue to capture window.___rs)
+      if (sourceHooks.has(info.moduleName)) {
+        let factory = args[info.factoryIndex];
+        if (typeof factory === 'function' && !factory[PROXY_MARK]) {
+          try {
+            let code = String(factory);
+            const replacers = sourceHooks.get(info.moduleName) || [];
+            let changed = false;
+            for (const replacer of replacers) {
+              const updated = replacer(code);
+              if (updated && updated !== code) {
+                code = updated;
+                changed = true;
+              }
+            }
+            if (changed) {
+              const compiled = compileFunctionString(code);
+              if (typeof compiled === 'function') {
+                args[info.factoryIndex] = compiled;
+                stats.patched += 1;
+                console.info('[FB Diet][MAIN] Successfully source-patched module:', info.moduleName);
+              }
+            }
+          } catch (err) {
+            recordError('sourceHook:' + info.moduleName, err);
+          }
+        }
+      }
+
+      // 2. Component and Factory hooks
       if (!registrations.has(info.moduleName) && !factoryHooks.has(info.moduleName)) return args;
 
       const factory = args[info.factoryIndex];
@@ -438,6 +500,8 @@ function wrapFactory(moduleName, factory) {
       return true;
     },
 
+    registerSourceHook,
+
     getReact,
     createElement,
 
@@ -469,5 +533,21 @@ function wrapFactory(moduleName, factory) {
   };
 
   installDDHook();
+
+  // Pre-register RelayPublishQueue source hook to capture Relay store into window.___rs
+  registerSourceHook('relay-runtime/store/RelayPublishQueue', (src) => {
+    let res = src.replace(
+      /,(\w+)\s*=\s*new\s*\(\s*(\w+)\s*\(\s*["']relay-runtime\/mutations\/RelayRecordSourceProxy["']/g,
+      ',$1=window["___rs"]=new($2("relay-runtime/mutations/RelayRecordSourceProxy"'
+    );
+    if (res === src) {
+      res = src.replace(
+        /new\s*\(\s*(\w+)\s*\(\s*["']relay-runtime\/mutations\/RelayRecordSourceProxy["']/g,
+        'window["___rs"]=new($1("relay-runtime/mutations/RelayRecordSourceProxy"'
+      );
+    }
+    return res;
+  });
+
   return api;
 })();

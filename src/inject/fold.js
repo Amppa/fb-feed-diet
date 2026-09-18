@@ -10,25 +10,46 @@
  *
  * Expand/collapse state is keyed by the Relay feed unit id and lives in bridge.js, so it
  * survives re-renders and virtualised scrolling.
+/**
+ * FB Diet - React fold wrapper (MAIN world)
+ *
+ * Decorates Facebook feed units instead of deleting them:
+ *   - nothing matched or the category is disabled -> the original element tree is returned untouched
+ *   - matched -> a compact notice bar plus the original tree hidden
+ *     with display:none (strategy A: Facebook's own render, commit and visibility
+ *     bookkeeping keep working, only the layout box disappears)
+ *   - expanded by the user      -> the original tree is returned untouched again
+ *
+ * Expand/collapse state is keyed by the Relay feed unit id and lives in bridge.js, so it
+ * survives re-renders and virtualised scrolling.
  *
  * Public API (window.FBDietFold): install(), FBDietFold, CATEGORY_META, HIDE_MODE, getStatus()
  */
 window.FBDietFold = (() => {
   'use strict';
 
-  const FEED_UNIT_MODULES = ['CometFeedUnitErrorBoundary.react'];
+  const FEED_UNIT_MODULES = [
+    { name: 'CometFeedUnitErrorBoundary.react', category: null, definerPath: '[6].default' },
+    { name: 'CometAdsSideFeedUnitItem.react', category: 'sponsored', definerPath: '[6].default' },
+    { name: 'CometHomeRightRailUnit.react', category: 'sponsored', definerPath: '[6].default.render' },
+    { name: 'FBReelsTopOfFeedTrayTile.react', category: 'reels', definerPath: '[6].default' },
+    { name: 'FBReelsRootWrapper.react', category: 'reels', definerPath: '[6].default' },
+    { name: 'CometFeedStoryFBReelsAttachmentStyle.react', category: 'reels', definerPath: '[6].default' },
+    { name: 'StoriesTrayRectangularRoot.react', category: 'stories', definerPath: '[6].default' },
+    { name: 'FriendingCometPYMKGrid.react', category: 'suggested', definerPath: '[6].default' },
+    { name: 'FriendingCometFeedPYMKHScroll.react', category: 'suggested', definerPath: '[6].default' },
+    { name: 'FriendingCometPYMKPanel.react', category: 'suggested', definerPath: '[6].default' },
+    { name: 'CometMarketplaceAdCard.react', category: 'marketAds', definerPath: '[6].default' },
+    { name: 'SearchCometResultsAd.react', category: 'searchingAds', definerPath: '[6].default' }
+  ];
 
-  // 'display-none' keeps the original subtree mounted but out of the layout (Phase 1
-  // default). 'squash' is the reference implementation's 1x1 absolute overlay, kept as a
-  // one-line escape hatch in case Facebook's video/visibility heuristics dislike
-  // display:none on a feed unit.
-  const HIDE_MODE = 'display-none';
+  const HIDE_MODE = 'squash';
 
   const CATEGORY_META = {
     sponsored: {
       badgeClass: 'fb-diet-badge-sponsored',
       badgeText: 'Sponsored',
-      label: 'Sponsored post folded by FB Diet'
+      label: 'Sponsored content folded by FB Diet'
     },
     suggested: {
       badgeClass: 'fb-diet-badge-suggested',
@@ -63,16 +84,14 @@ window.FBDietFold = (() => {
   };
 
   function createEl(type, props, children) {
+    const React = window.FBDietProxy ? window.FBDietProxy.getReact() : null;
     const proxy = window.FBDietProxy;
-    if (!proxy) return null;
-    const React = proxy.getReact();
-    if (!React) return null;
+    if (!React || !proxy) return null;
     return proxy.createElement(React, type, props, children);
   }
 
   /**
-   * The collapsed notice bar. Reuses the classes already shipped in src/content/content.css
-   * (which Chrome injects into this page), so the placeholder matches the popup theme.
+   * The collapsed notice bar.
    */
   function FBDietBar(props) {
     const meta = CATEGORY_META[props.category] || CATEGORY_META.sponsored;
@@ -95,13 +114,9 @@ window.FBDietFold = (() => {
 
     return createEl('div', { className: 'fb-diet-placeholder' }, [left, button]);
   }
-/**
+
+  /**
    * The component that replaces a matched feed unit.
-   *
-   * Receives { payload, SourceCmp, lastCmp } from proxy.js. The state hook is always the
-   * first statement so the hook order stays stable, and every other branch is wrapped in
-   * try/catch: this component is mounted where Facebook's own feed unit boundary was, so
-   * throwing here would take down a chunk of the feed.
    */
   function FBDietFold(props) {
     const rendered = props.lastCmp;
@@ -109,9 +124,6 @@ window.FBDietFold = (() => {
 
     const [tick, setTick] = React && typeof React.useState === 'function' ? React.useState(0) : [0, function noop() {}];
 
-    // React does not re-render an already mounted feed unit merely because an
-    // extension setting changed. Subscribe once so toggling the master switch or a
-    // category immediately re-folds or restores already mounted units.
     if (React && typeof React.useEffect === 'function') {
       React.useEffect(() => {
         const refresh = () => setTick((value) => value + 1);
@@ -124,41 +136,66 @@ window.FBDietFold = (() => {
       if (!React || !rendered) return rendered;
 
       const bridge = window.FBDietBridge;
-      const classify = window.FBDietClassify;
-      if (!bridge || !classify) return rendered;
+      if (!bridge) return rendered;
 
       const settings = bridge.getSettings();
-      if (!settings.enabled) return rendered;
+      // If disabled or in DOM mode, let original render untouched
+      if (!settings.enabled || settings.mode === 'dom') return rendered;
 
-      const result = classify.classifyFeedUnit(props.payload);
+      let category = props.entryCategory || null;
+      let reason = 'component:' + (props.moduleName || 'unknown');
+      let unitId = null;
 
-      if (!result.category) {
-        bridge.reportUnknown(result);
-        return rendered;
+      if (!category) {
+        const classify = window.FBDietClassify;
+        if (!classify) return rendered;
+
+        const result = classify.classifyFeedUnit(props.payload);
+        if (!result.category) {
+          bridge.reportUnknown(result);
+          return rendered;
+        }
+
+        category = result.category;
+        reason = result.reason;
+        unitId = result.unitId;
       }
-      if (!bridge.isEnabled(result.category)) return rendered;
 
-      if (!result.unitId) return rendered;
+      if (!bridge.isEnabled(category)) return rendered;
 
-      bridge.reportBlocked(result);
+      if (!unitId) {
+        const mod = props.moduleName || 'unit';
+        const type = (props.payload && props.payload.unitTypename) || 'ad';
+        unitId = mod + '_' + type;
+      }
 
-      // Already expanded by the user: render the original unit untouched
-      if (bridge.isExpanded(result.unitId)) return rendered;
+      bridge.reportBlocked({ category, unitId, reason });
+
+      const isExpanded = bridge.isExpanded(unitId);
 
       const onToggle = () => {
         try {
-          bridge.toggle(result.unitId);
+          bridge.toggle(unitId);
           setTick(tick + 1);
         } catch (e) {
-          // Never let a click handler throw into Facebook's event system
+          // Ignore
         }
       };
 
-      const bar = createEl(FBDietBar, { category: result.category, unitId: result.unitId, onToggle }, []);
+      if (isExpanded) {
+        const refoldBar = createEl('div', { className: 'fb-diet-placeholder fb-diet-state-expanded' }, [
+          createEl('span', { className: 'fb-diet-label' }, ['Post restored by FB Diet']),
+          createEl('button', { type: 'button', className: 'fb-diet-toggle-btn', onClick: onToggle }, ['Re-fold'])
+        ]);
+        const Fragment = React.Fragment || null;
+        return Fragment ? createEl(Fragment, null, [refoldBar, rendered]) : [refoldBar, rendered];
+      }
+
+      const bar = createEl(FBDietBar, { category, unitId, onToggle }, []);
       const hidden = createEl(
         'div',
         {
-          className: 'fb-diet-fold-hidden' + (HIDE_MODE === 'squash' ? ' fb-diet-foldsquash' : ''),
+          className: 'fb-diet-fold-hidden fb-diet-foldsquash',
           'aria-hidden': 'true'
         },
         [rendered]
@@ -168,7 +205,6 @@ window.FBDietFold = (() => {
       const Fragment = React.Fragment || null;
       return Fragment ? createEl(Fragment, null, [bar, hidden]) : [bar, hidden];
     } catch (e) {
-      // Any failure degrades to the untouched unit
       return rendered;
     }
   }
@@ -178,8 +214,16 @@ window.FBDietFold = (() => {
     if (!proxy || typeof proxy.registerComponent !== 'function') return false;
 
     let registered = 0;
-    for (const moduleName of FEED_UNIT_MODULES) {
-      if (proxy.registerComponent(moduleName, { component: FBDietFold, definerPath: '[6].default' })) {
+    for (const item of FEED_UNIT_MODULES) {
+      const moduleName = item.name;
+      const category = item.category;
+      const definerPath = item.definerPath || '[6].default';
+
+      function SpecificFold(props) {
+        return FBDietFold(Object.assign({ entryCategory: category, moduleName }, props));
+      }
+
+      if (proxy.registerComponent(moduleName, { component: SpecificFold, definerPath })) {
         registered += 1;
       }
     }
