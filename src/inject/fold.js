@@ -36,6 +36,9 @@ window.FBDietFold = (() => {
     { name: 'FBReelsRootWrapper.react', category: 'reels', definerPath: '[6].default' },
     { name: 'CometFeedStoryFBReelsAttachmentStyle.react', category: 'reels', definerPath: '[6].default' },
     { name: 'StoriesTrayRectangularRoot.react', category: 'stories', definerPath: '[6].default' },
+    { name: 'StoriesTray.react', category: 'stories', definerPath: '[6].default' },
+    { name: 'StoriesTrayRoot.react', category: 'stories', definerPath: '[6].default' },
+    { name: 'CometStoriesTray.react', category: 'stories', definerPath: '[6].default' },
     { name: 'FriendingCometPYMKGrid.react', category: 'suggested', definerPath: '[6].default' },
     { name: 'FriendingCometFeedPYMKHScroll.react', category: 'suggested', definerPath: '[6].default' },
     { name: 'FriendingCometPYMKPanel.react', category: 'suggested', definerPath: '[6].default' },
@@ -115,12 +118,30 @@ window.FBDietFold = (() => {
     return createEl('div', { className: 'fb-diet-placeholder' }, [left, button]);
   }
 
+  let FBDietContext = null;
+  function getFoldContext(React) {
+    if (!FBDietContext && React && typeof React.createContext === 'function') {
+      try {
+        FBDietContext = React.createContext(false);
+      } catch (e) {
+        FBDietContext = null;
+      }
+    }
+    return FBDietContext;
+  }
+
   /**
    * The component that replaces a matched feed unit.
    */
   function FBDietFold(props) {
     const rendered = props.lastCmp;
     const React = window.FBDietProxy ? window.FBDietProxy.getReact() : null;
+
+    // Anti-nesting suppression: if this unit is already rendered inside an outer FB Diet fold wrapper,
+    // render it untouched to prevent duplicate stacked fold / re-fold bars (e.g. group suggestion carousels).
+    const FoldContext = getFoldContext(React);
+    const isNested = FoldContext && typeof React.useContext === 'function' ? React.useContext(FoldContext) : false;
+    if (isNested) return rendered;
 
     const [tick, setTick] = React && typeof React.useState === 'function' ? React.useState(0) : [0, function noop() {}];
 
@@ -187,8 +208,12 @@ window.FBDietFold = (() => {
           createEl('span', { className: 'fb-diet-label' }, ['Post restored by FB Diet']),
           createEl('button', { type: 'button', className: 'fb-diet-toggle-btn', onClick: onToggle }, ['Re-fold'])
         ]);
+        const content = [refoldBar, rendered];
+        if (FoldContext && FoldContext.Provider) {
+          return createEl(FoldContext.Provider, { value: true }, content);
+        }
         const Fragment = React.Fragment || null;
-        return Fragment ? createEl(Fragment, null, [refoldBar, rendered]) : [refoldBar, rendered];
+        return Fragment ? createEl(Fragment, null, content) : content;
       }
 
       const bar = createEl(FBDietBar, { category, unitId, onToggle }, []);
@@ -202,8 +227,12 @@ window.FBDietFold = (() => {
       );
       if (!bar || !hidden) return rendered;
 
+      const foldContent = [bar, hidden];
+      if (FoldContext && FoldContext.Provider) {
+        return createEl(FoldContext.Provider, { value: true }, foldContent);
+      }
       const Fragment = React.Fragment || null;
-      return Fragment ? createEl(Fragment, null, [bar, hidden]) : [bar, hidden];
+      return Fragment ? createEl(Fragment, null, foldContent) : foldContent;
     } catch (e) {
       return rendered;
     }

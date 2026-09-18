@@ -39,11 +39,11 @@ window.FBDietClassify = (() => {
   };
 
   // Relay based classification rules (verified against the reference implementation)
-  const SUGGESTED_GROUP_TYPENAMES = ['GroupsYouShouldJoinFeedUnit'];
-  const SUGGESTED_SUBSCRIBE_STATES = ['CAN_SUBSCRIBE'];
+  const SUGGESTED_GROUP_TYPENAMES = ['GroupsYouShouldJoinFeedUnit', 'GroupSuggestionsFeedUnit'];
+  const SUGGESTED_SUBSCRIBE_STATES = ['CAN_SUBSCRIBE', 'CAN_FOLLOW', 'NOT_SUBSCRIBED'];
   const SUGGESTED_JOIN_STATES = ['CAN_JOIN'];
   const REELS_STORY_TYPES = ['SHOWCASE_SHORT_VIDEO'];
-  const SUGGESTED_STORY_LOCATIONS = ['homepage_stream', 'groups_tab'];
+  const SUGGESTED_STORY_LOCATIONS = ['homepage_stream', 'groups_tab', 'feed'];
 
   const SPONSORED_PATH = '^sponsored_data.ad_id';
   const SUBSCRIBE_PATH = '^^actors[0].subscribe_status';
@@ -81,11 +81,18 @@ window.FBDietClassify = (() => {
 
   /**
    * Extracts everything the classifier may need from a feed unit's props.
-   * Facebook sometimes nests the unit one level deeper (children[0].props.children.props).
+   * Handles various React element hierarchies (children as object or array, nested props, edges).
    */
   function collectUnit(payload) {
-    const feedUnit = readProp(payload, 'feedUnit') || null;
-    const nestedUnit = readProp(payload, 'children.0.props.children.props.feedUnit') || null;
+    const feedUnit = readProp(payload, 'feedUnit') || readProp(payload, 'unit') || null;
+    const nestedUnit =
+      readProp(payload, 'children.0.props.children.props.feedUnit') ||
+      readProp(payload, 'children.props.children.props.feedUnit') ||
+      readProp(payload, 'children.props.feedUnit') ||
+      readProp(payload, 'children.0.props.feedUnit') ||
+      readProp(payload, 'edge.node') ||
+      readProp(payload, 'feedEdge.node') ||
+      null;
     const record = feedUnit || nestedUnit || null;
 
     const ids = [];
@@ -93,7 +100,9 @@ window.FBDietClassify = (() => {
       readProp(feedUnit, '__id'),
       readProp(feedUnit, 'id'),
       readProp(nestedUnit, '__id'),
-      readProp(nestedUnit, 'id')
+      readProp(nestedUnit, 'id'),
+      readProp(payload, '__id'),
+      readProp(payload, 'id')
     ];
     for (const candidate of candidates) {
       if (typeof candidate === 'string' && candidate && ids.indexOf(candidate) === -1) ids.push(candidate);
@@ -104,7 +113,10 @@ window.FBDietClassify = (() => {
       nestedUnit,
       record,
       ids,
-      unitTypename: toStringOrNull(readProp(payload, 'unitTypename')) || toStringOrNull(readProp(record, '__typename'))
+      unitTypename:
+        toStringOrNull(readProp(payload, 'unitTypename')) ||
+        toStringOrNull(readProp(record, '__typename')) ||
+        toStringOrNull(readProp(payload, '__typename'))
     };
   }
 /* ------------------------------------------------------------------ *
@@ -118,7 +130,7 @@ window.FBDietClassify = (() => {
   function gatherEvidence(unit) {
     const evidence = {
       unitTypename: unit.unitTypename,
-      ids: unit.ids.slice(0, 3),
+      ids: unit.ids.slice(0, 4),
       adId: null,
       subscribeStatus: null,
       joinState: null,
@@ -128,8 +140,13 @@ window.FBDietClassify = (() => {
     };
 
     // 1. Direct props
-    evidence.adId = toStringOrNull(readProp(unit.record, 'sponsored_data.ad_id'));
-    evidence.subscribeStatus = toStringOrNull(readProp(unit.record, 'actors.0.subscribe_status'));
+    evidence.adId =
+      toStringOrNull(readProp(unit.record, 'sponsored_data.ad_id')) ||
+      toStringOrNull(readProp(unit.record, 'sponsored_data.client_token')) ||
+      (readProp(unit.record, 'is_sponsored') === true ? 'is_sponsored' : null);
+    evidence.subscribeStatus =
+      toStringOrNull(readProp(unit.record, 'actors.0.subscribe_status')) ||
+      toStringOrNull(readProp(unit.record, 'actor.subscribe_status'));
     evidence.joinState = toStringOrNull(readProp(unit.record, 'to.viewer_forum_join_state'));
     evidence.storyType = toStringOrNull(readProp(unit.record, 'showcase_story_type'));
     if (evidence.adId || evidence.subscribeStatus || evidence.joinState || evidence.storyType) {
@@ -140,14 +157,18 @@ window.FBDietClassify = (() => {
 
     // 2. Relay store
     if (!evidence.adId) {
-      const value = safeRelayRead(unit.ids, SPONSORED_PATH);
+      let value = safeRelayRead(unit.ids, SPONSORED_PATH);
+      if (!value) value = safeRelayRead(unit.ids, '^sponsored_data.client_token');
+      if (!value && safeRelayRead(unit.ids, 'is_sponsored') === true) value = 'is_sponsored';
       if (value) {
         evidence.adId = String(value);
         evidence.source = 'relay';
       }
     }
     if (!evidence.subscribeStatus) {
-      const value = safeRelayRead(unit.ids, SUBSCRIBE_PATH);
+      let value = safeRelayRead(unit.ids, SUBSCRIBE_PATH);
+      if (!value) value = safeRelayRead(unit.ids, '^actors[0].subscribe_status');
+      if (!value) value = safeRelayRead(unit.ids, '^actor.subscribe_status');
       if (value) {
         evidence.subscribeStatus = String(value);
         evidence.source = 'relay';
@@ -168,11 +189,27 @@ window.FBDietClassify = (() => {
       }
     }
     for (const location of SUGGESTED_STORY_LOCATIONS) {
-      const value = safeRelayRead(unit.ids, STORY_HEADER_PATH, { params: { $1: { location } } });
+      const opts = { $1: { location }, params: { $1: { location } } };
+      let value = safeRelayRead(unit.ids, STORY_HEADER_PATH, opts);
+      if (!value) {
+        // Also check if story_header linked record exists for this location
+        const headerRec = safeRelayRead(unit.ids, '^story_header{$1}', opts);
+        if (headerRec) value = location;
+      }
       if (value) {
         evidence.storyLocation = location;
         evidence.source = 'relay';
         break;
+      }
+    }
+    if (!evidence.storyLocation) {
+      // Check location-free story_header
+      let val = safeRelayRead(unit.ids, '^story_header.^title.text');
+      if (!val) val = safeRelayRead(unit.ids, '^story_header.title.text');
+      if (!val && safeRelayRead(unit.ids, '^story_header')) val = 'header';
+      if (val) {
+        evidence.storyLocation = 'header';
+        evidence.source = 'relay';
       }
     }
 

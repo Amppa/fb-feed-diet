@@ -218,14 +218,21 @@
     while (mainReports.length > MAX_MAIN_REPORTS) mainReports.shift();
 
     if (mainReports.length <= MAX_MAIN_REPORT_LOGS) {
-      console.info(
-        '[FB Diet]',
-        type,
-        payload.unitTypename || '-',
-        payload.category || '-',
-        payload.reason || '',
-        payload.unitId || ''
-      );
+      // Normal friend stories are expected to be unclassified; suppress generic Story unknown logs unless debug enabled
+      if (type === 'unknown' && payload.reason === 'unknown' && payload.unitTypename === 'Story') {
+        if (/[?&]fb_diet_debug=1(?:&|$)/.test(window.location.search)) {
+          console.debug('[FB Diet] Normal/unclassified feed story:', payload.unitId);
+        }
+      } else {
+        console.info(
+          '[FB Diet]',
+          type,
+          payload.unitTypename || '-',
+          payload.category || '-',
+          payload.reason || '',
+          payload.unitId || ''
+        );
+      }
     }
   }
 

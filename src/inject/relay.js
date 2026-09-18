@@ -126,26 +126,32 @@ window.FBDietRelay = (() => {
     if (open === -1) return { field: token, args: undefined };
 
     const field = token.slice(0, open);
-    const raw = token.slice(open, token.lastIndexOf('}') + 1);
+    const raw = token.slice(open + 1, token.lastIndexOf('}')); // e.g. "$1" or "location: '...'"
+
+    // Support {$1} syntax directly mapping to options["$1"] or options.params["$1"]
+    if (options) {
+      if (options[raw] !== undefined) return { field, args: options[raw] };
+      if (options.params && options.params[raw] !== undefined) return { field, args: options.params[raw] };
+    }
 
     let parsed = null;
     try {
-      parsed = JSON.parse(raw);
+      parsed = JSON.parse('{' + raw + '}');
     } catch (e) {
       parsed = null;
     }
 
-    if (!parsed || typeof parsed !== 'object') return { field, args: undefined };
-
-    // Placeholders such as {$1: {...}} are filled from options.params
-    const params = (options && options.params) || {};
-    const resolved = {};
-    for (const key of Object.keys(parsed)) {
-      const placeholder = key.charAt(0) === '$' ? params[key] : undefined;
-      resolved[key.replace(/^\$/, '')] = placeholder === undefined ? parsed[key] : placeholder;
+    if (parsed && typeof parsed === 'object') {
+      const params = (options && options.params) || options || {};
+      const resolved = {};
+      for (const key of Object.keys(parsed)) {
+        const placeholder = key.charAt(0) === '$' ? params[key] : undefined;
+        resolved[key.replace(/^\$/, '')] = placeholder === undefined ? parsed[key] : placeholder;
+      }
+      return { field, args: resolved };
     }
 
-    return { field, args: resolved };
+    return { field, args: options };
   }
 
   function readOne(container, field, args, mode) {
@@ -155,7 +161,14 @@ window.FBDietRelay = (() => {
     if (isRecordProxy(container)) {
       try {
         if (mode === 'records') return container.getLinkedRecords(field, args);
-        if (mode === 'record') return container.getLinkedRecord(field, args);
+        if (mode === 'record') {
+          const linked = container.getLinkedRecord(field, args);
+          if (linked !== undefined && linked !== null) return linked;
+          // Fallback: in some schemas, the record is stored as an object value
+          const val = container.getValue(field, args);
+          if (val !== undefined && val !== null && typeof val === 'object') return val;
+          return undefined;
+        }
         return container.getValue(field, args);
       } catch (e) {
         recordError(e);
