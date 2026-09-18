@@ -4,24 +4,8 @@
  * Decorates Facebook feed units instead of deleting them:
  *   - nothing matched or the category is disabled -> the original element tree is returned untouched
  *   - matched -> a compact notice bar plus the original tree hidden
- *     with display:none (strategy A: Facebook's own render, commit and visibility
- *     bookkeeping keep working, only the layout box disappears)
- *   - expanded by the user      -> the original tree is returned untouched again
- *
- * Expand/collapse state is keyed by the Relay feed unit id and lives in bridge.js, so it
- * survives re-renders and virtualised scrolling.
-/**
- * FB Diet - React fold wrapper (MAIN world)
- *
- * Decorates Facebook feed units instead of deleting them:
- *   - nothing matched or the category is disabled -> the original element tree is returned untouched
- *   - matched -> a compact notice bar plus the original tree hidden
- *     with display:none (strategy A: Facebook's own render, commit and visibility
- *     bookkeeping keep working, only the layout box disappears)
- *   - expanded by the user      -> the original tree is returned untouched again
- *
- * Expand/collapse state is keyed by the Relay feed unit id and lives in bridge.js, so it
- * survives re-renders and virtualised scrolling.
+ *     with display:none / 1x1 squash
+ *   - expanded by the user -> the original tree is returned with a neutral re-fold bar
  *
  * Public API (window.FBDietFold): install(), FBDietFold, CATEGORY_META, HIDE_MODE, getStatus()
  */
