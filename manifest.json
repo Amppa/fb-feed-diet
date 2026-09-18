@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
   "name": "FB Diet - Clean Feed & Ads Declutter",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Put your Facebook feed on a healthy diet. Automatically fold sponsored ads, suggestions, and market ads into clean placeholders with one-click restore.",
+  "minimum_chrome_version": "111",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -20,7 +21,8 @@
     }
   },
   "permissions": [
-    "storage"
+    "storage",
+    "scripting"
   ],
   "host_permissions": [
     "*://*.facebook.com/*"
@@ -37,6 +39,21 @@
       "matches": [
         "*://*.facebook.com/*"
       ],
+      "js": [
+        "src/inject/proxy.js",
+        "src/inject/relay.js",
+        "src/inject/classify.js",
+        "src/inject/bridge.js",
+        "src/inject/fold.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "*://*.facebook.com/*"
+      ],
       "css": [
         "src/content/content.css"
       ],
@@ -44,7 +61,8 @@
         "src/content/detector.js",
         "src/content/content.js"
       ],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": false
     }
   ]
 }

@@ -9,5 +9,8 @@
     "clean-feed"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "scripts": {
+    "test": "node tests/run.js"
+  }
 }

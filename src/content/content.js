@@ -17,6 +17,22 @@
     removeReels: true
   };
 
+  // MAIN world bridge protocol (see src/inject/bridge.js)
+  const MAIN_SOURCE = 'fb-diet/main';
+  const CONTENT_SOURCE = 'fb-diet/content';
+
+  // How long to wait for the MAIN world proxy before falling back to DOM detection
+  const FALLBACK_DELAY_MS = 8000;
+
+  // True once the MAIN world proxy announced itself: it owns folding from then on
+  let proxyActive = false;
+  let fallbackTimer = null;
+
+  // Ring buffer of reports from the MAIN world proxy (diagnostics)
+  const mainReports = [];
+  const MAX_MAIN_REPORTS = 200;
+  const MAX_MAIN_REPORT_LOGS = 30;
+
   // Buffer for throttled stats updates (transferred every 3 seconds)
   let countBuffer = {
     total: 0,
@@ -74,6 +90,11 @@
       flushTimer = null;
     }
 
+    if (fallbackTimer) {
+      clearTimeout(fallbackTimer);
+      fallbackTimer = null;
+    }
+
     // Pending stats can no longer be written anywhere, drop them silently.
     countBuffer = createEmptyCounts();
   }
@@ -117,7 +138,119 @@
     }
   }
 
-  // Initialize settings, then start observing the feed
+  /* ------------------------------------------------------------------ *
+   * MAIN world proxy bridge
+   *
+   * The MAIN world scripts (src/inject/*) classify feed units from Relay data and report
+   * here. This isolated world keeps ownership of chrome.storage (settings + counters),
+   * which also means the MAIN world can never hit "extension context invalidated".
+   * ------------------------------------------------------------------ */
+
+  /**
+   * Sends the current settings to the MAIN world and asks for a handshake. The MAIN world
+   * may not be listening yet, which is why it answers a ping and we also announce on
+   * every settings change.
+   */
+  function announceToMain() {
+    try {
+      window.postMessage(
+        { source: CONTENT_SOURCE, type: 'settings', payload: { settings: currentSettings } },
+        window.location.origin
+      );
+      window.postMessage({ source: CONTENT_SOURCE, type: 'ping' }, window.location.origin);
+    } catch (e) {
+      // postMessage should never fail, but never let it break the content script
+    }
+  }
+
+  /**
+   * The proxy owns folding once it reports in. The DOM scanner is stopped and anything the
+   * conservative DOM fallback already folded is restored, so the two engines never fight.
+   */
+  function activateProxyMode() {
+    if (isShutDown || proxyActive) return;
+    proxyActive = true;
+
+    if (fallbackTimer) {
+      clearTimeout(fallbackTimer);
+      fallbackTimer = null;
+    }
+
+    try {
+      restoreAllElements();
+    } catch (e) {
+      // Nothing folded yet: nothing to restore
+    }
+
+    try {
+      observer?.disconnect();
+    } catch (e) {
+      // Ignore: observer may already be gone
+    }
+    observer = null;
+
+    announceToMain();
+  }
+
+  /**
+   * Starts the conservative DOM fallback only when the MAIN world proxy never reported in
+   * (older Chrome, blocked injection, Facebook change that defeats the hook).
+   */
+  function scheduleFallbackProbe() {
+    if (fallbackTimer || proxyActive || isShutDown) return;
+
+    fallbackTimer = setTimeout(() => {
+      fallbackTimer = null;
+      if (proxyActive || isShutDown) return;
+      startObservation();
+    }, FALLBACK_DELAY_MS);
+  }
+
+  function storeMainReport(type, payload) {
+    mainReports.push({ type, at: Date.now(), ...payload });
+    while (mainReports.length > MAX_MAIN_REPORTS) mainReports.shift();
+
+    if (mainReports.length <= MAX_MAIN_REPORT_LOGS) {
+      console.info(
+        '[FB Diet]',
+        type,
+        payload.unitTypename || '-',
+        payload.category || '-',
+        payload.reason || '',
+        payload.unitId || ''
+      );
+    }
+  }
+
+  function handleMainMessage(event) {
+    try {
+      if (isShutDown || event.source !== window) return;
+
+      const data = event.data;
+      if (!data || typeof data !== 'object' || data.source !== MAIN_SOURCE) return;
+
+      if (data.type === 'ready' || data.type === 'hello') {
+        activateProxyMode();
+        return;
+      }
+
+      if (data.type === 'blocked') {
+        const category = data.payload && data.payload.category;
+        if (category) recordBlock(category);
+        return;
+      }
+
+      if (data.type === 'unknown') {
+        storeMainReport(data.type, data.payload || {});
+      }
+    } catch (e) {
+      // A malformed message must never break the content script
+    }
+  }
+
+  window.addEventListener('message', handleMainMessage);
+
+  // Initialise settings, then start the proxy handshake / fallback watchdog
   (async () => {
     const data = await safeStorageGet('settings');
     if (data?.settings) {
@@ -127,7 +260,8 @@
     // Context was invalidated before we could even read settings: stay dormant.
     if (isShutDown) return;
 
-    startObservation();
+    announceToMain();
+    scheduleFallbackProbe();
   })();
 
   // Listen for real-time toggle changes from Popup
@@ -144,6 +278,13 @@
         if (area === 'local' && changes.settings) {
           const oldEnabled = currentSettings.enabled;
           currentSettings = { ...currentSettings, ...changes.settings.newValue };
+
+          if (proxyActive) {
+            // The MAIN world wrapper renders live, so pushing settings is all that is
+            // needed. No re-scan and no page reload.
+            announceToMain();
+            return;
+          }
 
           // If master switch was toggled off, restore all folded items
           if (oldEnabled && !currentSettings.enabled) {
@@ -162,6 +303,15 @@
 
   // When the tab goes away, drop the observer & pending timers
   window.addEventListener('pagehide', shutdown, { once: true });
+
+  // Debug helpers (isolated world): pick the content script context in DevTools to use them
+  window.__fbDietStatus = () => ({
+    proxyActive,
+    fallbackPending: Boolean(fallbackTimer),
+    settings: { ...currentSettings },
+    reports: mainReports.slice(-25)
+  });
+  window.__fbDietReports = () => mainReports.slice();
 
   /**
    * Schedules a flush of accumulated block counts to chrome.storage.local
@@ -402,6 +552,9 @@
    */
   function scanPage() {
     if (!currentSettings.enabled || isShutDown) return;
+    // The MAIN world proxy owns detection once it is active; the DOM fallback must stay
+    // out of the way so the two engines never fight over the same posts.
+    if (proxyActive) return;
 
     // Always scope to the main column so the left navigation / right rail can never be folded
     const scope = document.querySelector('div[role="main"]') ? 'div[role="main"]' : 'body';
@@ -477,7 +630,7 @@
    * Sets up MutationObserver to handle dynamic infinite scroll feeds
    */
   function startObservation() {
-    if (observer || isShutDown) return;
+    if (observer || isShutDown || proxyActive) return;
 
     // Initial scan
     try {

@@ -1,89 +1,64 @@
 # FB Diet - Feed Declutter & Ads Diet for Facebook™
 
-A modern, lightweight Chrome Extension (Manifest V3) designed to put your Facebook feed on a clean, healthy diet.
+A modern, lightweight Chrome Extension designed to put your Facebook feed on a clean, healthy diet.
 
-Instead of abruptly wiping elements or breaking the feed, **FB Diet** neatly folds sponsored posts, suggestions, and ads into elegant inline placeholders with seamless **one-click expand and restore**.
+Instead of abruptly wiping elements or breaking your feed, **FB Diet** neatly folds sponsored posts, suggestions, and ads into elegant inline placeholders with seamless **one-click expand and restore**.
 
 ---
 
 ## ✨ Features
 
 - **Master Switch**: One-click global toggle to pause or resume diet filtering anytime.
-- **🛡️ Remove Sponsored Posts**: Folds sponsored posts and sidebar ads across your feed.
-- **💡 Remove Suggested for You**: Folds algorithmic noise like "Suggested for you", recommended groups, and follow prompts.
-- **🛒 Remove Market Ads**: Folds sponsored listings and promo cards in Facebook Marketplace.
-- **🔍 Remove Searching Ads**: Folds ad units from search results.
-- **Interactive Placeholders**:
-  - Folded content is replaced with a clean placeholder matching Facebook's native Light and Dark theme styles.
-  - Users can click **"Expand"** to view the full original post without refreshing, and re-fold it as needed.
+- **🛡️ Fold Sponsored Posts**: Folds sponsored posts and promotional ads across your feed.
+- **💡 Fold Suggested Content**: Folds algorithmic suggestions ("Suggested for you", recommended follow prompts).
+- **👥 Fold Suggested Groups**: Separately folds group recommendations ("Groups you should join").
+- **🎬 Fold Reels & Stories**: Keeps your feed focused by folding Reels and Stories carousels.
+- **🛒 Fold Marketplace Ads**: Folds sponsored listings and promo cards in Facebook Marketplace.
+- **🔍 Fold Search Ads**: Folds advertising units in Facebook search results.
+- **One-Click Expand & Restore**:
+  - Folded items are replaced with a sleek, non-intrusive placeholder bar matching Facebook's Light and Dark themes.
+  - Curious about a folded post? Click **"Expand"** to view the original content instantly, and re-fold it whenever you want.
 - **Live Diet Dashboard & Counters**:
-  - Real-time stats showing how many ads and recommendations have been folded.
-  - Breakdown counters for Sponsored, Suggested, Marketplace, and Search ads.
-  - One-click **Reset** button to clear statistics.
-- **Ultra-Lightweight & Safe**:
-  - Built with pure Vanilla JS and CSS (zero heavy dependencies, < 50KB).
-  - Compliant with Chrome Web Store standards (no CSP header modifications or risky private hooks).
-  - Throttled storage sync (3s buffer) ensuring smooth 60fps feed scrolling.
+  - Real-time statistics showing how many distractions have been folded.
+  - Category breakdown and a one-click reset in the Options page.
+- **Privacy-First & Ultra-Lightweight**:
+  - Zero external tracking, zero third-party dependencies, and zero data leaves your browser.
+  - Highly optimized (< 50KB) to ensure smooth 60fps scrolling.
 
 ---
 
 ## 🚀 Installation Guide
 
-1. Clone or download this repository.
+1. Download or clone this repository to your computer.
 2. Open Google Chrome and navigate to `chrome://extensions/`.
-3. Enable **Developer mode** in the top right corner.
+3. Enable **Developer mode** in the top-right corner.
 4. Click **Load unpacked** (載入未封裝項目).
-5. Select the `fb-diet` directory.
-6. Open [Facebook](https://www.facebook.com) to enjoy a decluttered feed!
+5. Select the `fb-diet` folder.
+6. Open [Facebook](https://www.facebook.com) and enjoy a clean, distraction-free feed!
 
 ---
 
-## 🔁 Development Workflow (avoid "Extension context invalidated")
+## 💡 How to Use
 
-Content scripts are cached per tab, so after editing any file you must:
-
-1. Go to `chrome://extensions/` and click **🔄 Reload** on **FB Diet**.
-2. Reload every open Facebook tab (or close them and open a new one).
-
-If you skip step 2, the already-open tab keeps running the **old** script. Because the extension
-was reloaded, that orphaned script loses its `chrome.*` APIs, and any pending statistics flush
-throws `TypeError: Cannot read properties of undefined (reading 'local')`.
-
-**FB Diet now detects this situation and shuts itself down silently** (`shutdown()` in
-`src/content/content.js`): the `MutationObserver` is disconnected, pending timers are cleared and
-no further storage access is attempted — so an orphaned tab stays quiet until you refresh it.
-`chrome://extensions/` → **Errors** and the page console should stay completely clean.
+- **Quick Toggle**: Click the **FB Diet** icon in your Chrome toolbar to turn filtering ON or OFF instantly.
+- **Detailed Settings**: Click **"Options"** in the popup to customize which types of content to fold (e.g. keep Reels while folding Sponsored ads).
+- **Expand a Post**: When a post is folded, click **"Expand"** on the placeholder bar to view it without reloading the page.
 
 ---
 
-## 📂 Project Structure
+## 🔒 Privacy & Permissions
 
-```text
-fb-diet/
-├── manifest.json              # Chrome Extension MV3 configuration
-├── icons/                     # Extension icons (16, 32, 48, 128)
-├── src/
-│   ├── background/
-│   │   └── background.js      # Service worker for initialization and message routing
-│   ├── content/
-│   │   ├── detector.js        # Multilingual anti-obfuscation rules and text parsing
-│   │   ├── content.js         # MutationObserver, fold/expand logic & throttled counter
-│   │   └── content.css        # Adaptive inline placeholder and animation styles
-│   └── popup/
-│       ├── popup.html         # Dark glassmorphic dashboard layout
-│       ├── popup.css          # Modern dark styling, tabular counters, and smooth switches
-│       └── popup.js           # Real-time state syncing and counter controls
-├── package.json               # Metadata and scripts
-└── README.md                  # Project documentation
-```
+- **Storage (`chrome.storage`)**: Used strictly to save your filter preferences and local counter statistics on your device.
+- **Host Permissions (`*://*.facebook.com/*`)**: Required solely to fold ads and render placeholders on Facebook pages.
+- **No Data Collection**: FB Diet does not collect, track, or transmit any personal data, browsing history, or feed content.
 
 ---
 
-## 🛠️ Tech Stack & Implementation Details
+## 👨‍💻 For Developers
 
-- **Platform**: Chrome Manifest V3
-- **Design System**: Modern Dark UI inspired by `frosted-feed` with custom gradient badges and tabular counters.
-- **DOM Handling**: Non-destructive class toggling preserving React component tree integrity.
+Looking for internal architecture details, MAIN world proxy mechanisms, debugging consoles, or unit tests?
+
+Please see the [Developer Guide (DEVELOPMENT.md)](DEVELOPMENT.md).
 
 ---
 

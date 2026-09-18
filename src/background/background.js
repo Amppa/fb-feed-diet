@@ -14,6 +14,8 @@ const DEFAULT_SETTINGS = {
   removeReels: true
 };
 
+const FACEBOOK_URL_PATTERNS = ['*://*.facebook.com/*'];
+
 const DEFAULT_COUNTS = {
   total: 0,
   sponsored: 0,
@@ -40,6 +42,52 @@ chrome.runtime.onInstalled.addListener(async () => {
   if (!data.counts) {
     await chrome.storage.local.set({ counts: DEFAULT_COUNTS });
   }
+
+  pushSettingsToFacebookTabs();
+});
+
+/**
+ * Pushes the current settings straight into the MAIN world of every open Facebook tab.
+ *
+ * MAIN world scripts have no chrome.* access, so this is the authoritative settings path.
+ * The content script also forwards settings over postMessage, which covers tabs where the
+ * extension was reloaded and the service worker injection is not needed.
+ */
+async function pushSettingsToFacebookTabs() {
+  const data = await chrome.storage.local.get('settings');
+  const settings = { ...DEFAULT_SETTINGS, ...(data.settings || {}) };
+
+  let tabs = [];
+  try {
+    tabs = await chrome.tabs.query({ url: FACEBOOK_URL_PATTERNS });
+  } catch (e) {
+    return;
+  }
+
+  for (const tab of tabs) {
+    if (!tab || typeof tab.id !== 'number') continue;
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        world: 'MAIN',
+        func: (payload) => {
+          try {
+            if (typeof window.__fbDietSetSettings === 'function') window.__fbDietSetSettings(payload);
+          } catch (e) {
+            // The page may be mid-navigation; the content script covers this case
+          }
+        },
+        args: [settings]
+      });
+    } catch (e) {
+      // Tab is on a chrome:// page, still loading, or the MAIN world script is not there yet
+    }
+  }
+}
+
+// Keep every open Facebook tab in sync when a switch changes
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.settings) pushSettingsToFacebookTabs();
 });
 
 // Handle incoming messages from popup or content scripts
