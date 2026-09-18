@@ -25,47 +25,51 @@
   }
 }
 
-/* Injected Placeholder Bar */
+/* Injected Placeholder Bar (18px Ultra-slim, 0-gap clickable strip) */
 .fb-diet-placeholder {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  margin: 8px 0 !important;
-  padding: 10px 16px !important;
+  margin: 0 !important;
+  padding: 1px 8px !important;
+  min-height: 18px !important;
+  height: 18px !important;
   background-color: var(--card-background, #ffffff) !important;
-  border: 1px solid var(--divider, rgba(0, 0, 0, 0.1)) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
-  font-size: 13px !important;
-  line-height: 1.4 !important;
+  font-size: 11px !important;
+  line-height: 16px !important;
   color: var(--secondary-text, #65676b) !important;
-  transition: all 0.2s ease !important;
   box-sizing: border-box !important;
   user-select: none !important;
+  cursor: pointer !important;
 }
 
 .fb-diet-placeholder:hover {
-  border-color: var(--divider, rgba(0, 0, 0, 0.2)) !important;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06) !important;
+  border: none !important;
+  box-shadow: none !important;
+  background-color: var(--hover-overlay, rgba(0, 0, 0, 0.04)) !important;
 }
 
 /* Left section of placeholder */
 .fb-diet-placeholder-left {
   display: flex !important;
   align-items: center !important;
-  gap: 10px !important;
+  gap: 6px !important;
 }
 
 /* Badge for post category (Sponsored, Suggested, etc.) */
 .fb-diet-badge {
   display: inline-flex !important;
   align-items: center !important;
-  gap: 4px !important;
-  padding: 3px 8px !important;
-  border-radius: 6px !important;
-  font-size: 11px !important;
+  gap: 3px !important;
+  padding: 1px 5px !important;
+  border-radius: 3px !important;
+  font-size: 10px !important;
   font-weight: 600 !important;
+  line-height: 14px !important;
   letter-spacing: 0.2px !important;
 }
 
@@ -105,52 +109,24 @@
   color: #a855f7 !important;
 }
 
-/* Main text inside placeholder */
-.fb-diet-label {
-  color: var(--primary-text, #050505) !important;
-  font-weight: 500 !important;
-  font-size: 13px !important;
-}
-
-.fb-diet-subtext {
+/* Toggle symbol [+] / [-] (no animation, no opacity, instant response) */
+.fb-diet-toggle-symbol {
   font-size: 11px !important;
-  color: var(--secondary-text, #8a8d91) !important;
-}
-
-/* Expand / Collapse toggle button (unified neutral styling) */
-.fb-diet-toggle-btn {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 4px !important;
-  padding: 5px 12px !important;
-  background: rgba(107, 114, 128, 0.1) !important;
+  font-weight: 700 !important;
+  line-height: 16px !important;
   color: var(--secondary-text, #65676b) !important;
-  border: 1px solid rgba(107, 114, 128, 0.2) !important;
-  border-radius: 6px !important;
-  font-size: 12px !important;
-  font-weight: 600 !important;
-  cursor: pointer !important;
-  transition: all 0.15s ease !important;
-  outline: none !important;
+  padding: 0 4px !important;
+  user-select: none !important;
 }
 
-.fb-diet-toggle-btn:hover {
-  background: rgba(107, 114, 128, 0.18) !important;
-  border-color: rgba(107, 114, 128, 0.35) !important;
-  color: var(--primary-text, #050505) !important;
-  transform: translateY(-1px) !important;
-}
-
-.fb-diet-toggle-btn:active {
-  transform: translateY(0) !important;
-}
-
-/* State when expanded */
+/* State when expanded (18px strip remains on top) */
 .fb-diet-placeholder.fb-diet-state-expanded {
-  margin-bottom: 2px !important;
-  border-bottom-left-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
-  border-bottom: 1px dashed var(--divider, rgba(0, 0, 0, 0.1)) !important;
+  margin: 0 !important;
+  padding: 1px 8px !important;
+  min-height: 18px !important;
+  height: 18px !important;
+  border: none !important;
+  border-bottom: 1px solid var(--divider, rgba(0, 0, 0, 0.08)) !important;
 }
 
 /* ------------------------------------------------------------------ *

@@ -387,74 +387,68 @@
     const config = {
       sponsored: {
         badgeClass: 'fb-diet-badge-sponsored',
-        badgeText: '🛡️ Sponsored Ad',
-        label: 'Sponsored Post folded by FB Diet'
+        badgeText: 'Sponsored'
       },
       suggested: {
         badgeClass: 'fb-diet-badge-suggested',
-        badgeText: '💡 Suggested',
-        label: 'Suggested Content folded by FB Diet'
+        badgeText: 'Suggested post'
       },
       suggestedGroup: {
         badgeClass: 'fb-diet-badge-group',
-        badgeText: '👥 Suggested Group',
-        label: 'Suggested Group folded by FB Diet'
+        badgeText: 'Suggested group'
       },
       marketAds: {
         badgeClass: 'fb-diet-badge-market',
-        badgeText: '🛒 Market Ad',
-        label: 'Marketplace Ad folded by FB Diet'
+        badgeText: 'Market ad'
       },
       searchingAds: {
         badgeClass: 'fb-diet-badge-search',
-        badgeText: '🔍 Search Ad',
-        label: 'Search Result Ad folded by FB Diet'
+        badgeText: 'Search ad'
       },
       stories: {
         badgeClass: 'fb-diet-badge-stories',
-        badgeText: '📸 Stories',
-        label: 'Stories folded by FB Diet'
+        badgeText: 'Stories'
       },
       reels: {
         badgeClass: 'fb-diet-badge-reels',
-        badgeText: '🎬 Reels',
-        label: 'Reels folded by FB Diet'
+        badgeText: 'Reels'
       }
     }[type] || {
       badgeClass: 'fb-diet-badge-sponsored',
-      badgeText: '🚫 Ad Folded',
-      label: 'Content folded by FB Diet'
+      badgeText: 'Sponsored'
     };
 
     const bar = document.createElement('div');
     bar.className = 'fb-diet-placeholder';
     bar.setAttribute('data-fb-diet-type', type);
+    bar.title = 'Show post';
 
     bar.innerHTML = `
       <div class="fb-diet-placeholder-left">
         <span class="fb-diet-badge ${config.badgeClass}">${config.badgeText}</span>
-        <span class="fb-diet-label">${config.label}</span>
       </div>
-      <button class="fb-diet-toggle-btn" type="button">
-        <span>Expand</span> ▾
-      </button>
+      <span class="fb-diet-toggle-symbol">[+]</span>
     `;
 
-    const toggleBtn = bar.querySelector('.fb-diet-toggle-btn');
     let isExpanded = false;
 
-    toggleBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
+    bar.addEventListener('click', () => {
       isExpanded = !isExpanded;
+      const symbol = bar.querySelector('.fb-diet-toggle-symbol');
+      const badge = bar.querySelector('.fb-diet-badge');
 
       if (isExpanded) {
         originalElement.classList.add('fb-diet-is-expanded');
         bar.classList.add('fb-diet-state-expanded');
-        toggleBtn.innerHTML = '<span>Collapse</span> ▴';
+        bar.title = 'Re-fold';
+        if (symbol) symbol.textContent = '[-]';
+        if (badge) badge.textContent = `${config.badgeText} · Restored`;
       } else {
         originalElement.classList.remove('fb-diet-is-expanded');
         bar.classList.remove('fb-diet-state-expanded');
-        toggleBtn.innerHTML = '<span>Expand</span> ▾';
+        bar.title = 'Show post';
+        if (symbol) symbol.textContent = '[+]';
+        if (badge) badge.textContent = config.badgeText;
       }
     });
 

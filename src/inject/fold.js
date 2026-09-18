@@ -35,71 +35,62 @@ window.FBDietFold = (() => {
   const CATEGORY_META = {
     sponsored: {
       badgeClass: 'fb-diet-badge-sponsored',
-      badgeText: 'Sponsored',
-      label: 'Sponsored content folded by FB Diet'
+      badgeText: 'Sponsored'
     },
     suggested: {
       badgeClass: 'fb-diet-badge-suggested',
-      badgeText: 'Suggested',
-      label: 'Suggested for you folded by FB Diet'
+      badgeText: 'Suggested post'
     },
     suggestedGroup: {
       badgeClass: 'fb-diet-badge-group',
-      badgeText: 'Group suggestion',
-      label: 'Suggested group folded by FB Diet'
+      badgeText: 'Suggested group'
     },
     reels: {
       badgeClass: 'fb-diet-badge-reels',
-      badgeText: 'Reels',
-      label: 'Reels folded by FB Diet'
+      badgeText: 'Reels'
     },
     stories: {
       badgeClass: 'fb-diet-badge-stories',
-      badgeText: 'Stories',
-      label: 'Stories folded by FB Diet'
+      badgeText: 'Stories'
     },
     marketAds: {
       badgeClass: 'fb-diet-badge-market',
-      badgeText: 'Marketplace ad',
-      label: 'Marketplace ad folded by FB Diet'
+      badgeText: 'Market ad'
     },
     searchingAds: {
       badgeClass: 'fb-diet-badge-search',
-      badgeText: 'Search ad',
-      label: 'Search ad folded by FB Diet'
+      badgeText: 'Search ad'
     }
   };
 
   function createEl(type, props, children) {
     const React = window.FBDietProxy ? window.FBDietProxy.getReact() : null;
     const proxy = window.FBDietProxy;
-    if (!React || !proxy) return null;
+    if (!React || !type) return null;
     return proxy.createElement(React, type, props, children);
   }
 
   /**
-   * The collapsed notice bar.
+   * The collapsed notice bar (entire strip is clickable).
    */
   function FBDietBar(props) {
     const meta = CATEGORY_META[props.category] || CATEGORY_META.sponsored;
 
     const left = createEl('div', { className: 'fb-diet-placeholder-left' }, [
-      createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText]),
-      createEl('span', { className: 'fb-diet-label' }, [meta.label])
+      createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText])
     ]);
 
-    const button = createEl(
-      'button',
+    const symbol = createEl('span', { className: 'fb-diet-toggle-symbol' }, ['[+]']);
+
+    return createEl(
+      'div',
       {
-        type: 'button',
-        className: 'fb-diet-toggle-btn',
-        title: 'Show the original post',
+        className: 'fb-diet-placeholder',
+        title: 'Show post',
         onClick: props.onToggle
       },
-      ['Show post']
+      [left, symbol]
     );
-
-    return createEl('div', { className: 'fb-diet-placeholder' }, [left, button]);
   }
 
   let FBDietContext = null;
@@ -188,10 +179,20 @@ window.FBDietFold = (() => {
       };
 
       if (isExpanded) {
-        const refoldBar = createEl('div', { className: 'fb-diet-placeholder fb-diet-state-expanded' }, [
-          createEl('span', { className: 'fb-diet-label' }, ['Post restored by FB Diet']),
-          createEl('button', { type: 'button', className: 'fb-diet-toggle-btn', onClick: onToggle }, ['Re-fold'])
+        const meta = CATEGORY_META[category] || CATEGORY_META.sponsored;
+        const refoldLeft = createEl('div', { className: 'fb-diet-placeholder-left' }, [
+          createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText + ' · Restored'])
         ]);
+        const refoldSymbol = createEl('span', { className: 'fb-diet-toggle-symbol' }, ['[-]']);
+        const refoldBar = createEl(
+          'div',
+          {
+            className: 'fb-diet-placeholder fb-diet-state-expanded',
+            title: 'Re-fold',
+            onClick: onToggle
+          },
+          [refoldLeft, refoldSymbol]
+        );
         const content = [refoldBar, rendered];
         if (FoldContext && FoldContext.Provider) {
           return createEl(FoldContext.Provider, { value: true }, content);
