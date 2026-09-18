@@ -6,10 +6,30 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const resetBtn = document.getElementById('resetBtn');
   const featuresList = document.getElementById('featuresList');
+  const uiCleanList = document.getElementById('uiCleanList');
   const masterToggle = document.getElementById('enabled');
   const masterStatus = document.getElementById('masterStatus');
   const modeProxy = document.getElementById('modeProxy');
   const modeDom = document.getElementById('modeDom');
+
+  const DEFAULTS = {
+    removeSponsored: true,
+    removeSuggested: true,
+    removeSuggestedGroup: true,
+    removeStories: true,
+    removeReels: true,
+    removeMarketAds: true,
+    removeSearchingAds: true,
+    hideLeftMetaAI: false,
+    hideLeftReels: false,
+    hideLeftMemories: false,
+    hideLeftSaved: false,
+    hideLeftMarketplace: false,
+    hideTopReels: false,
+    hideTopMarketplace: false,
+    hideTopGaming: false,
+    hideRightSponsoredHeader: true
+  };
 
   const switches = {
     removeSponsored: document.getElementById('removeSponsored'),
@@ -18,7 +38,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     removeStories: document.getElementById('removeStories'),
     removeReels: document.getElementById('removeReels'),
     removeMarketAds: document.getElementById('removeMarketAds'),
-    removeSearchingAds: document.getElementById('removeSearchingAds')
+    removeSearchingAds: document.getElementById('removeSearchingAds'),
+    // UI clean switches
+    hideLeftMetaAI: document.getElementById('hideLeftMetaAI'),
+    hideLeftReels: document.getElementById('hideLeftReels'),
+    hideLeftMemories: document.getElementById('hideLeftMemories'),
+    hideLeftSaved: document.getElementById('hideLeftSaved'),
+    hideLeftMarketplace: document.getElementById('hideLeftMarketplace'),
+    hideTopReels: document.getElementById('hideTopReels'),
+    hideTopMarketplace: document.getElementById('hideTopMarketplace'),
+    hideTopGaming: document.getElementById('hideTopGaming'),
+    hideRightSponsoredHeader: document.getElementById('hideRightSponsoredHeader')
   };
 
   const counters = {
@@ -49,8 +79,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (masterStatus) masterStatus.textContent = isEnabled ? 'Active' : 'Disabled';
     if (isEnabled) {
       featuresList.classList.remove('disabled');
+      if (uiCleanList) uiCleanList.classList.remove('disabled');
     } else {
       featuresList.classList.add('disabled');
+      if (uiCleanList) uiCleanList.classList.add('disabled');
     }
   }
 
@@ -73,7 +105,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   for (const [key, checkbox] of Object.entries(switches)) {
     if (checkbox) {
-      checkbox.checked = settings[key] !== false;
+      checkbox.checked = settings[key] !== undefined ? settings[key] : (DEFAULTS[key] ?? true);
     }
   }
 

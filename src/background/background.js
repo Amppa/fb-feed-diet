@@ -12,7 +12,17 @@ const DEFAULT_SETTINGS = {
   removeMarketAds: true,
   removeSearchingAds: true,
   removeStories: true,
-  removeReels: true
+  removeReels: true,
+  // Section 2: Hide UI Buttons
+  hideLeftMetaAI: false,
+  hideLeftReels: false,
+  hideLeftMemories: false,
+  hideLeftSaved: false,
+  hideLeftMarketplace: false,
+  hideTopReels: false,
+  hideTopMarketplace: false,
+  hideTopGaming: false,
+  hideRightSponsoredHeader: true
 };
 
 const FACEBOOK_URL_PATTERNS = ['*://*.facebook.com/*'];

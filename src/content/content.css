@@ -184,3 +184,68 @@
 .fb-diet-side-ad-hidden {
   display: none !important;
 }
+
+/* ------------------------------------------------------------------ *
+ * Section 2: Hide UI Buttons & Navigation Shortcuts
+ * Strictly isolated so Left Sidebar and Top Navigation never conflict.
+ * ------------------------------------------------------------------ */
+
+/* Left Sidebar Scope: only inside left rail, never in top banner/header */
+html.fb-diet-hide-left-metaai :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/meta_ai"]),
+html.fb-diet-hide-left-metaai :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/metaai"]),
+html.fb-diet-hide-left-metaai :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="meta.ai"]),
+html.fb-diet-hide-left-metaai :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[aria-label*="Meta AI" i]) {
+  display: none !important;
+}
+
+/* Left Sidebar: Reels */
+html.fb-diet-hide-left-reels :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/reel"]),
+html.fb-diet-hide-left-reels :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/watch"]) {
+  display: none !important;
+}
+
+/* Left Sidebar: Memories (動態回顧) */
+html.fb-diet-hide-left-memories :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/memories"]),
+html.fb-diet-hide-left-memories :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/onthisday"]) {
+  display: none !important;
+}
+
+/* Left Sidebar: Saved (我的珍藏) */
+html.fb-diet-hide-left-saved :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/saved"]) {
+  display: none !important;
+}
+
+/* Left Sidebar: Marketplace */
+html.fb-diet-hide-left-marketplace :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/marketplace"]) {
+  display: none !important;
+}
+
+/* Top Navigation Scope: only inside top banner / header, never in left rail */
+html.fb-diet-hide-top-reels :is(header, [role="banner"], [data-pagelet="Header"]) :is(li, div[role="tab"]):has(a[href*="/watch"]),
+html.fb-diet-hide-top-reels :is(header, [role="banner"], [data-pagelet="Header"]) :is(li, div[role="tab"]):has(a[href*="/reel"]),
+html.fb-diet-hide-top-reels :is(header, [role="banner"], [data-pagelet="Header"]) a[href*="/watch"],
+html.fb-diet-hide-top-reels :is(header, [role="banner"], [data-pagelet="Header"]) a[href*="/reel"] {
+  display: none !important;
+}
+
+/* Top Navigation: Marketplace */
+html.fb-diet-hide-top-marketplace :is(header, [role="banner"], [data-pagelet="Header"]) :is(li, div[role="tab"]):has(a[href*="/marketplace"]),
+html.fb-diet-hide-top-marketplace :is(header, [role="banner"], [data-pagelet="Header"]) a[href*="/marketplace"] {
+  display: none !important;
+}
+
+/* Top Navigation: Gaming */
+html.fb-diet-hide-top-gaming :is(header, [role="banner"], [data-pagelet="Header"]) :is(li, div[role="tab"]):has(a[href*="/gaming"]),
+html.fb-diet-hide-top-gaming :is(header, [role="banner"], [data-pagelet="Header"]) a[href*="/gaming"] {
+  display: none !important;
+}
+
+/* Right Sidebar: Sponsored header & section */
+html.fb-diet-hide-right-sponsored-header .fb-diet-side-sponsored-header,
+html.fb-diet-hide-right-sponsored-header div[data-pagelet="RightRail"] div[aria-label*="贊助"],
+html.fb-diet-hide-right-sponsored-header div[data-pagelet="RightRail"] div[aria-label*="Sponsored" i],
+html.fb-diet-hide-right-sponsored-header div[role="complementary"] div[aria-label*="贊助"],
+html.fb-diet-hide-right-sponsored-header div[role="complementary"] div[aria-label*="Sponsored" i] {
+  display: none !important;
+}
+

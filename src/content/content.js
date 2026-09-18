@@ -14,7 +14,16 @@
     removeMarketAds: true,
     removeSearchingAds: true,
     removeStories: true,
-    removeReels: true
+    removeReels: true,
+    hideLeftMetaAI: false,
+    hideLeftReels: false,
+    hideLeftMemories: false,
+    hideLeftSaved: false,
+    hideLeftMarketplace: false,
+    hideTopReels: false,
+    hideTopMarketplace: false,
+    hideTopGaming: false,
+    hideRightSponsoredHeader: true
   };
 
   // MAIN world bridge protocol (see src/inject/bridge.js)
@@ -262,6 +271,77 @@
     }
   }
 
+  /**
+   * Scans and marks right rail sponsored headers so CSS can hide them.
+   */
+  function scanRightRailSponsoredHeaders() {
+    try {
+      const rail = document.querySelector('[data-pagelet="RightRail"], [role="complementary"]');
+      if (!rail) return;
+
+      const candidateHeaders = rail.querySelectorAll('h3, span, div[role="heading"]');
+      for (const el of candidateHeaders) {
+        if (el.children.length === 0 || el.tagName === 'H3') {
+          const text = el.textContent.trim();
+          if (text === '贊助' || text.toLowerCase() === 'sponsored') {
+            const container = el.closest('div[role="heading"], h3, .CometHomeRightRailUnit') || el;
+            container.classList.add('fb-diet-side-sponsored-header');
+          }
+        }
+      }
+    } catch (e) {
+      // Non-fatal
+    }
+  }
+
+  let railScanScheduled = false;
+  function triggerThrottledRailScan() {
+    if (railScanScheduled || isShutDown) return;
+    railScanScheduled = true;
+    requestAnimationFrame(() => {
+      railScanScheduled = false;
+      if (isShutDown) return;
+      if (currentSettings.enabled && currentSettings.hideRightSponsoredHeader !== false) {
+        scanRightRailSponsoredHeaders();
+      }
+    });
+  }
+
+  /**
+   * Updates CSS classes on document.documentElement according to Section 2 settings.
+   */
+  function applyUiCleanClasses(settings) {
+    if (!settings) return;
+    const root = document.documentElement;
+    if (!root) return;
+
+    const isMasterEnabled = settings.enabled !== false;
+
+    const classMap = {
+      'fb-diet-hide-left-metaai': isMasterEnabled && Boolean(settings.hideLeftMetaAI),
+      'fb-diet-hide-left-reels': isMasterEnabled && Boolean(settings.hideLeftReels),
+      'fb-diet-hide-left-memories': isMasterEnabled && Boolean(settings.hideLeftMemories),
+      'fb-diet-hide-left-saved': isMasterEnabled && Boolean(settings.hideLeftSaved),
+      'fb-diet-hide-left-marketplace': isMasterEnabled && Boolean(settings.hideLeftMarketplace),
+      'fb-diet-hide-top-reels': isMasterEnabled && Boolean(settings.hideTopReels),
+      'fb-diet-hide-top-marketplace': isMasterEnabled && Boolean(settings.hideTopMarketplace),
+      'fb-diet-hide-top-gaming': isMasterEnabled && Boolean(settings.hideTopGaming),
+      'fb-diet-hide-right-sponsored-header': isMasterEnabled && (settings.hideRightSponsoredHeader !== false)
+    };
+
+    for (const [className, shouldAdd] of Object.entries(classMap)) {
+      if (shouldAdd) {
+        root.classList.add(className);
+      } else {
+        root.classList.remove(className);
+      }
+    }
+
+    if (classMap['fb-diet-hide-right-sponsored-header']) {
+      triggerThrottledRailScan();
+    }
+  }
+
   window.addEventListener('message', handleMainMessage);
 
   // Initialise settings, then start the proxy handshake / fallback watchdog
@@ -269,6 +349,20 @@
     const data = await safeStorageGet('settings');
     if (data?.settings) {
       currentSettings = { ...currentSettings, ...data.settings };
+    }
+
+    applyUiCleanClasses(currentSettings);
+
+    // Watch for dynamic right sidebar changes to hide sponsored headers
+    try {
+      const railObserver = new MutationObserver(() => {
+        if (currentSettings.enabled && currentSettings.hideRightSponsoredHeader !== false) {
+          triggerThrottledRailScan();
+        }
+      });
+      railObserver.observe(document.documentElement, { childList: true, subtree: true });
+    } catch (e) {
+      // Non-fatal
     }
 
     // Context was invalidated before we could even read settings: stay dormant.
@@ -292,6 +386,8 @@
         if (area === 'local' && changes.settings) {
           const oldEnabled = currentSettings.enabled;
           currentSettings = { ...currentSettings, ...changes.settings.newValue };
+
+          applyUiCleanClasses(currentSettings);
 
           if (proxyActive) {
             // The MAIN world wrapper renders live, so pushing settings is all that is
