@@ -95,6 +95,16 @@
   color: #0ea5e9 !important;
 }
 
+.fb-diet-badge-stories {
+  background: rgba(236, 72, 153, 0.12) !important;
+  color: #ec4899 !important;
+}
+
+.fb-diet-badge-reels {
+  background: rgba(168, 85, 247, 0.12) !important;
+  color: #a855f7 !important;
+}
+
 /* Main text inside placeholder */
 .fb-diet-label {
   color: var(--primary-text, #050505) !important;

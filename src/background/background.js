@@ -9,7 +9,9 @@ const DEFAULT_SETTINGS = {
   removeSuggested: true,
   removeSuggestedGroup: true,
   removeMarketAds: true,
-  removeSearchingAds: true
+  removeSearchingAds: true,
+  removeStories: true,
+  removeReels: true
 };
 
 const DEFAULT_COUNTS = {
@@ -18,7 +20,9 @@ const DEFAULT_COUNTS = {
   suggested: 0,
   suggestedGroup: 0,
   marketAds: 0,
-  searchingAds: 0
+  searchingAds: 0,
+  stories: 0,
+  reels: 0
 };
 
 // Initialize settings and counts on install/update

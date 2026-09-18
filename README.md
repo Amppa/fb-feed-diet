@@ -38,6 +38,24 @@ Instead of abruptly wiping elements or breaking the feed, **FB Diet** neatly fol
 
 ---
 
+## 🔁 Development Workflow (avoid "Extension context invalidated")
+
+Content scripts are cached per tab, so after editing any file you must:
+
+1. Go to `chrome://extensions/` and click **🔄 Reload** on **FB Diet**.
+2. Reload every open Facebook tab (or close them and open a new one).
+
+If you skip step 2, the already-open tab keeps running the **old** script. Because the extension
+was reloaded, that orphaned script loses its `chrome.*` APIs, and any pending statistics flush
+throws `TypeError: Cannot read properties of undefined (reading 'local')`.
+
+**FB Diet now detects this situation and shuts itself down silently** (`shutdown()` in
+`src/content/content.js`): the `MutationObserver` is disconnected, pending timers are cleared and
+no further storage access is attempted — so an orphaned tab stays quiet until you refresh it.
+`chrome://extensions/` → **Errors** and the page console should stay completely clean.
+
+---
+
 ## 📂 Project Structure
 
 ```text

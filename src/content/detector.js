@@ -23,6 +23,9 @@ window.FBDietDetector = (() => {
     'suggested groups',
     'groups you might like',
     'groups for you',
+    'suggested groups for you',
+    '建議的社團',
+    '建議社團',
     '推薦社團',
     '推荐群组',
     'おすすめのグループ'
@@ -45,25 +48,85 @@ window.FBDietDetector = (() => {
     '知り合いかも'
   ];
 
+  // Multilingual keywords for Stories detection
+  const STORIES_KEYWORDS = [
+    'stories',
+    '限時動態',
+    '限时动态',
+    'ストーリーズ',
+    '스토리',
+    'storie'
+  ];
+
+  // Multilingual keywords for Reels detection
+  const REELS_KEYWORDS = [
+    'reels',
+    '連續短片',
+    '短视频',
+    'reels 和短影片',
+    'reels and short videos',
+    'リール',
+    '릴스'
+  ];
+
+  /**
+   * Cross-realm safe element check (instanceof HTMLElement fails across documents/iframes)
+   */
+  function isElement(node) {
+    return Boolean(node) && node.nodeType === 1;
+  }
+
+  // Cap on how many text nodes we visit per element so a huge (virtualized) subtree
+  // can never freeze the page.
+  const MAX_WALK_NODES = 1500;
+
+  // getCleanVisibleText() result cache. The same element is probed by up to 7 predicates
+  // in a single scan pass, so a short TTL means one DOM walk instead of seven.
+  const TEXT_CACHE_TTL = 500;
+  const textCache = new WeakMap();
+
+  // Combined fast-path keyword list (checked against element.innerText first)
+  const FAST_KEYWORDS = [...SPONSORED_KEYWORDS, ...SUGGESTED_GROUP_KEYWORDS, ...SUGGESTED_KEYWORDS];
+
   /**
    * Extracts visible text from an element while ignoring hidden/offscreen decoy spans
    * which Facebook uses to evade simple text matching.
+   * Never throws: Facebook re-renders nodes while we walk them.
    */
   function getCleanVisibleText(element) {
-    if (!element) return '';
+    if (!isElement(element)) return '';
 
+    try {
+      const now = Date.now();
+      const cached = textCache.get(element);
+      if (cached && now - cached.time < TEXT_CACHE_TTL) return cached.value;
+
+      const value = computeVisibleText(element);
+      textCache.set(element, { value, time: now });
+      return value;
+    } catch (e) {
+      // Unreadable node (removed mid-walk): treat as empty instead of crashing
+      return '';
+    }
+  }
+
+  // Call this when a feed unit's DOM changed before re-evaluating it.  This
+  // prevents a just-inserted Sponsored label from being hidden by the very
+  // short-lived scan cache.
+  function clearTextCache(element) {
+    if (isElement(element)) textCache.delete(element);
+  }
+
+  /**
+   * Does the innerText fast path, then the de-obfuscation walk when needed
+   */
+  function computeVisibleText(element) {
     // Fast path: check simple innerText if available and small
     const rawText = element.innerText || '';
     const lowerRaw = rawText.toLowerCase();
 
     // Check if any obvious keyword directly matches
-    for (const kw of SPONSORED_KEYWORDS) {
-      if (lowerRaw.includes(kw)) return rawText;
-    }
-    for (const kw of SUGGESTED_GROUP_KEYWORDS) {
-      if (lowerRaw.includes(kw)) return rawText;
-    }
-    for (const kw of SUGGESTED_KEYWORDS) {
+    for (const kw of FAST_KEYWORDS) {
       if (lowerRaw.includes(kw)) return rawText;
     }
 
@@ -83,19 +146,15 @@ window.FBDietDetector = (() => {
           return NodeFilter.FILTER_REJECT;
         }
 
-        // Detect offscreen decoy nodes (e.g. top: -9999px or position: absolute offscreen)
-        const rect = parent.getBoundingClientRect();
-        if (rect.top < -1000 || rect.bottom < -1000 || rect.left < -1000) {
-          return NodeFilter.FILTER_REJECT;
-        }
-
         return NodeFilter.FILTER_ACCEPT;
       }
     });
 
     let visibleChars = '';
     let node;
-    while ((node = walker.nextNode())) {
+    let visited = 0;
+    while (visited < MAX_WALK_NODES && (node = walker.nextNode())) {
+      visited += 1;
       visibleChars += node.nodeValue;
     }
 
@@ -106,11 +165,17 @@ window.FBDietDetector = (() => {
    * Checks if an element represents a Sponsored post or unit.
    */
   function isSponsored(feedUnit) {
-    if (!feedUnit || !(feedUnit instanceof HTMLElement)) return false;
+    if (!isElement(feedUnit)) return false;
 
     // 1. Structural check: Ads transparency / Why am I seeing this ad links
     const adLinks = feedUnit.querySelectorAll('a[href*="/ads/about"], a[href*="facebook.com/ads/"], a[href*="ad_id"]');
     if (adLinks.length > 0) return true;
+
+    // `data-ad-rendering-role` is also used on ordinary Comet feed nodes, so
+    // never use it as advertising evidence.  An actual ad id is specific.
+    if (feedUnit.querySelector('[data-ad-id]')) {
+      return true;
+    }
 
     // 2. Aria labels on header or metadata
     const ariaElements = feedUnit.querySelectorAll('[aria-label]');
@@ -125,14 +190,14 @@ window.FBDietDetector = (() => {
 
     // 3. Inspect header metadata area for de-obfuscated visible text
     // Usually the author / timestamp / sponsored line is in the first few sections of a post
-    const header = feedUnit.querySelector('[role="article"] header') || 
-                   feedUnit.querySelector('[data-ad-rendering-role]') ||
-                   feedUnit;
+    const article = feedUnit.matches('[role="article"]') ? feedUnit : feedUnit.querySelector('[role="article"]');
+    const header = article?.querySelector('header') || article || feedUnit;
 
     const visibleText = getCleanVisibleText(header).toLowerCase();
     for (const kw of SPONSORED_KEYWORDS) {
       // Look for standalone sponsored word in header
-      const regex = new RegExp(`(^|\\s|•|·)${kw}(\\s|•|·|$)`, 'i');
+      // CJK labels do not necessarily have whitespace around them.
+      const regex = new RegExp(`(^|\\s|•|·|[|,，。])${kw}(\\s|•|·|[|,，。]|$)`, 'i');
       if (regex.test(visibleText)) {
         return true;
       }
@@ -145,7 +210,7 @@ window.FBDietDetector = (() => {
    * Checks if an element represents a Suggested Group recommendation.
    */
   function isSuggestedGroup(feedUnit) {
-    if (!feedUnit || !(feedUnit instanceof HTMLElement)) return false;
+    if (!isElement(feedUnit)) return false;
 
     // 1. Aria-label indicators
     const ariaElements = feedUnit.querySelectorAll('[aria-label]');
@@ -171,7 +236,7 @@ window.FBDietDetector = (() => {
    * Checks if an element represents a Suggested post, page, or friend recommendation.
    */
   function isSuggested(feedUnit) {
-    if (!feedUnit || !(feedUnit instanceof HTMLElement)) return false;
+    if (!isElement(feedUnit)) return false;
 
     // Skip if it's already identified as a suggested group
     if (isSuggestedGroup(feedUnit)) return false;
@@ -200,7 +265,7 @@ window.FBDietDetector = (() => {
    * Checks if an element in Marketplace is a promoted/sponsored ad.
    */
   function isMarketAd(element) {
-    if (!element || !window.location.pathname.includes('/marketplace')) return false;
+    if (!isElement(element) || !window.location.pathname.includes('/marketplace')) return false;
 
     // Check for "Sponsored" badge inside the marketplace card
     const visibleText = getCleanVisibleText(element).toLowerCase();
@@ -220,7 +285,7 @@ window.FBDietDetector = (() => {
    * Checks if an element in Search Results is an ad item.
    */
   function isSearchAd(element) {
-    if (!element || !window.location.pathname.includes('/search')) return false;
+    if (!isElement(element) || !window.location.pathname.includes('/search')) return false;
 
     // Search results ad card usually contains Sponsored tag or Ad label
     const visibleText = getCleanVisibleText(element).toLowerCase();
@@ -235,12 +300,70 @@ window.FBDietDetector = (() => {
     return false;
   }
 
+  /**
+   * Checks if an element represents Stories tray or component.
+   */
+  function isStories(feedUnit) {
+    if (!isElement(feedUnit)) return false;
+
+    // A feed story can contain a link to somebody else's story.  That must
+    // never turn the whole post into a Stories tray.
+    if (feedUnit.matches('[role="article"]') || feedUnit.querySelector('[role="article"]')) return false;
+
+    // 1. Data-pagelet check
+    const pagelet = (feedUnit.getAttribute('data-pagelet') || '').toLowerCase();
+    if (pagelet === 'stories' || pagelet.includes('storiestray') || pagelet.includes('stories_tray')) return true;
+
+    // 2. Aria-label check on self or children
+    const ariaLabel = (feedUnit.getAttribute('aria-label') || '').toLowerCase().trim();
+    for (const kw of STORIES_KEYWORDS) {
+      if (ariaLabel === kw || ariaLabel.startsWith(kw + ' ')) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Checks if an element represents Reels section, player, or feed item.
+   */
+  function isReels(feedUnit) {
+    if (!isElement(feedUnit)) return false;
+
+    // 1. Data-pagelet check
+    const pagelet = (feedUnit.getAttribute('data-pagelet') || '').toLowerCase();
+    if (pagelet.includes('reel')) return true;
+
+    // 2. Aria-label check
+    const ariaLabel = (feedUnit.getAttribute('aria-label') || '').toLowerCase().trim();
+    for (const kw of REELS_KEYWORDS) {
+      if (ariaLabel.includes(kw)) return true;
+    }
+
+    // 3. Check for reels links / attachment elements
+    if (feedUnit.querySelector('a[href*="/reel/"], a[href*="/reels/"]')) {
+      const visibleText = getCleanVisibleText(feedUnit).toLowerCase();
+      for (const kw of REELS_KEYWORDS) {
+        if (visibleText.includes(kw)) return true;
+      }
+      if (pagelet.includes('reel') || feedUnit.querySelector('[aria-label*="Reel"], [aria-label*="連續短片"]')) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   return {
     isSponsored,
     isSuggested,
     isSuggestedGroup,
     isMarketAd,
     isSearchAd,
-    getCleanVisibleText
+    isStories,
+    isReels,
+    getCleanVisibleText,
+    clearTextCache
   };
 })();

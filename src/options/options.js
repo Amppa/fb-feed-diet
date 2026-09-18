@@ -11,6 +11,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     removeSponsored: document.getElementById('removeSponsored'),
     removeSuggested: document.getElementById('removeSuggested'),
     removeSuggestedGroup: document.getElementById('removeSuggestedGroup'),
+    removeStories: document.getElementById('removeStories'),
+    removeReels: document.getElementById('removeReels'),
     removeMarketAds: document.getElementById('removeMarketAds'),
     removeSearchingAds: document.getElementById('removeSearchingAds')
   };
@@ -21,7 +23,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     suggested: document.getElementById('suggestedCount'),
     suggestedGroup: document.getElementById('suggestedGroupCount'),
     marketAds: document.getElementById('marketCount'),
-    searchingAds: document.getElementById('searchCount')
+    searchingAds: document.getElementById('searchCount'),
+    stories: document.getElementById('storiesCount'),
+    reels: document.getElementById('reelsCount')
   };
 
   function renderCounts(counts) {
@@ -32,6 +36,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     counters.suggestedGroup.textContent = (counts.suggestedGroup || 0).toLocaleString();
     counters.marketAds.textContent = (counts.marketAds || 0).toLocaleString();
     counters.searchingAds.textContent = (counts.searchingAds || 0).toLocaleString();
+    if (counters.stories) counters.stories.textContent = (counts.stories || 0).toLocaleString();
+    if (counters.reels) counters.reels.textContent = (counts.reels || 0).toLocaleString();
   }
 
   function updateFeaturesListState(isEnabled) {
@@ -76,7 +82,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (res && res.counts) {
         renderCounts(res.counts);
       } else {
-        renderCounts({ total: 0, sponsored: 0, suggested: 0, suggestedGroup: 0, marketAds: 0, searchingAds: 0 });
+        renderCounts({ total: 0, sponsored: 0, suggested: 0, suggestedGroup: 0, marketAds: 0, searchingAds: 0, stories: 0, reels: 0 });
       }
     });
   });

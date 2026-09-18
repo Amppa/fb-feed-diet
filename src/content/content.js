@@ -12,7 +12,9 @@
     removeSuggested: true,
     removeSuggestedGroup: true,
     removeMarketAds: true,
-    removeSearchingAds: true
+    removeSearchingAds: true,
+    removeStories: true,
+    removeReels: true
   };
 
   // Buffer for throttled stats updates (transferred every 3 seconds)
@@ -22,61 +24,184 @@
     suggested: 0,
     suggestedGroup: 0,
     marketAds: 0,
-    searchingAds: 0
+    searchingAds: 0,
+    stories: 0,
+    reels: 0
   };
   let flushTimer = null;
+  let observer = null;
+  let scanScheduled = false;
+  let isShutDown = false;
 
-  // Initialize settings
-  chrome.storage.local.get('settings', (data) => {
-    if (data.settings) {
+  // Builds a zeroed counts object (used for the buffer and storage fallbacks)
+  function createEmptyCounts() {
+    return { total: 0, sponsored: 0, suggested: 0, suggestedGroup: 0, marketAds: 0, searchingAds: 0, stories: 0, reels: 0 };
+  }
+
+  /**
+   * Helper to check if the extension context is still valid.
+   * After the extension is reloaded/updated, chrome.* APIs are torn down on already-open
+   * tabs, so chrome.storage becomes undefined and any call would throw.
+   * Returns false once we have shut down, so no further work is attempted.
+   */
+  function isExtensionValid() {
+    try {
+      if (isShutDown) return false;
+      return typeof chrome !== 'undefined' && Boolean(chrome.runtime?.id) && Boolean(chrome.storage?.local);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
+   * Stops all background work once the extension context is gone (e.g. the extension was
+   * reloaded while this tab stayed open). Keeps the orphaned script completely silent
+   * instead of throwing "Cannot read properties of undefined (reading 'local')" every 3s.
+   */
+  function shutdown() {
+    if (isShutDown) return;
+    isShutDown = true;
+
+    try {
+      observer?.disconnect();
+    } catch (e) {
+      // Ignore: observer may already be gone
+    }
+    observer = null;
+
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+
+    // Pending stats can no longer be written anywhere, drop them silently.
+    countBuffer = createEmptyCounts();
+  }
+
+  /**
+   * Safe wrapper around chrome.storage.local.get.
+   * Returns null (and shuts the script down) when the extension context is invalidated.
+   */
+  async function safeStorageGet(keys) {
+    if (!isExtensionValid()) {
+      shutdown();
+      return null;
+    }
+
+    try {
+      const data = await chrome.storage.local.get(keys);
+      return data || null;
+    } catch (e) {
+      // Only tear down when the context is really gone; transient errors are recoverable.
+      if (!isExtensionValid()) shutdown();
+      return null;
+    }
+  }
+
+  /**
+   * Safe wrapper around chrome.storage.local.set.
+   * Resolves to false (and shuts the script down) when the extension context is invalidated.
+   */
+  async function safeStorageSet(values) {
+    if (!isExtensionValid()) {
+      shutdown();
+      return false;
+    }
+
+    try {
+      await chrome.storage.local.set(values);
+      return true;
+    } catch (e) {
+      if (!isExtensionValid()) shutdown();
+      return false;
+    }
+  }
+
+  // Initialize settings, then start observing the feed
+  (async () => {
+    const data = await safeStorageGet('settings');
+    if (data?.settings) {
       currentSettings = { ...currentSettings, ...data.settings };
     }
+
+    // Context was invalidated before we could even read settings: stay dormant.
+    if (isShutDown) return;
+
     startObservation();
-  });
+  })();
 
   // Listen for real-time toggle changes from Popup
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.settings) {
-      const oldEnabled = currentSettings.enabled;
-      currentSettings = { ...currentSettings, ...changes.settings.newValue };
+  function registerStorageListener() {
+    if (!isExtensionValid() || !chrome.storage?.onChanged) return;
 
-      // If master switch was toggled off, restore all folded items
-      if (oldEnabled && !currentSettings.enabled) {
-        restoreAllElements();
-      } else if (!oldEnabled && currentSettings.enabled) {
-        scanPage();
-      }
+    try {
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (!isExtensionValid()) {
+          shutdown();
+          return;
+        }
+
+        if (area === 'local' && changes.settings) {
+          const oldEnabled = currentSettings.enabled;
+          currentSettings = { ...currentSettings, ...changes.settings.newValue };
+
+          // If master switch was toggled off, restore all folded items
+          if (oldEnabled && !currentSettings.enabled) {
+            restoreAllElements();
+          } else if (!oldEnabled && currentSettings.enabled) {
+            scanPage();
+          }
+        }
+      });
+    } catch (e) {
+      // Extension context invalidated while registering the listener
     }
-  });
+  }
+
+  registerStorageListener();
+
+  // When the tab goes away, drop the observer & pending timers
+  window.addEventListener('pagehide', shutdown, { once: true });
 
   /**
    * Schedules a flush of accumulated block counts to chrome.storage.local
    */
   function scheduleCountFlush() {
     if (flushTimer) return;
+    // Never queue work when the extension context is gone (orphaned content script).
+    if (!isExtensionValid()) {
+      shutdown();
+      return;
+    }
+
     flushTimer = setTimeout(async () => {
       flushTimer = null;
       if (countBuffer.total === 0) return;
 
+      if (!isExtensionValid()) {
+        shutdown();
+        return;
+      }
+
       const delta = { ...countBuffer };
       // Reset buffer
-      countBuffer = { total: 0, sponsored: 0, suggested: 0, suggestedGroup: 0, marketAds: 0, searchingAds: 0 };
+      countBuffer = createEmptyCounts();
 
-      try {
-        const data = await chrome.storage.local.get('counts');
-        const counts = data.counts || { total: 0, sponsored: 0, suggested: 0, suggestedGroup: 0, marketAds: 0, searchingAds: 0 };
+      const data = await safeStorageGet('counts');
+      if (!data || isShutDown) return;
 
-        counts.total += delta.total;
-        counts.sponsored += delta.sponsored;
-        counts.suggested += delta.suggested;
-        counts.suggestedGroup = (counts.suggestedGroup || 0) + (delta.suggestedGroup || 0);
-        counts.marketAds += delta.marketAds;
-        counts.searchingAds += delta.searchingAds;
+      const counts = data.counts || createEmptyCounts();
 
-        await chrome.storage.local.set({ counts });
-      } catch (err) {
-        console.warn('[FB Diet] Error saving counts to storage:', err);
-      }
+      counts.total = (counts.total || 0) + delta.total;
+      counts.sponsored = (counts.sponsored || 0) + delta.sponsored;
+      counts.suggested = (counts.suggested || 0) + delta.suggested;
+      counts.suggestedGroup = (counts.suggestedGroup || 0) + (delta.suggestedGroup || 0);
+      counts.marketAds = (counts.marketAds || 0) + delta.marketAds;
+      counts.searchingAds = (counts.searchingAds || 0) + delta.searchingAds;
+      counts.stories = (counts.stories || 0) + (delta.stories || 0);
+      counts.reels = (counts.reels || 0) + (delta.reels || 0);
+
+      await safeStorageSet({ counts });
     }, 3000);
   }
 
@@ -120,6 +245,16 @@
         badgeClass: 'fb-diet-badge-search',
         badgeText: '🔍 Search Ad',
         label: 'Search Result Ad folded by FB Diet'
+      },
+      stories: {
+        badgeClass: 'fb-diet-badge-stories',
+        badgeText: '📸 Stories',
+        label: 'Stories folded by FB Diet'
+      },
+      reels: {
+        badgeClass: 'fb-diet-badge-reels',
+        badgeText: '🎬 Reels',
+        label: 'Reels folded by FB Diet'
       }
     }[type] || {
       badgeClass: 'fb-diet-badge-sponsored',
@@ -167,12 +302,21 @@
    */
   function foldElement(element, type) {
     if (!element || element.dataset.fbDietFolded === 'true') return;
+    // Node may already be detached by Facebook's virtualized re-render
+    if (!element.isConnected || !element.parentElement) return;
 
     element.dataset.fbDietFolded = 'true';
     element.classList.add('fb-diet-folded-original');
 
-    const placeholder = createPlaceholder(type, element);
-    element.parentNode.insertBefore(placeholder, element);
+    try {
+      const placeholder = createPlaceholder(type, element);
+      element.parentElement.insertBefore(placeholder, element);
+    } catch (e) {
+      // Roll back so the element can be evaluated again later
+      element.classList.remove('fb-diet-folded-original');
+      delete element.dataset.fbDietFolded;
+      return;
+    }
 
     recordBlock(type);
   }
@@ -190,37 +334,64 @@
   }
 
   /**
+   * Runs a detector predicate defensively: a detector throwing must never break the scan loop.
+   */
+  function safeDetect(predicate, element) {
+    try {
+      return predicate(element) === true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
    * Evaluates a single DOM node against active filters
    */
   function evaluateElement(el) {
     if (!currentSettings.enabled || !el || el.dataset.fbDietFolded === 'true') return;
 
+    // detector.js is injected before content.js, but never let a missing detector throw
+    const detector = window.FBDietDetector;
+    if (!detector || typeof detector.isSponsored !== 'function') return;
+
+    // Check Stories
+    if (currentSettings.removeStories && safeDetect(detector.isStories, el)) {
+      foldElement(el, 'stories');
+      return;
+    }
+
+    // Check Reels
+    if (currentSettings.removeReels && safeDetect(detector.isReels, el)) {
+      foldElement(el, 'reels');
+      return;
+    }
+
     // Check Marketplace Ads
-    if (currentSettings.removeMarketAds && window.FBDietDetector.isMarketAd(el)) {
+    if (currentSettings.removeMarketAds && safeDetect(detector.isMarketAd, el)) {
       foldElement(el, 'marketAds');
       return;
     }
 
     // Check Search Result Ads
-    if (currentSettings.removeSearchingAds && window.FBDietDetector.isSearchAd(el)) {
+    if (currentSettings.removeSearchingAds && safeDetect(detector.isSearchAd, el)) {
       foldElement(el, 'searchingAds');
       return;
     }
 
     // Check Sponsored Feed posts
-    if (currentSettings.removeSponsored && window.FBDietDetector.isSponsored(el)) {
+    if (currentSettings.removeSponsored && safeDetect(detector.isSponsored, el)) {
       foldElement(el, 'sponsored');
       return;
     }
 
     // Check Suggested Groups
-    if (currentSettings.removeSuggestedGroup && window.FBDietDetector.isSuggestedGroup(el)) {
+    if (currentSettings.removeSuggestedGroup && safeDetect(detector.isSuggestedGroup, el)) {
       foldElement(el, 'suggestedGroup');
       return;
     }
 
     // Check Suggested Feed posts
-    if (currentSettings.removeSuggested && window.FBDietDetector.isSuggested(el)) {
+    if (currentSettings.removeSuggested && safeDetect(detector.isSuggested, el)) {
       foldElement(el, 'suggested');
       return;
     }
@@ -230,43 +401,75 @@
    * Scans all relevant feed and card elements on the page
    */
   function scanPage() {
-    if (!currentSettings.enabled) return;
+    if (!currentSettings.enabled || isShutDown) return;
+
+    // Always scope to the main column so the left navigation / right rail can never be folded
+    const scope = document.querySelector('div[role="main"]') ? 'div[role="main"]' : 'body';
 
     // Standard feed items, articles, and cards
     const selectors = [
-      '[role="feed"] > div',
-      '[role="article"]',
-      'div[data-pagelet^="FeedUnit"]',
-      'div[data-virtualized="false"]',
+      `${scope} [role="feed"] > div`,
+      `${scope} [role="article"]`,
+      `${scope} div[data-pagelet^="FeedUnit"]`,
+      `${scope} div[data-virtualized="false"]`,
+      // Stories & Reels containers
+      `${scope} div[data-pagelet*="Stories"]`,
+      `${scope} div[aria-label="Stories"]`,
+      `${scope} div[aria-label="限時動態"]`,
+      `${scope} div[data-pagelet*="Reel"]`,
+      `${scope} div[aria-label*="Reels"]`,
+      `${scope} div[aria-label*="連續短片"]`,
       // Marketplace item cards
-      'div[aria-label="Collection of Marketplace items"] > div',
-      'div[role="main"] a[href*="/marketplace/item/"]'
+      `${scope} div[aria-label="Collection of Marketplace items"] > div`,
+      `${scope} a[href*="/marketplace/item/"]`
     ];
 
     const elements = document.querySelectorAll(selectors.join(', '));
     elements.forEach((el) => {
-      // Find suitable top-level wrapper if inspecting an article
-      let target = el;
-      if (el.getAttribute('role') === 'article') {
-        const container = el.closest('[role="feed"] > div') || el.closest('[data-pagelet]') || el;
-        target = container;
-      }
+      try {
+        // Find suitable top-level wrapper if inspecting an article
+        let target = el;
+        if (el.getAttribute('role') === 'article') {
+          const container = el.closest('[role="feed"] > div') || el.closest('[data-pagelet]') || el;
+          target = container;
+        }
 
-      if (!target.dataset.fbDietChecked) {
-        target.dataset.fbDietChecked = 'true';
+        if (!target) return;
+
+        // Never fold a container that holds several posts at once (virtualized mega-wrappers)
+        if (target.querySelectorAll('[role="article"]').length > 1) return;
+
+        // Facebook often inserts the Sponsored label after the feed wrapper is
+        // first mounted.  Keep a small fingerprint instead of a permanent
+        // "checked" flag so changed units are evaluated again, while unchanged
+        // units remain inexpensive during MutationObserver bursts.
+        const fingerprint = `${target.textContent || ''}\u0000${target.querySelectorAll('[aria-label], [data-ad-rendering-role], [data-ad-preview], [data-ad-comet-preview], [data-ad-id]').length}`;
+        if (target.dataset.fbDietFingerprint === fingerprint) return;
+        target.dataset.fbDietFingerprint = fingerprint;
+        window.FBDietDetector?.clearTextCache?.(target);
+        target.querySelectorAll('[role="article"], header').forEach((node) => {
+          window.FBDietDetector?.clearTextCache?.(node);
+        });
+
         evaluateElement(target);
+      } catch (e) {
+        // One bad node must never abort the whole scan
       }
     });
   }
 
   // Throttle scanPage calls during DOM mutations
-  let scanScheduled = false;
   function triggerThrottledScan() {
-    if (scanScheduled) return;
+    if (scanScheduled || isShutDown) return;
     scanScheduled = true;
     requestAnimationFrame(() => {
-      scanPage();
       scanScheduled = false;
+      if (isShutDown) return;
+      try {
+        scanPage();
+      } catch (e) {
+        // A failed scan is retried on the next mutation; never bubble into the page console
+      }
     });
   }
 
@@ -274,10 +477,28 @@
    * Sets up MutationObserver to handle dynamic infinite scroll feeds
    */
   function startObservation() {
-    // Initial scan
-    scanPage();
+    if (observer || isShutDown) return;
 
-    const observer = new MutationObserver((mutations) => {
+    // Initial scan
+    try {
+      scanPage();
+    } catch (e) {
+      // The initial DOM may still be hydrating; the observer will pick it up
+    }
+
+    const body = document.body;
+    if (!body) return;
+
+    observer = new MutationObserver((mutations) => {
+      if (isShutDown) return;
+
+      // The extension was reloaded/updated while this tab stayed open:
+      // stop all work quietly instead of throwing on every storage access.
+      if (!isExtensionValid()) {
+        shutdown();
+        return;
+      }
+
       for (const mutation of mutations) {
         if (mutation.addedNodes.length > 0) {
           triggerThrottledScan();
@@ -286,7 +507,7 @@
       }
     });
 
-    observer.observe(document.body, {
+    observer.observe(body, {
       childList: true,
       subtree: true
     });
