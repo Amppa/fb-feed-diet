@@ -238,7 +238,46 @@ window.FBDietFold = (() => {
     }
   }
 
+  function SideAdHidden(props) {
+    const rendered = props.lastCmp;
+    const React = window.FBDietProxy ? window.FBDietProxy.getReact() : null;
+    const bridge = window.FBDietBridge;
+    if (!bridge || !React || !rendered) return rendered;
+
+    const settings = bridge.getSettings();
+    if (!settings.enabled || settings.removeSponsored === false) return rendered;
+
+    bridge.reportBlocked({ category: 'sponsored', unitId: 'side_ad', reason: 'right-rail-sponsored' });
+
+    // Directly hide right sidebar ad: return an empty hidden node (no placeholder, no unfold)
+    return createEl('div', { className: 'adhidden fb-diet-side-ad-hidden', style: { display: 'none' } }, []);
+  }
+
+  function RightRailUnitWrapper(props) {
+    const rendered = props.lastCmp;
+    const React = window.FBDietProxy ? window.FBDietProxy.getReact() : null;
+    if (!React || !rendered) return rendered;
+
+    return createEl('div', { className: 'CometHomeRightRailUnit' }, [rendered]);
+  }
+
   function install() {
+    try {
+      const style = document.createElement('style');
+      style.textContent = `
+        .CometHomeRightRailUnit:has(.adhidden),
+        .CometHomeRightRailUnit:has(.fb-diet-side-ad-hidden) {
+          display: none !important;
+        }
+        .adhidden, .fb-diet-side-ad-hidden {
+          display: none !important;
+        }
+      `;
+      (document.head || document.documentElement).appendChild(style);
+    } catch (e) {
+      // Non-fatal
+    }
+
     const proxy = window.FBDietProxy;
     if (!proxy || typeof proxy.registerComponent !== 'function') return false;
 
@@ -248,11 +287,18 @@ window.FBDietFold = (() => {
       const category = item.category;
       const definerPath = item.definerPath || '[6].default';
 
-      function SpecificFold(props) {
-        return FBDietFold(Object.assign({ entryCategory: category, moduleName }, props));
+      let componentToRegister;
+      if (moduleName === 'CometAdsSideFeedUnitItem.react') {
+        componentToRegister = SideAdHidden;
+      } else if (moduleName === 'CometHomeRightRailUnit.react') {
+        componentToRegister = RightRailUnitWrapper;
+      } else {
+        componentToRegister = function SpecificFold(props) {
+          return FBDietFold(Object.assign({ entryCategory: category, moduleName }, props));
+        };
       }
 
-      if (proxy.registerComponent(moduleName, { component: SpecificFold, definerPath })) {
+      if (proxy.registerComponent(moduleName, { component: componentToRegister, definerPath })) {
         registered += 1;
       }
     }

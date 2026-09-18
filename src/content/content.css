@@ -195,3 +195,14 @@
 .fb-diet-placeholder {
   width: 100% !important;
 }
+
+/* Right sidebar sponsored ads: directly hidden without placeholder bar */
+.CometHomeRightRailUnit:has(.adhidden),
+.CometHomeRightRailUnit:has(.fb-diet-side-ad-hidden) {
+  display: none !important;
+}
+
+.adhidden,
+.fb-diet-side-ad-hidden {
+  display: none !important;
+}
