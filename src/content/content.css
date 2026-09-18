@@ -1,0 +1,144 @@
+/**
+ * FB Diet - In-page Placeholder & Folding Styles
+ * Seamlessly blends with Facebook's native Light & Dark themes.
+ */
+
+/* Folded original post container */
+.fb-diet-folded-original {
+  display: none !important;
+}
+
+/* When expanded by user */
+.fb-diet-folded-original.fb-diet-is-expanded {
+  display: block !important;
+  animation: fbDietFadeIn 0.25s ease-out;
+}
+
+@keyframes fbDietFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Injected Placeholder Bar */
+.fb-diet-placeholder {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin: 8px 0 !important;
+  padding: 10px 16px !important;
+  background-color: var(--card-background, #ffffff) !important;
+  border: 1px solid var(--divider, rgba(0, 0, 0, 0.1)) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+  color: var(--secondary-text, #65676b) !important;
+  transition: all 0.2s ease !important;
+  box-sizing: border-box !important;
+  user-select: none !important;
+}
+
+.fb-diet-placeholder:hover {
+  border-color: rgba(14, 165, 233, 0.35) !important;
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1) !important;
+}
+
+/* Left section of placeholder */
+.fb-diet-placeholder-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+/* Badge for post category (Sponsored, Suggested, etc.) */
+.fb-diet-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 3px 8px !important;
+  border-radius: 6px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.2px !important;
+}
+
+/* Specific Badge Types */
+.fb-diet-badge-sponsored {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #ef4444 !important;
+}
+
+.fb-diet-badge-suggested {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #f59e0b !important;
+}
+
+.fb-diet-badge-market {
+  background: rgba(139, 92, 246, 0.12) !important;
+  color: #8b5cf6 !important;
+}
+
+.fb-diet-badge-search {
+  background: rgba(14, 165, 233, 0.12) !important;
+  color: #0ea5e9 !important;
+}
+
+/* Main text inside placeholder */
+.fb-diet-label {
+  color: var(--primary-text, #050505) !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+}
+
+.fb-diet-subtext {
+  font-size: 11px !important;
+  color: var(--secondary-text, #8a8d91) !important;
+}
+
+/* Expand / Collapse toggle button */
+.fb-diet-toggle-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 5px 12px !important;
+  background: rgba(14, 165, 233, 0.08) !important;
+  color: #0ea5e9 !important;
+  border: 1px solid rgba(14, 165, 233, 0.25) !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  outline: none !important;
+}
+
+.fb-diet-toggle-btn:hover {
+  background: rgba(14, 165, 233, 0.18) !important;
+  border-color: #0ea5e9 !important;
+  transform: translateY(-1px) !important;
+}
+
+.fb-diet-toggle-btn:active {
+  transform: translateY(0) !important;
+}
+
+/* State when expanded */
+.fb-diet-placeholder.fb-diet-state-expanded {
+  margin-bottom: 2px !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-bottom: 1px dashed var(--divider, rgba(0, 0, 0, 0.1)) !important;
+}
+
+.fb-diet-placeholder.fb-diet-state-expanded .fb-diet-toggle-btn {
+  background: rgba(107, 114, 128, 0.1) !important;
+  color: var(--secondary-text, #65676b) !important;
+  border-color: rgba(107, 114, 128, 0.2) !important;
+}
