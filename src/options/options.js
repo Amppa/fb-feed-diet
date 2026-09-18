@@ -6,6 +6,8 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const resetBtn = document.getElementById('resetBtn');
   const featuresList = document.getElementById('featuresList');
+  const masterToggle = document.getElementById('enabled');
+  const masterStatus = document.getElementById('masterStatus');
 
   const switches = {
     removeSponsored: document.getElementById('removeSponsored'),
@@ -40,7 +42,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (counters.reels) counters.reels.textContent = (counts.reels || 0).toLocaleString();
   }
 
-  function updateFeaturesListState(isEnabled) {
+  function updateMasterUI(isEnabled) {
+    if (masterToggle) masterToggle.checked = isEnabled;
+    if (masterStatus) masterStatus.textContent = isEnabled ? 'Active' : 'Disabled';
     if (isEnabled) {
       featuresList.classList.remove('disabled');
     } else {
@@ -53,8 +57,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const settings = data.settings || {};
   const counts = data.counts || {};
 
-  // Initialize feature switches
-  updateFeaturesListState(settings.enabled !== false);
+  // Initialize master switch & feature switches
+  updateMasterUI(settings.enabled !== false);
 
   for (const [key, checkbox] of Object.entries(switches)) {
     if (checkbox) {
@@ -64,6 +68,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Initialize counts
   renderCounts(counts);
+
+  // Handle Master toggle
+  if (masterToggle) {
+    masterToggle.addEventListener('change', async () => {
+      const active = masterToggle.checked;
+      updateMasterUI(active);
+      const { settings: current } = await chrome.storage.local.get('settings');
+      const updated = { ...current, enabled: active };
+      await chrome.storage.local.set({ settings: updated });
+    });
+  }
 
   // Handle Sub-switches changes
   for (const [key, checkbox] of Object.entries(switches)) {
@@ -95,7 +110,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       if (changes.settings) {
         const s = changes.settings.newValue;
-        updateFeaturesListState(s.enabled !== false);
+        if (s && s.enabled !== undefined) {
+          updateMasterUI(s.enabled !== false);
+        }
       }
     }
   });

@@ -28,6 +28,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.runtime.openOptionsPage();
   });
 
+  // Handle Reset button
+  const resetBtn = document.getElementById('resetBtn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      chrome.runtime.sendMessage({ type: 'RESET_COUNTS' }, (res) => {
+        if (res && res.counts) {
+          totalCounter.textContent = (res.counts.total || 0).toLocaleString();
+        } else {
+          totalCounter.textContent = '0';
+        }
+      });
+    });
+  }
+
   // Listen for live count updates
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local') {
