@@ -80,6 +80,11 @@
   color: #f59e0b !important;
 }
 
+.fb-diet-badge-group {
+  background: rgba(16, 185, 129, 0.12) !important;
+  color: #10b981 !important;
+}
+
 .fb-diet-badge-market {
   background: rgba(139, 92, 246, 0.12) !important;
   color: #8b5cf6 !important;

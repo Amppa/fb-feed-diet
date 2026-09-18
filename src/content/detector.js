@@ -17,22 +17,29 @@ window.FBDietDetector = (() => {
     'publicidad'
   ];
 
-  // Multilingual keywords for Suggested content
+  // Multilingual keywords for Suggested Groups
+  const SUGGESTED_GROUP_KEYWORDS = [
+    'suggested group',
+    'suggested groups',
+    'groups you might like',
+    'groups for you',
+    '推薦社團',
+    '推荐群组',
+    'おすすめのグループ'
+  ];
+
+  // Multilingual keywords for Suggested content (posts, pages, people)
   const SUGGESTED_KEYWORDS = [
     'suggested for you',
     'suggested post',
-    'suggested group',
     'suggested page',
     'people you may know',
-    'groups you might like',
     '為您推薦',
     '為你推薦',
     '推薦貼文',
-    '推薦社團',
     '你可能認識的朋友',
     '为你推荐',
     '推荐帖子',
-    '推荐群组',
     '可能认识的人',
     'おすすめ',
     '知り合いかも'
@@ -51,6 +58,9 @@ window.FBDietDetector = (() => {
 
     // Check if any obvious keyword directly matches
     for (const kw of SPONSORED_KEYWORDS) {
+      if (lowerRaw.includes(kw)) return rawText;
+    }
+    for (const kw of SUGGESTED_GROUP_KEYWORDS) {
       if (lowerRaw.includes(kw)) return rawText;
     }
     for (const kw of SUGGESTED_KEYWORDS) {
@@ -132,10 +142,39 @@ window.FBDietDetector = (() => {
   }
 
   /**
-   * Checks if an element represents a Suggested post, group, or friend recommendation.
+   * Checks if an element represents a Suggested Group recommendation.
+   */
+  function isSuggestedGroup(feedUnit) {
+    if (!feedUnit || !(feedUnit instanceof HTMLElement)) return false;
+
+    // 1. Aria-label indicators
+    const ariaElements = feedUnit.querySelectorAll('[aria-label]');
+    for (const el of ariaElements) {
+      const label = (el.getAttribute('aria-label') || '').toLowerCase();
+      for (const kw of SUGGESTED_GROUP_KEYWORDS) {
+        if (label.includes(kw)) return true;
+      }
+    }
+
+    // 2. Visible text headers
+    const visibleText = getCleanVisibleText(feedUnit).toLowerCase();
+    for (const kw of SUGGESTED_GROUP_KEYWORDS) {
+      if (visibleText.includes(kw)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Checks if an element represents a Suggested post, page, or friend recommendation.
    */
   function isSuggested(feedUnit) {
     if (!feedUnit || !(feedUnit instanceof HTMLElement)) return false;
+
+    // Skip if it's already identified as a suggested group
+    if (isSuggestedGroup(feedUnit)) return false;
 
     // 1. Aria-label indicators
     const ariaElements = feedUnit.querySelectorAll('[aria-label]');
@@ -146,7 +185,7 @@ window.FBDietDetector = (() => {
       }
     }
 
-    // 2. Visible text headers (Suggested for you, Groups you might like, etc.)
+    // 2. Visible text headers (Suggested for you, etc.)
     const visibleText = getCleanVisibleText(feedUnit).toLowerCase();
     for (const kw of SUGGESTED_KEYWORDS) {
       if (visibleText.includes(kw)) {
@@ -199,6 +238,7 @@ window.FBDietDetector = (() => {
   return {
     isSponsored,
     isSuggested,
+    isSuggestedGroup,
     isMarketAd,
     isSearchAd,
     getCleanVisibleText

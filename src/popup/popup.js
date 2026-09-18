@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const switches = {
     removeSponsored: document.getElementById('removeSponsored'),
     removeSuggested: document.getElementById('removeSuggested'),
+    removeSuggestedGroup: document.getElementById('removeSuggestedGroup'),
     removeMarketAds: document.getElementById('removeMarketAds'),
     removeSearchingAds: document.getElementById('removeSearchingAds')
   };
@@ -20,6 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     total: document.getElementById('totalCount'),
     sponsored: document.getElementById('sponsoredCount'),
     suggested: document.getElementById('suggestedCount'),
+    suggestedGroup: document.getElementById('suggestedGroupCount'),
     marketAds: document.getElementById('marketCount'),
     searchingAds: document.getElementById('searchCount')
   };
@@ -32,6 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     counters.total.textContent = (counts.total || 0).toLocaleString();
     counters.sponsored.textContent = (counts.sponsored || 0).toLocaleString();
     counters.suggested.textContent = (counts.suggested || 0).toLocaleString();
+    counters.suggestedGroup.textContent = (counts.suggestedGroup || 0).toLocaleString();
     counters.marketAds.textContent = (counts.marketAds || 0).toLocaleString();
     counters.searchingAds.textContent = (counts.searchingAds || 0).toLocaleString();
   }
@@ -92,7 +95,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (res && res.counts) {
         renderCounts(res.counts);
       } else {
-        renderCounts({ total: 0, sponsored: 0, suggested: 0, marketAds: 0, searchingAds: 0 });
+        renderCounts({ total: 0, sponsored: 0, suggested: 0, suggestedGroup: 0, marketAds: 0, searchingAds: 0 });
       }
     });
   });

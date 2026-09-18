@@ -7,6 +7,7 @@ const DEFAULT_SETTINGS = {
   enabled: true,
   removeSponsored: true,
   removeSuggested: true,
+  removeSuggestedGroup: true,
   removeMarketAds: true,
   removeSearchingAds: true
 };
@@ -15,6 +16,7 @@ const DEFAULT_COUNTS = {
   total: 0,
   sponsored: 0,
   suggested: 0,
+  suggestedGroup: 0,
   marketAds: 0,
   searchingAds: 0
 };

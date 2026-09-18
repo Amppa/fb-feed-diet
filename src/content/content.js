@@ -10,6 +10,7 @@
     enabled: true,
     removeSponsored: true,
     removeSuggested: true,
+    removeSuggestedGroup: true,
     removeMarketAds: true,
     removeSearchingAds: true
   };
@@ -19,6 +20,7 @@
     total: 0,
     sponsored: 0,
     suggested: 0,
+    suggestedGroup: 0,
     marketAds: 0,
     searchingAds: 0
   };
@@ -58,15 +60,16 @@
 
       const delta = { ...countBuffer };
       // Reset buffer
-      countBuffer = { total: 0, sponsored: 0, suggested: 0, marketAds: 0, searchingAds: 0 };
+      countBuffer = { total: 0, sponsored: 0, suggested: 0, suggestedGroup: 0, marketAds: 0, searchingAds: 0 };
 
       try {
         const data = await chrome.storage.local.get('counts');
-        const counts = data.counts || { total: 0, sponsored: 0, suggested: 0, marketAds: 0, searchingAds: 0 };
+        const counts = data.counts || { total: 0, sponsored: 0, suggested: 0, suggestedGroup: 0, marketAds: 0, searchingAds: 0 };
 
         counts.total += delta.total;
         counts.sponsored += delta.sponsored;
         counts.suggested += delta.suggested;
+        counts.suggestedGroup = (counts.suggestedGroup || 0) + (delta.suggestedGroup || 0);
         counts.marketAds += delta.marketAds;
         counts.searchingAds += delta.searchingAds;
 
@@ -102,6 +105,11 @@
         badgeClass: 'fb-diet-badge-suggested',
         badgeText: '💡 Suggested',
         label: 'Suggested Content folded by FB Diet'
+      },
+      suggestedGroup: {
+        badgeClass: 'fb-diet-badge-group',
+        badgeText: '👥 Suggested Group',
+        label: 'Suggested Group folded by FB Diet'
       },
       marketAds: {
         badgeClass: 'fb-diet-badge-market',
@@ -202,6 +210,12 @@
     // Check Sponsored Feed posts
     if (currentSettings.removeSponsored && window.FBDietDetector.isSponsored(el)) {
       foldElement(el, 'sponsored');
+      return;
+    }
+
+    // Check Suggested Groups
+    if (currentSettings.removeSuggestedGroup && window.FBDietDetector.isSuggestedGroup(el)) {
+      foldElement(el, 'suggestedGroup');
       return;
     }
 
