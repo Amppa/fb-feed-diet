@@ -442,7 +442,7 @@
         bar.classList.add('fb-diet-state-expanded');
         bar.title = 'Re-fold';
         if (symbol) symbol.textContent = '[-]';
-        if (badge) badge.textContent = `${config.badgeText} · Restored`;
+        if (badge) badge.textContent = config.badgeText;
       } else {
         originalElement.classList.remove('fb-diet-is-expanded');
         bar.classList.remove('fb-diet-state-expanded');

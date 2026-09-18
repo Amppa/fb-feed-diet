@@ -30,7 +30,7 @@
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  margin: 0 !important;
+  margin: 0 0 2px 0 !important;
   padding: 1px 8px !important;
   min-height: 18px !important;
   height: 18px !important;
@@ -119,14 +119,21 @@
   user-select: none !important;
 }
 
-/* State when expanded (18px strip remains on top) */
+/* State when expanded (18px strip remains on top with distinct button background) */
 .fb-diet-placeholder.fb-diet-state-expanded {
   margin: 0 !important;
   padding: 1px 8px !important;
   min-height: 18px !important;
   height: 18px !important;
+  background-color: var(--secondary-button-background, #f0f2f5) !important;
   border: none !important;
-  border-bottom: 1px solid var(--divider, rgba(0, 0, 0, 0.08)) !important;
+  border-top-left-radius: 8px !important;
+  border-top-right-radius: 8px !important;
+}
+
+.fb-diet-placeholder.fb-diet-state-expanded:hover {
+  background-color: var(--hover-overlay, rgba(0, 0, 0, 0.08)) !important;
+  filter: brightness(0.96) !important;
 }
 
 /* ------------------------------------------------------------------ *

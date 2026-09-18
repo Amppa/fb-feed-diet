@@ -181,7 +181,7 @@ window.FBDietFold = (() => {
       if (isExpanded) {
         const meta = CATEGORY_META[category] || CATEGORY_META.sponsored;
         const refoldLeft = createEl('div', { className: 'fb-diet-placeholder-left' }, [
-          createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText + ' · Restored'])
+          createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText])
         ]);
         const refoldSymbol = createEl('span', { className: 'fb-diet-toggle-symbol' }, ['[-]']);
         const refoldBar = createEl(
