@@ -73,9 +73,18 @@ function run(c) {
 
   /* --- reels --- */
   calls.mapValue = () => null;
+
+  // Clear-cut Reels surface: the Showcase feed unit is always a Reels product.
+  r = C.classifyFeedUnit({ feedUnit: feedUnitOf({ __typename: 'ShowcaseFeedUnit' }) });
+  equals(c, 'reels by ShowcaseFeedUnit typename', r.category, 'reels');
+  equals(c, 'reels reason', r.reason, 'unitTypename:ShowcaseFeedUnit');
+
+  // showcase_story_type ALONE must NOT fold: a friend resharing a reel exposes the
+  // same field on an ordinary Story unit, and that friend post has to stay visible.
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf({ showcase_story_type: 'SHOWCASE_SHORT_VIDEO' }) });
-  equals(c, 'reels by showcase type', r.category, 'reels');
-  equals(c, 'reels reason', r.reason, 'showcase_story_type');
+  equals(c, 'showcase type alone is not reels', r.category, null);
+  r = C.classifyFeedUnit({ unitTypename: 'Story', feedUnit: feedUnitOf({ showcase_story_type: 'SHOWCASE_SHORT_VIDEO' }) });
+  equals(c, 'friend shared reel (Story) stays visible', r.category, null);
 
   /* --- priority: an ad that is also a group suggestion is an ad --- */
   calls.mapValue = (path) => (path === P.SPONSORED_PATH ? 'ad-9' : 'CAN_JOIN');

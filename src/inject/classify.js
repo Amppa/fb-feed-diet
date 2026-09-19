@@ -42,7 +42,6 @@ window.FBDietClassify = (() => {
   const SUGGESTED_GROUP_TYPENAMES = ['GroupsYouShouldJoinFeedUnit', 'GroupSuggestionsFeedUnit'];
   const SUGGESTED_SUBSCRIBE_STATES = ['CAN_SUBSCRIBE', 'CAN_FOLLOW', 'NOT_SUBSCRIBED'];
   const SUGGESTED_JOIN_STATES = ['CAN_JOIN'];
-  const REELS_STORY_TYPES = ['SHOWCASE_SHORT_VIDEO'];
   const SUGGESTED_STORY_LOCATIONS = ['homepage_stream', 'groups_tab', 'feed'];
 
   const SPONSORED_PATH = '^sponsored_data.ad_id';
@@ -235,9 +234,10 @@ window.FBDietClassify = (() => {
     if (evidence.storyLocation) {
       return { category: CATEGORY.SUGGESTED, reason: 'story_header:' + evidence.storyLocation };
     }
-    if (evidence.storyType && REELS_STORY_TYPES.indexOf(evidence.storyType) !== -1) {
-      return { category: CATEGORY.REELS, reason: 'showcase_story_type' };
-    }
+
+    // Reels is only the clear-cut Reels surface (the rail / showcase feed units).
+    // showcase_story_type alone is NOT enough: a friend sharing a reel also exposes
+    // SHOWCASE_SHORT_VIDEO on an ordinary Story, and those must stay visible.
     if (evidence.unitTypename === 'ShowcaseFeedUnit') {
       return { category: CATEGORY.REELS, reason: 'unitTypename:ShowcaseFeedUnit' };
     }

@@ -331,9 +331,12 @@ window.FBDietDetector = (() => {
   function isReels(feedUnit) {
     if (!isElement(feedUnit)) return false;
 
-    // 1. Data-pagelet check
+    // 1. Data-pagelet check. Reels products live under pagelets like "Reels",
+    //    "FBReelsRootWrapper" or "ReelPlayer". A pagelet containing "reel" that ALSO
+    //    names a Story ("CometFeedStoryFBReelsAttachmentStyle") is a friend's share of
+    //    a reel rendered with the Reels attachment style - that stays visible.
     const pagelet = (feedUnit.getAttribute('data-pagelet') || '').toLowerCase();
-    if (pagelet.includes('reel')) return true;
+    if (pagelet.includes('reel') && !pagelet.includes('story')) return true;
 
     // 2. Aria-label check
     const ariaLabel = (feedUnit.getAttribute('aria-label') || '').toLowerCase().trim();
@@ -347,7 +350,7 @@ window.FBDietDetector = (() => {
       for (const kw of REELS_KEYWORDS) {
         if (visibleText.includes(kw)) return true;
       }
-      if (pagelet.includes('reel') || feedUnit.querySelector('[aria-label*="Reel"], [aria-label*="連續短片"]')) {
+      if (pagelet.includes('reel') && !pagelet.includes('story')) {
         return true;
       }
     }

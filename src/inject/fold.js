@@ -18,7 +18,10 @@ window.FBDietFold = (() => {
     { name: 'CometHomeRightRailUnit.react', category: 'sponsored', definerPath: '[6].default.render' },
     { name: 'FBReelsTopOfFeedTrayTile.react', category: 'reels', definerPath: '[6].default' },
     { name: 'FBReelsRootWrapper.react', category: 'reels', definerPath: '[6].default' },
-    { name: 'CometFeedStoryFBReelsAttachmentStyle.react', category: 'reels', definerPath: '[6].default' },
+    // A Story with a Reels attachment style is used for BOTH the Reels rail and a
+    // friend's share of a reel. Routing it through the classifier keeps real reels
+    // feed units foldable while friend shares stay visible.
+    { name: 'CometFeedStoryFBReelsAttachmentStyle.react', category: null, definerPath: '[6].default' },
     { name: 'StoriesTrayRectangularRoot.react', category: 'stories', definerPath: '[6].default' },
     { name: 'StoriesTray.react', category: 'stories', definerPath: '[6].default' },
     { name: 'StoriesTrayRoot.react', category: 'stories', definerPath: '[6].default' },
