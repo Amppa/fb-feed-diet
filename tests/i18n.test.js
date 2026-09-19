@@ -49,10 +49,13 @@ function run(c) {
   i18n.setLang('zh-TW');
   c.equals('back to zh-TW', i18n.t('masterStatusDisabled'), '已停用');
 
-  /* --- fold badge keys exist in both locales --- */
-  const badgeKeys = ['badgeSponsored', 'badgeSuggested', 'badgeSuggestedGroup', 'badgeMarketAds', 'badgeSearchingAds', 'badgeStories', 'badgeReels', 'showPost', 'refold'];
-  c.ok('all badge keys resolve in en', badgeKeys.every((k) => i18n.t(k, 'en') !== k));
-  c.ok('all badge keys resolve in zh-TW', badgeKeys.every((k) => i18n.t(k, 'zh-TW') !== k && i18n.t(k, 'zh-TW') !== i18n.t(k, 'en')));
+  /* --- options + popup keys exist in both locales --- */
+  const pageKeys = ['optionsTitle', 'optionsSubtitle', 'masterStatusActive', 'masterStatusDisabled', 'itemsFoldedOnDiet', 'reset', 'sectionEngineMode', 'modeProxyTitle', 'modeProxyDesc', 'sectionDietOptions', 'featSponsoredTitle', 'langToggleTitle', 'popupSubtitle', 'optionsBtn'];
+  c.ok('all page keys resolve in en', pageKeys.every((k) => i18n.t(k, 'en') !== k));
+  c.ok('all page keys resolve in zh-TW', pageKeys.every((k) => i18n.t(k, 'zh-TW') !== k && i18n.t(k, 'zh-TW') !== i18n.t(k, 'en')));
+
+  /* --- feed-only keys were trimmed from the shared module --- */
+  c.equals('feed badge keys removed', i18n.t('badgeSponsored', 'zh-TW'), 'badgeSponsored');
 }
 
 module.exports = { run };

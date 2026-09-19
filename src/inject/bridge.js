@@ -22,11 +22,10 @@ window.FBDietBridge = (() => {
   const SOURCE_CONTENT = 'fb-diet/content';
   const VERSION = 1;
 
-  // Folding is enabled out of the box; per-category switches stay available for tuning.
-const DEFAULT_SETTINGS = {
+// Folding is enabled out of the box; per-category switches stay available for tuning.
+  const DEFAULT_SETTINGS = {
     enabled: true,
     mode: 'proxy',
-    lang: 'en',
     removeSponsored: true,
     removeSuggested: true,
     removeSuggestedGroup: true,
@@ -35,12 +34,6 @@ const DEFAULT_SETTINGS = {
     removeStories: true,
     removeReels: true
   };
-
-  // Browser UI language can be detected immediately in the MAIN world; it is
-  // overwritten by settings.lang as soon as the content script pushes it.
-  if (window.FBDietI18N) {
-    DEFAULT_SETTINGS.lang = window.FBDietI18N.getLang();
-  }
 
   const MAX_EXPANDED = 400;
   const MAX_REPORTS = 200;

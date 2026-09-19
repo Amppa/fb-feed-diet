@@ -57,16 +57,7 @@ window.FBDietI18N = (() => {
       langToggleTitle: 'Switch language',
       popupSubtitle: 'Feed Declutter & Diet',
       optionsBtn: '⚙️ Options',
-      resetPopupTitle: 'Reset counter',
-      badgeSponsored: 'Sponsored',
-      badgeSuggested: 'Suggested post',
-      badgeSuggestedGroup: 'Suggested group',
-      badgeMarketAds: 'Market ad',
-      badgeSearchingAds: 'Search ad',
-      badgeStories: 'Stories',
-      badgeReels: 'Reels',
-      showPost: 'Show post',
-      refold: 'Re-fold'
+      resetPopupTitle: 'Reset counter'
     },
     'zh-TW': {
       appName: 'FB Diet',
@@ -109,16 +100,7 @@ window.FBDietI18N = (() => {
       langToggleTitle: '切換語言',
       popupSubtitle: '動態牆瘦身清理',
       optionsBtn: '⚙️ 選項',
-      resetPopupTitle: '重設計數器',
-      badgeSponsored: '贊助',
-      badgeSuggested: '推薦貼文',
-      badgeSuggestedGroup: '推薦社團',
-      badgeMarketAds: '市集廣告',
-      badgeSearchingAds: '搜尋廣告',
-      badgeStories: '限時動態',
-      badgeReels: '連續短片',
-      showPost: '顯示貼文',
-      refold: '再次摺疊'
+      resetPopupTitle: '重設計數器'
     }
   };
 

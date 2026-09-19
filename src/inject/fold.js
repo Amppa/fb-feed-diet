@@ -35,59 +35,33 @@ window.FBDietFold = (() => {
   const CATEGORY_META = {
     sponsored: {
       badgeClass: 'fb-diet-badge-sponsored',
-      badgeText: 'Sponsored',
-      i18nKey: 'badgeSponsored'
+      badgeText: 'Sponsored'
     },
     suggested: {
       badgeClass: 'fb-diet-badge-suggested',
-      badgeText: 'Suggested post',
-      i18nKey: 'badgeSuggested'
+      badgeText: 'Suggested post'
     },
     suggestedGroup: {
       badgeClass: 'fb-diet-badge-group',
-      badgeText: 'Suggested group',
-      i18nKey: 'badgeSuggestedGroup'
+      badgeText: 'Suggested group'
     },
     reels: {
       badgeClass: 'fb-diet-badge-reels',
-      badgeText: 'Reels',
-      i18nKey: 'badgeReels'
+      badgeText: 'Reels'
     },
     stories: {
       badgeClass: 'fb-diet-badge-stories',
-      badgeText: 'Stories',
-      i18nKey: 'badgeStories'
+      badgeText: 'Stories'
     },
     marketAds: {
       badgeClass: 'fb-diet-badge-market',
-      badgeText: 'Market ad',
-      i18nKey: 'badgeMarketAds'
+      badgeText: 'Market ad'
     },
     searchingAds: {
       badgeClass: 'fb-diet-badge-search',
-      badgeText: 'Search ad',
-      i18nKey: 'badgeSearchingAds'
+      badgeText: 'Search ad'
     }
   };
-
-  /**
-   * Localized helper. The language comes from the bridge settings (pushed by the
-   * content script from chrome.storage); it falls back to the i18n module's own
-   * detected language and finally to the English fallback text.
-   */
-  function t(key, fallback) {
-    const bridgeSettings = window.FBDietBridge ? window.FBDietBridge.getSettings() : null;
-    const lang = (bridgeSettings && bridgeSettings.lang) || (window.FBDietI18N ? window.FBDietI18N.getLang() : null);
-    if (window.FBDietI18N && lang) {
-      const value = window.FBDietI18N.t(key, lang);
-      if (value && value !== key) return value;
-    }
-    return fallback;
-  }
-
-  function badgeText(meta) {
-    return t(meta.i18nKey, meta.badgeText);
-  }
 
   function createEl(type, props, children) {
     const React = window.FBDietProxy ? window.FBDietProxy.getReact() : null;
@@ -103,7 +77,7 @@ window.FBDietFold = (() => {
     const meta = CATEGORY_META[props.category] || CATEGORY_META.sponsored;
 
     const left = createEl('div', { className: 'fb-diet-placeholder-left' }, [
-      createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [badgeText(meta)])
+      createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText])
     ]);
 
     const symbol = createEl('span', { className: 'fb-diet-toggle-symbol' }, ['[+]']);
@@ -112,7 +86,7 @@ window.FBDietFold = (() => {
       'div',
       {
         className: 'fb-diet-placeholder',
-        title: t('showPost', 'Show post'),
+        title: 'Show post',
         onClick: props.onToggle
       },
       [left, symbol]
@@ -207,19 +181,26 @@ window.FBDietFold = (() => {
       if (isExpanded) {
         const meta = CATEGORY_META[category] || CATEGORY_META.sponsored;
         const refoldLeft = createEl('div', { className: 'fb-diet-placeholder-left' }, [
-          createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [badgeText(meta)])
+          createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText])
         ]);
         const refoldSymbol = createEl('span', { className: 'fb-diet-toggle-symbol' }, ['[-]']);
         const refoldBar = createEl(
           'div',
           {
             className: 'fb-diet-placeholder fb-diet-state-expanded',
-            title: t('refold', 'Re-fold'),
+            title: 'Re-fold',
             onClick: onToggle
           },
           [refoldLeft, refoldSymbol]
         );
-        const content = [refoldBar, rendered];
+
+        // The unfolded tree goes inside its own wrapper so the CSS can draw
+        // the shared group frame around the bar + post (sibling selector).
+        // Wrapping in a plain div (instead of tagging the FB element) works no
+        // matter whether Facebook's element is a host node, Fragment or array.
+        const expandedBody = createEl('div', { className: 'fb-diet-expand-body' }, [rendered]);
+
+        const content = [refoldBar, expandedBody];
         if (FoldContext && FoldContext.Provider) {
           return createEl(FoldContext.Provider, { value: true }, content);
         }
