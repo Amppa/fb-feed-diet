@@ -54,6 +54,17 @@
     return { total: 0, sponsored: 0, suggested: 0, suggestedGroup: 0, marketAds: 0, searchingAds: 0, stories: 0, reels: 0 };
   }
 
+  // Unit ids are opaque base64 blobs; show a short fingerprint instead.
+  function shortUnitId(id) {
+    if (!id) return '';
+    return id.length > 10 ? '…' + id.slice(-10) : id;
+  }
+
+  // Diagnostic logs are intentionally silent unless fb_diet_debug=1 is on.
+  function isDebugUrl() {
+    return /[?&]fb_diet_debug=1(?:&|$)/.test(window.location.search);
+  }
+
   /**
    * Helper to check if the extension context is still valid.
    * After the extension is reloaded/updated, chrome.* APIs are torn down on already-open
@@ -217,12 +228,9 @@
     mainReports.push({ type, at: Date.now(), ...payload });
     while (mainReports.length > MAX_MAIN_REPORTS) mainReports.shift();
 
-    if (mainReports.length <= MAX_MAIN_REPORT_LOGS) {
-      // Normal friend stories are expected to be unclassified; suppress generic Story unknown logs unless debug enabled
+    if (mainReports.length <= MAX_MAIN_REPORT_LOGS && isDebugUrl()) {
       if (type === 'unknown' && payload.reason === 'unknown' && payload.unitTypename === 'Story') {
-        if (/[?&]fb_diet_debug=1(?:&|$)/.test(window.location.search)) {
-          console.debug('[FB Diet] Normal/unclassified feed story:', payload.unitId);
-        }
+        console.debug('[FB Diet] Normal/unclassified feed story:', shortUnitId(payload.unitId));
       } else {
         console.info(
           '[FB Diet]',
@@ -230,7 +238,7 @@
           payload.unitTypename || '-',
           payload.category || '-',
           payload.reason || '',
-          payload.unitId || ''
+          shortUnitId(payload.unitId)
         );
       }
     }

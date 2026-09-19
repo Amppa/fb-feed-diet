@@ -236,9 +236,10 @@ window.FBDietBridge = (() => {
     isExpanded,
     setExpanded,
     toggle,
-    reportBlocked,
+reportBlocked,
     reportUnknown,
     debugLog,
+    isDebugEnabled: () => debugEnabled,
     announceReady,
     getRecentReports: () => recentReports.slice(),
     getLastError: () => lastError

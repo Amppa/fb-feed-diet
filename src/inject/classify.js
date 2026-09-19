@@ -245,6 +245,19 @@ window.FBDietClassify = (() => {
     return { category: null, reason: evidence.ids.length ? 'unknown' : 'no-unit-id' };
   }
 
+  /** Unit ids are opaque base64 blobs; show a short fingerprint instead. */
+  function shortUnitId(id) {
+    if (!id) return '-';
+    return id.length > 10 ? '…' + id.slice(-10) : id;
+  }
+
+  /** Bound to the bridge's shared debug flag (URL fb_diet_debug=1 / __fbDietDebug()). */
+  function isDebugEnabled() {
+    const bridge = window.FBDietBridge;
+    if (bridge && typeof bridge.isDebugEnabled === 'function') return bridge.isDebugEnabled();
+    return /[?&]fb_diet_debug=1(?:&|$)/.test(window.location.search);
+  }
+
   function classifyFeedUnit(payload) {
     const result = { category: null, unitId: null, unitTypename: null, reason: 'no-payload', evidence: null };
 
@@ -262,8 +275,8 @@ window.FBDietClassify = (() => {
       result.category = picked.category;
       result.reason = picked.reason;
 
-      if (result.category) {
-        console.info('[FB Diet][Classify] Matched:', result.category, 'for unit:', result.unitId || '-', '(' + (result.unitTypename || 'no-type') + ')', 'reason:', result.reason);
+      if (result.category && isDebugEnabled()) {
+        console.info('[FB Diet][Classify] Matched:', result.category, 'for unit:', shortUnitId(result.unitId), '(' + (result.unitTypename || 'no-type') + ')', 'reason:', result.reason);
       }
 
       return result;
