@@ -19,64 +19,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     removeStories: true,
     removeReels: true,
     removeMarketAds: true,
-    removeSearchingAds: true,
-    hideLeftProfile: false,
-    hideLeftFriends: false,
-    hideLeftFeeds: false,
-    hideLeftGroups: false,
-    hideLeftMarketplace: false,
-    hideLeftReels: false,
-    hideLeftMemories: false,
-    hideLeftSaved: false,
-    hideLeftPages: false,
-    hideLeftEvents: false,
-    hideLeftGaming: false,
-    hideLeftMetaAI: false,
-    hideLeftAdsManager: false,
-    hideLeftRecentAdActivity: false,
-    hideLeftProfessionalDashboard: false,
-    hideLeftMessengerKids: false,
-    hideLeftMetaQuest: false,
-    hideLeftFundraisers: false,
-    hideLeftOrdersPayments: false,
-    hideTopReels: false,
-    hideTopMarketplace: false,
-    hideTopGaming: false
+    removeSearchingAds: true
   };
 
-  const switches = {
-    removeSponsored: document.getElementById('removeSponsored'),
-    removeSuggested: document.getElementById('removeSuggested'),
-    removeSuggestedGroup: document.getElementById('removeSuggestedGroup'),
-    removeStories: document.getElementById('removeStories'),
-    removeReels: document.getElementById('removeReels'),
-    removeMarketAds: document.getElementById('removeMarketAds'),
-    removeSearchingAds: document.getElementById('removeSearchingAds'),
-    // UI clean switches - Left Sidebar
-    hideLeftProfile: document.getElementById('hideLeftProfile'),
-    hideLeftFriends: document.getElementById('hideLeftFriends'),
-    hideLeftFeeds: document.getElementById('hideLeftFeeds'),
-    hideLeftGroups: document.getElementById('hideLeftGroups'),
-    hideLeftMarketplace: document.getElementById('hideLeftMarketplace'),
-    hideLeftReels: document.getElementById('hideLeftReels'),
-    hideLeftMemories: document.getElementById('hideLeftMemories'),
-    hideLeftSaved: document.getElementById('hideLeftSaved'),
-    hideLeftPages: document.getElementById('hideLeftPages'),
-    hideLeftEvents: document.getElementById('hideLeftEvents'),
-    hideLeftGaming: document.getElementById('hideLeftGaming'),
-    hideLeftMetaAI: document.getElementById('hideLeftMetaAI'),
-    hideLeftAdsManager: document.getElementById('hideLeftAdsManager'),
-    hideLeftRecentAdActivity: document.getElementById('hideLeftRecentAdActivity'),
-    hideLeftProfessionalDashboard: document.getElementById('hideLeftProfessionalDashboard'),
-    hideLeftMessengerKids: document.getElementById('hideLeftMessengerKids'),
-    hideLeftMetaQuest: document.getElementById('hideLeftMetaQuest'),
-    hideLeftFundraisers: document.getElementById('hideLeftFundraisers'),
-    hideLeftOrdersPayments: document.getElementById('hideLeftOrdersPayments'),
-    // UI clean switches - Top Navigation
-    hideTopReels: document.getElementById('hideTopReels'),
-    hideTopMarketplace: document.getElementById('hideTopMarketplace'),
-    hideTopGaming: document.getElementById('hideTopGaming')
-  };
+  const switches = {};
+  document.querySelectorAll('#featuresList input[type="checkbox"], #uiCleanList input[type="checkbox"]').forEach(input => {
+    if (input.id) switches[input.id] = input;
+  });
 
   const counters = {
     total: document.getElementById('totalCount'),
@@ -132,7 +81,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   for (const [key, checkbox] of Object.entries(switches)) {
     if (checkbox) {
-      checkbox.checked = settings[key] !== undefined ? settings[key] : (DEFAULTS[key] ?? true);
+      const defaultValue = DEFAULTS[key] ?? (key.startsWith('hide') ? false : true);
+      checkbox.checked = settings[key] !== undefined ? settings[key] : defaultValue;
     }
   }
 

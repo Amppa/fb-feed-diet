@@ -357,6 +357,14 @@
   }
 
   /**
+   * Helper to convert settings key (e.g. hideLeftProfile) to CSS class name.
+   */
+  function getUiCleanClassName(key) {
+    if (key === 'hideLeftMetaAI') return 'fb-diet-hide-left-metaai';
+    return 'fb-diet-' + key.replace(/([A-Z])/g, '-$1').toLowerCase();
+  }
+
+  /**
    * Updates CSS classes on document.documentElement according to Section 2 settings.
    */
   function applyUiCleanClasses(settings) {
@@ -366,41 +374,14 @@
 
     const isMasterEnabled = settings.enabled !== false;
 
-    const classMap = {
-      'fb-diet-hide-left-profile': isMasterEnabled && Boolean(settings.hideLeftProfile),
-      'fb-diet-hide-left-friends': isMasterEnabled && Boolean(settings.hideLeftFriends),
-      'fb-diet-hide-left-feeds': isMasterEnabled && Boolean(settings.hideLeftFeeds),
-      'fb-diet-hide-left-groups': isMasterEnabled && Boolean(settings.hideLeftGroups),
-      'fb-diet-hide-left-marketplace': isMasterEnabled && Boolean(settings.hideLeftMarketplace),
-      'fb-diet-hide-left-reels': isMasterEnabled && Boolean(settings.hideLeftReels),
-      'fb-diet-hide-left-memories': isMasterEnabled && Boolean(settings.hideLeftMemories),
-      'fb-diet-hide-left-saved': isMasterEnabled && Boolean(settings.hideLeftSaved),
-      'fb-diet-hide-left-pages': isMasterEnabled && Boolean(settings.hideLeftPages),
-      'fb-diet-hide-left-events': isMasterEnabled && Boolean(settings.hideLeftEvents),
-      'fb-diet-hide-left-gaming': isMasterEnabled && Boolean(settings.hideLeftGaming),
-      'fb-diet-hide-left-metaai': isMasterEnabled && Boolean(settings.hideLeftMetaAI),
-      'fb-diet-hide-left-ads-manager': isMasterEnabled && Boolean(settings.hideLeftAdsManager),
-      'fb-diet-hide-left-recent-ad-activity': isMasterEnabled && Boolean(settings.hideLeftRecentAdActivity),
-      'fb-diet-hide-left-professional-dashboard': isMasterEnabled && Boolean(settings.hideLeftProfessionalDashboard),
-      'fb-diet-hide-left-messenger-kids': isMasterEnabled && Boolean(settings.hideLeftMessengerKids),
-      'fb-diet-hide-left-meta-quest': isMasterEnabled && Boolean(settings.hideLeftMetaQuest),
-      'fb-diet-hide-left-fundraisers': isMasterEnabled && Boolean(settings.hideLeftFundraisers),
-      'fb-diet-hide-left-orders-payments': isMasterEnabled && Boolean(settings.hideLeftOrdersPayments),
-      'fb-diet-hide-top-reels': isMasterEnabled && Boolean(settings.hideTopReels),
-      'fb-diet-hide-top-marketplace': isMasterEnabled && Boolean(settings.hideTopMarketplace),
-      'fb-diet-hide-top-gaming': isMasterEnabled && Boolean(settings.hideTopGaming),
-      'fb-diet-hide-right-sponsored-header': isMasterEnabled && (settings.hideRightSponsoredHeader !== false)
-    };
-
-    for (const [className, shouldAdd] of Object.entries(classMap)) {
-      if (shouldAdd) {
-        root.classList.add(className);
-      } else {
-        root.classList.remove(className);
-      }
+    for (const [key, value] of Object.entries(settings)) {
+      if (!key.startsWith('hide')) continue;
+      const className = getUiCleanClassName(key);
+      const isEnabled = isMasterEnabled && (key === 'hideRightSponsoredHeader' ? value !== false : Boolean(value));
+      root.classList.toggle(className, isEnabled);
     }
 
-    if (classMap['fb-diet-hide-right-sponsored-header'] || classMap['fb-diet-hide-left-ads-manager']) {
+    if (isMasterEnabled && (settings.hideRightSponsoredHeader !== false || Boolean(settings.hideLeftAdsManager))) {
       triggerThrottledRailScan();
     }
   }
