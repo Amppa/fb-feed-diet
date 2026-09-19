@@ -110,14 +110,13 @@ Loaded sequentially at `document_start` before Comet finishes loading:
 - **`classify.js` (`window.FBDietClassify`)**:
   - Pure deterministic classification functions.
   - Evaluates direct props first, followed by Relay paths.
-  - Supported categories:
+  - `classifyFeedUnit(payload, context)` — `context.moduleName` is part of the decision (the Reels attachment wrapper never folds as Reels).
+  - Supported categories (see STRATEGY.md for the full decision log):
     - `sponsored`: `^sponsored_data.ad_id`
-    - `suggested`: `^^actors[0].subscribe_status === 'CAN_SUBSCRIBE'`
-    - `suggestedGroup`: `GroupsYouShouldJoinFeedUnit` or `^to.viewer_forum_join_state === 'CAN_JOIN'`
-    - `reels`: `showcase_story_type === 'SHOWCASE_SHORT_VIDEO'`
-    - `stories`: Story header matching or carousel typenames
-    - `marketAds`: Marketplace listing promo metadata
-    - `searchingAds`: Search result ad markers
+    - `suggested`: `^^actors[0].subscribe_status === 'CAN_SUBSCRIBE'` (only this value) OR a story_header stored under a known suggestion location (`homepage_stream` / `groups_tab` / `feed`) with a non-empty `title.text`
+    - `suggestedGroup`: `GroupsYouShouldJoinFeedUnit` / `GroupSuggestionsFeedUnit` or `^to.viewer_forum_join_state === 'CAN_JOIN'`
+    - `reels`: the unit's OWN `__typename === 'ShowcaseFeedUnit'` (nested attachment records and the attachment-style module are excluded on purpose)
+    - `stories` / `marketAds` / `searchingAds`: component-name markers in `fold.js`, not unit classification
 - **`bridge.js` (`window.FBDietBridge`)**:
   - Owns in-page expand/collapse state (`expandedSet`).
   - Manages deduplication sets (`reportedBlockedSet`, `reportedUnknownSet`) to prevent redundant storage writes.
@@ -132,6 +131,7 @@ Loaded sequentially at `document_start` before Comet finishes loading:
 
 - **`content.js`**:
   - Listens for `fb-diet/main` messages (`ready`, `blocked`, `unknown`).
+  - Persists a capped diagnostic log of classification events to `chrome.storage.local` (`fbDietLog`, last 300 entries, batched flush).
   - Manages a 3-second throttled buffer (`countBuffer`) to batch-update `chrome.storage.local`.
   - Disables DOM scanning as soon as `ready` is received from MAIN world.
   - Implements `shutdown()`: called on context invalidation to gracefully halt observers and timers.
@@ -246,9 +246,26 @@ This activates verbose `[FB Diet][MAIN]` console output for every intercepted un
 
 ```javascript
 // Check content script status & buffer
-window.__fbDietDiagnostics();
-// => { proxyActive: true, isShutDown: false, countBuffer: { ... }, mainReportsCount: 15 }
+window.__fbDietStatus();
+window.__fbDietReports();      // in-memory MAIN world reports
+
+// Persistent diagnostic log (chrome.storage.local "fbDietLog", last 300 events)
+window.__fbDietDumpLog();      // prints & returns the stored entries
+window.__fbDietClearLog();     // wipes the log
 ```
+
+#### Feed Probe Buttons (per-unit diagnostics)
+
+Enable "Show Feed Probe Buttons" in the Options page (or open Facebook with `?fb_diet_debug=1`).
+Every unit flowing through `FBDietFold` then shows a small ⧉ button in its top-right corner;
+clicking it copies a JSON report of that unit:
+
+- the classification result (`category`, `unitId`, `unitTypename`, `reason`, full `evidence`)
+- the component module that produced the decision
+- a depth-limited snapshot of the unit payload and the Relay record fields
+
+Use it to diagnose missed folds (`classify.category: null` — check `reason`) and wrong folds
+(`reason` maps back to the rule table in STRATEGY.md §3).
 
 ---
 

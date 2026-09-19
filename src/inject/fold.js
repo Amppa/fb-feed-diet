@@ -108,6 +108,159 @@ window.FBDietFold = (() => {
     return FBDietContext;
   }
 
+  /* ------------------------------------------------------------------ *
+   * Feed probe (per-unit diagnostics)
+   *
+   * When debugging is on (URL fb_diet_debug=1, console __fbDietDebug(true)) or
+   * the debugProbe setting is enabled, every unit flowing through FBDietFold gets
+   * a small copy button. Clicking it copies a JSON report of the unit: the
+   * classification result (category / reason / evidence), the component module
+   * that produced the decision, and a depth-limited snapshot of the payload plus
+   * the Relay record — everything needed to diagnose a wrong or a missed fold.
+   * ------------------------------------------------------------------ */
+
+  const PROBE_MAX_DEPTH = 5;
+  const PROBE_MAX_KEYS = 60;
+  const PROBE_MAX_CHARS = 30000;
+
+  /** Depth-limited, JSON-safe serializer: functions / DOM nodes / cycles become markers. */
+  function safeSerialize(value, depth) {
+    try {
+      if (value === null) return null;
+      const kind = typeof value;
+      if (kind === 'string' || kind === 'number' || kind === 'boolean') return value;
+      if (kind === 'undefined') return null;
+      if (kind === 'function') return '[fn' + (value.name ? ' ' + value.name : '') + ']';
+      if (kind === 'symbol' || kind === 'bigint') return value.toString();
+      if (typeof Node !== 'undefined' && value instanceof Node) return '[' + (value.nodeName || 'node') + ']';
+      if (value instanceof Error) return 'Error: ' + value.message;
+      if (depth >= PROBE_MAX_DEPTH) return '[depth]';
+      if (Array.isArray(value)) {
+        return value.slice(0, PROBE_MAX_KEYS).map((item) => safeSerialize(item, depth + 1));
+      }
+      const out = {};
+      const keys = Object.keys(value);
+      for (let i = 0; i < keys.length && i < PROBE_MAX_KEYS; i += 1) {
+        out[keys[i]] = safeSerialize(value[keys[i]], depth + 1);
+      }
+      if (keys.length > PROBE_MAX_KEYS) out['…'] = '[more keys]';
+      return out;
+    } catch (e) {
+      return '[unserializable]';
+    }
+  }
+
+  function buildUnitProbeReport(props, classifyResult) {
+    const report = {
+      at: new Date().toISOString(),
+      href: typeof window !== 'undefined' && window.location ? window.location.href : null,
+      moduleName: props.moduleName || null,
+      entryCategory: props.entryCategory || null,
+      classify: classifyResult
+        ? {
+            category: classifyResult.category,
+            unitId: classifyResult.unitId,
+            unitTypename: classifyResult.unitTypename,
+            reason: classifyResult.reason,
+            evidence: classifyResult.evidence,
+            moduleName: classifyResult.moduleName
+          }
+        : null,
+      payload: safeSerialize(props.payload, 0)
+    };
+
+    // Best-effort Relay record snapshot for the unit id (the fields the classifier reads).
+    try {
+      const relay = window.FBDietRelay;
+      const ids = classifyResult && classifyResult.evidence && classifyResult.evidence.ids;
+      if (relay && typeof relay.describe === 'function' && ids && ids.length) {
+        const record = relay.describe(ids[0]);
+        if (record) report.relayRecord = safeSerialize(record, 0);
+      }
+    } catch (e) {
+      // Relay probing is optional
+    }
+
+    let text = null;
+    try {
+      text = JSON.stringify(report, null, 2);
+    } catch (e) {
+      text = '{"error":"probe serialization failed: ' + String(e && e.message ? e.message : e) + '"}';
+    }
+    if (text.length > PROBE_MAX_CHARS) text = text.slice(0, PROBE_MAX_CHARS) + '\n…[truncated]';
+    return text;
+  }
+
+  function promptFallbackCopy(payload) {
+    try {
+      window.prompt('FB Diet diagnostics - select all & copy (Ctrl+C / Cmd+C):', payload);
+    } catch (e) {
+      // Last resort: the console already carries the same report
+    }
+  }
+
+  function copyProbeReport(text) {
+    let copied = false;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        const request = navigator.clipboard.writeText(text);
+        if (request && typeof request.then === 'function') {
+          request.then(
+            () => console.info('[FB Diet][Probe] Diagnostics copied to clipboard.'),
+            () => promptFallbackCopy(text)
+          );
+          copied = true;
+        }
+      }
+    } catch (e) {
+      // Fall through to the prompt
+    }
+    if (!copied) promptFallbackCopy(text);
+  }
+
+  /**
+   * Wraps the unit's render output in a relative holder; the copy button is only
+   * appended when probe mode is on (debug URL / debugProbe setting).
+   */
+  function addProbe(element, props, classifyResult) {
+    try {
+      const bridge = window.FBDietBridge;
+      const React = window.FBDietProxy ? window.FBDietProxy.getReact() : null;
+      if (!element || !bridge || !React) return element;
+
+      const settings = bridge.getSettings ? bridge.getSettings() : null;
+      const isProbeOn = bridge.isDebugEnabled() || (settings && settings.debugProbe === true);
+      if (!isProbeOn) return element;
+
+      const reportText = buildUnitProbeReport(props, classifyResult);
+      const onProbeClick = (event) => {
+        try {
+          if (event) {
+            if (typeof event.stopPropagation === 'function') event.stopPropagation();
+            if (typeof event.preventDefault === 'function') event.preventDefault();
+          }
+        } catch (e) {
+          // Facebook's own handlers must keep working
+        }
+        try {
+          console.info('[FB Diet][Probe]', JSON.parse(reportText));
+        } catch (e) {
+          // Cannot happen for our own JSON, but never break the click
+        }
+        copyProbeReport(reportText);
+      };
+
+      const button = createEl(
+        'button',
+        { className: 'fb-diet-probe-btn', type: 'button', title: 'FB Diet: copy unit diagnostics (JSON)', onClick: onProbeClick },
+        ['⧉']
+      );
+      return createEl('div', { className: 'fb-diet-probe-holder' }, [button, element]);
+    } catch (e) {
+      return element;
+    }
+  }
+
   /**
    * The component that replaces a matched feed unit.
    */
@@ -144,23 +297,29 @@ window.FBDietFold = (() => {
       let category = props.entryCategory || null;
       let reason = 'component:' + (props.moduleName || 'unknown');
       let unitId = null;
+      let unitTypename = null;
+      let classifyResult = null;
 
       if (!category) {
         const classify = window.FBDietClassify;
         if (!classify) return rendered;
 
-        const result = classify.classifyFeedUnit(props.payload);
+        // The module name is part of the classification context: the Reels attachment
+        // style wrapper, for example, must never fold as Reels (see STRATEGY.md).
+        const result = classify.classifyFeedUnit(props.payload, { moduleName: props.moduleName || null });
+        classifyResult = result;
         if (!result.category) {
           bridge.reportUnknown(result);
-          return rendered;
+          return addProbe(rendered, props, classifyResult);
         }
 
         category = result.category;
         reason = result.reason;
         unitId = result.unitId;
+        unitTypename = result.unitTypename;
       }
 
-      if (!bridge.isEnabled(category)) return rendered;
+      if (!bridge.isEnabled(category)) return addProbe(rendered, props, classifyResult);
 
       if (!unitId) {
         const mod = props.moduleName || 'unit';
@@ -168,7 +327,17 @@ window.FBDietFold = (() => {
         unitId = mod + '_' + type;
       }
 
-      bridge.reportBlocked({ category, unitId, reason });
+      // unitTypename / moduleName ride along so the diagnostic log shows which
+      // component produced the fold decision.
+      bridge.reportBlocked({
+        category,
+        unitId,
+        reason,
+        unitTypename:
+          unitTypename ||
+          (props.payload && typeof props.payload.unitTypename === 'string' ? props.payload.unitTypename : null),
+        moduleName: props.moduleName || null
+      });
 
       const isExpanded = bridge.isExpanded(unitId);
 
@@ -204,11 +373,11 @@ window.FBDietFold = (() => {
         const expandedBody = createEl('div', { className: 'fb-diet-expand-body' }, [rendered]);
 
         const content = [refoldBar, expandedBody];
-        if (FoldContext && FoldContext.Provider) {
-          return createEl(FoldContext.Provider, { value: true }, content);
-        }
         const Fragment = React.Fragment || null;
-        return Fragment ? createEl(Fragment, null, content) : content;
+        const output = FoldContext && FoldContext.Provider
+          ? createEl(FoldContext.Provider, { value: true }, content)
+          : (Fragment ? createEl(Fragment, null, content) : content);
+        return addProbe(output, props, classifyResult);
       }
 
       const bar = createEl(FBDietBar, { category, unitId, onToggle }, []);
@@ -223,11 +392,11 @@ window.FBDietFold = (() => {
       if (!bar || !hidden) return rendered;
 
       const foldContent = [bar, hidden];
-      if (FoldContext && FoldContext.Provider) {
-        return createEl(FoldContext.Provider, { value: true }, foldContent);
-      }
       const Fragment = React.Fragment || null;
-      return Fragment ? createEl(Fragment, null, foldContent) : foldContent;
+      const output = FoldContext && FoldContext.Provider
+        ? createEl(FoldContext.Provider, { value: true }, foldContent)
+        : (Fragment ? createEl(Fragment, null, foldContent) : foldContent);
+      return addProbe(output, props, classifyResult);
     } catch (e) {
       return rendered;
     }
@@ -266,6 +435,30 @@ window.FBDietFold = (() => {
         }
         .adhidden, .fb-diet-side-ad-hidden {
           display: none !important;
+        }
+        .fb-diet-probe-holder {
+          position: relative;
+        }
+        .fb-diet-probe-btn {
+          position: absolute;
+          top: 2px;
+          right: 2px;
+          z-index: 9999;
+          width: 22px;
+          height: 22px;
+          line-height: 20px;
+          padding: 0;
+          border-radius: 50%;
+          border: 1px solid rgba(255, 255, 255, 0.4);
+          background: rgba(0, 0, 0, 0.5);
+          color: #fff;
+          font-size: 13px;
+          text-align: center;
+          cursor: pointer;
+          opacity: 0.55;
+        }
+        .fb-diet-probe-btn:hover {
+          opacity: 1;
         }
       `;
       (document.head || document.documentElement).appendChild(style);

@@ -60,7 +60,7 @@ function run(c) {
     c.equals('fold registered its module', t.proxy.listRegistered()[FEED_MODULE][0], '[6].default');
     c.equals('detectOnly removed from defaults', 'detectOnly' in t.bridge.getSettings(), false);
     c.equals('ready message announced at load', countMessages(t.win, 'ready'), 1);
-    c.equals('HIDE_MODE is display-none', t.fold.HIDE_MODE, 'display-none');
+    c.equals('HIDE_MODE is squash', t.fold.HIDE_MODE, 'squash');
   }
 
   /* --- unknown payload: untouched + reported once --- */
@@ -95,7 +95,7 @@ function run(c) {
     c.equals('bar is FBDietBar', bar.type, t.fold.FBDietBar);
     c.equals('bar gets the category', bar.props.category, 'sponsored');
     c.ok('bar carries the toggle callback', typeof bar.props.onToggle === 'function');
-    c.equals('hidden container class', hidden.props.className, 'fb-diet-fold-hidden');
+    c.equals('hidden container class', hidden.props.className, 'fb-diet-fold-hidden fb-diet-foldsquash');
     c.equals('aria-hidden set', hidden.props['aria-hidden'], 'true');
     const inner = Array.isArray(hidden.props.children) ? hidden.props.children[0] : hidden.props.children;
     c.ok('original subtree stays mounted inside the hidden container', inner.__source === true);
@@ -104,7 +104,10 @@ function run(c) {
     bar.props.onToggle();
     c.equals('toggle marks the unit expanded', t.bridge.isExpanded('u1'), true);
     const expanded = t.render(payloadOf('u1'));
-    c.ok('expanded render is untouched', expanded.__source === true);
+    c.ok('expanded render shows the re-fold bar + body', expanded.type === t.React.Fragment && Array.isArray(expanded.props.children) && expanded.props.children.length === 2);
+    const expandedBody = expanded.props.children[1];
+    const expandedInner = Array.isArray(expandedBody.props.children) ? expandedBody.props.children[0] : expandedBody.props.children;
+    c.ok('original subtree stays mounted when expanded', expandedInner.__source === true);
     c.equals('no duplicate blocked report after expand', countMessages(t.win, 'blocked'), 1);
 
     t.bridge.toggle('u1');
@@ -134,6 +137,31 @@ function run(c) {
     const blocked = t.win.__messages.filter((m) => m.type === 'blocked').map((m) => m.payload.category);
     c.ok('sponsored reported', blocked.indexOf('sponsored') !== -1);
     c.ok('suggested also reported', blocked.indexOf('suggested') !== -1);
+  }
+
+  /* --- feed probe button (debug diagnostics) --- */
+  {
+    const t = setup({ [SPONSORED_PATH]: 'ad-1' });
+    // Probe off by default: the folded output is a plain Fragment
+    c.ok('no probe by default', t.render(payloadOf('u1')).type === t.React.Fragment);
+    // Probe on: the output becomes a holder div with the copy button + the fold
+    t.bridge.setSettings({ debugProbe: true });
+    const probed = t.render(payloadOf('u1'));
+    c.ok('probe on wraps the fold', probed.type === 'div' && probed.props.className === 'fb-diet-probe-holder');
+    const probeKids = probed.props.children;
+    c.ok('probe holder carries button + fold', Array.isArray(probeKids) && probeKids.length === 2 && probeKids[0].props.className === 'fb-diet-probe-btn');
+    c.ok('probe button carries a click handler', typeof probeKids[0].props.onClick === 'function');
+    // Clicking must not throw even inside the test harness
+    let clickThrew = false;
+    try {
+      probeKids[0].props.onClick({ stopPropagation() {}, preventDefault() {} });
+    } catch (e) {
+      clickThrew = true;
+    }
+    c.ok('probe click survives the harness', clickThrew === false);
+    // Probe off again: back to the plain fold
+    t.bridge.setSettings({ debugProbe: false });
+    c.ok('probe off restores the plain fold', t.render(payloadOf('u1')).type === t.React.Fragment);
   }
 
   /* --- hostile payload never crashes the feed --- */

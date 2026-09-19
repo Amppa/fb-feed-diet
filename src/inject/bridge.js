@@ -32,7 +32,10 @@ window.FBDietBridge = (() => {
     removeMarketAds: true,
     removeSearchingAds: true,
     removeStories: true,
-    removeReels: true
+    removeReels: true,
+    // Diagnostic probe buttons on every feed unit (see fold.js addProbe). Off by
+    // default; debugging sessions turn it on via the options page or the debug URL.
+    debugProbe: false
   };
 
   const MAX_EXPANDED = 400;
@@ -139,9 +142,23 @@ window.FBDietBridge = (() => {
   function reportBlocked(result) {
     const key = result.unitId + ':' + result.category;
     if (!remember(reportedBlocked, reportedBlockedSet, key, MAX_EXPANDED)) return;
-    post('blocked', { category: result.category, unitId: result.unitId, reason: result.reason });
+    post('blocked', {
+      category: result.category,
+      unitId: result.unitId,
+      reason: result.reason,
+      unitTypename: result.unitTypename || null,
+      moduleName: result.moduleName || null,
+      evidence: result.evidence || null
+    });
     attachReport('blocked', result);
-    debugLog('folded', { category: result.category, unitId: result.unitId, reason: result.reason });
+    debugLog('folded', {
+      category: result.category,
+      unitId: result.unitId,
+      reason: result.reason,
+      unitTypename: result.unitTypename || null,
+      moduleName: result.moduleName || null,
+      evidence: result.evidence || null
+    });
   }
 
   function reportUnknown(result) {
@@ -151,14 +168,16 @@ window.FBDietBridge = (() => {
       unitId: result.unitId,
       unitTypename: result.unitTypename,
       reason: result.reason,
-      evidence: result.evidence
+      evidence: result.evidence,
+      moduleName: result.moduleName || null
     });
     attachReport('unknown', result);
     debugLog('unknown', {
       unitTypename: result.unitTypename,
       unitId: result.unitId,
       reason: result.reason,
-      evidence: result.evidence
+      evidence: result.evidence,
+      moduleName: result.moduleName || null
     });
   }
 

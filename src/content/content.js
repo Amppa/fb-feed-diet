@@ -33,6 +33,16 @@
   const MAX_MAIN_REPORTS = 200;
   const MAX_MAIN_REPORT_LOGS = 30;
 
+  // Persistent diagnostic log (chrome.storage.local key "fbDietLog"). It survives SPA
+  // navigation and page reloads, so a misclassification seen while casually scrolling
+  // can still be diagnosed afterwards. Writes are batched: the buffer is flushed every
+  // LOG_FLUSH_DELAY_MS with a read-merge-write, capped at MAX_PERSISTED_LOGS entries.
+  const LOG_KEY = 'fbDietLog';
+  const MAX_PERSISTED_LOGS = 300;
+  const LOG_FLUSH_DELAY_MS = 2000;
+  let logBuffer = [];
+  let logFlushTimer = null;
+
   // Buffer for throttled stats updates (transferred every 3 seconds)
   let countBuffer = {
     total: 0,
@@ -100,6 +110,13 @@
       clearTimeout(flushTimer);
       flushTimer = null;
     }
+
+    // Pending diagnostic entries can no longer be written anywhere, drop them silently.
+    if (logFlushTimer) {
+      clearTimeout(logFlushTimer);
+      logFlushTimer = null;
+    }
+    logBuffer = [];
 
     if (fallbackTimer) {
       clearTimeout(fallbackTimer);
@@ -228,6 +245,8 @@
     mainReports.push({ type, at: Date.now(), ...payload });
     while (mainReports.length > MAX_MAIN_REPORTS) mainReports.shift();
 
+    pushPersistedLog(type, payload);
+
     if (mainReports.length <= MAX_MAIN_REPORT_LOGS && isDebugUrl()) {
       if (type === 'unknown' && payload.reason === 'unknown' && payload.unitTypename === 'Story') {
         console.debug('[FB Diet] Normal/unclassified feed story:', shortUnitId(payload.unitId));
@@ -238,10 +257,59 @@
           payload.unitTypename || '-',
           payload.category || '-',
           payload.reason || '',
+          payload.moduleName || '-',
           shortUnitId(payload.unitId)
         );
       }
     }
+  }
+
+  /**
+   * Normalized single entry for the persistent diagnostic log. The full unitId is
+   * shortened: the raw base64 blob is unreadable in a log table and bloats storage.
+   */
+  function toLogEntry(type, payload) {
+    return {
+      at: Date.now(),
+      type,
+      category: payload.category || null,
+      reason: payload.reason || null,
+      unitTypename: payload.unitTypename || null,
+      unitId: shortUnitId(payload.unitId) || null,
+      moduleName: payload.moduleName || null,
+      evidence: payload.evidence || null,
+      page: window.location && window.location.pathname ? window.location.pathname : null
+    };
+  }
+
+  function pushPersistedLog(type, payload) {
+    if (isShutDown) return;
+    logBuffer.push(toLogEntry(type, payload));
+    if (logBuffer.length > MAX_PERSISTED_LOGS) logBuffer.splice(0, logBuffer.length - MAX_PERSISTED_LOGS);
+    scheduleLogFlush();
+  }
+
+  function scheduleLogFlush() {
+    if (logFlushTimer || isShutDown) return;
+    if (!isExtensionValid()) return;
+    logFlushTimer = setTimeout(flushPersistedLog, LOG_FLUSH_DELAY_MS);
+  }
+
+  /** Read-merge-write so concurrent tabs converge on one capped ring buffer. */
+  async function flushPersistedLog() {
+    logFlushTimer = null;
+    if (isShutDown || logBuffer.length === 0) return;
+    if (!isExtensionValid()) return;
+
+    const pending = logBuffer.splice(0, logBuffer.length);
+    const data = await safeStorageGet(LOG_KEY);
+    if (!data || isShutDown) return;
+
+    const existing = Array.isArray(data[LOG_KEY]) ? data[LOG_KEY] : [];
+    const merged = existing.concat(pending);
+    if (merged.length > MAX_PERSISTED_LOGS) merged.splice(0, merged.length - MAX_PERSISTED_LOGS);
+
+    await safeStorageSet({ [LOG_KEY]: merged });
   }
 
   function handleMainMessage(event) {
@@ -259,6 +327,7 @@
       if (data.type === 'blocked') {
         const category = data.payload && data.payload.category;
         if (category) recordBlock(category);
+        storeMainReport(data.type, data.payload || {});
         return;
       }
 
@@ -331,9 +400,28 @@
     proxyActive,
     fallbackPending: Boolean(fallbackTimer),
     settings: { ...currentSettings },
-    reports: mainReports.slice(-25)
+    reports: mainReports.slice(-25),
+    pendingLogEntries: logBuffer.length
   });
   window.__fbDietReports = () => mainReports.slice();
+
+  // Persistent diagnostic log helpers (content script context in DevTools):
+  //   __fbDietDumpLog()   -> prints & returns the last MAX_PERSISTED_LOGS classification events
+  //   __fbDietClearLog()  -> wipes the persisted log
+  window.__fbDietDumpLog = async () => {
+    const data = await safeStorageGet(LOG_KEY);
+    const entries = (data && data[LOG_KEY]) || [];
+    console.info('[FB Diet] persisted log (' + entries.length + ' entries):', entries);
+    return entries;
+  };
+  window.__fbDietClearLog = async () => {
+    logBuffer = [];
+    if (logFlushTimer) {
+      clearTimeout(logFlushTimer);
+      logFlushTimer = null;
+    }
+    return safeStorageSet({ [LOG_KEY]: [] });
+  };
 
   /**
    * Schedules a flush of accumulated block counts to chrome.storage.local

@@ -21,7 +21,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     removeStories: true,
     removeReels: true,
     removeMarketAds: true,
-    removeSearchingAds: true
+    removeSearchingAds: true,
+    debugProbe: false
   };
 
   const switches = {};

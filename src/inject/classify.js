@@ -9,7 +9,7 @@
  * logged for unknown units so mis-detections can be diagnosed without guessing.
  *
  * Public API (window.FBDietClassify):
- *   classifyFeedUnit(payload)             -> { category, unitId, unitTypename, reason, evidence }
+ *   classifyFeedUnit(payload, context)    -> { category, unitId, unitTypename, reason, evidence, moduleName }
  *   setRelayReader(fn)                    -> fn(ids, path, options) => value | null
  *   isCategoryEnabled(category, settings) -> boolean
  *   CATEGORY / SETTING_BY_CATEGORY
@@ -40,9 +40,23 @@ window.FBDietClassify = (() => {
 
   // Relay based classification rules (verified against the reference implementation)
   const SUGGESTED_GROUP_TYPENAMES = ['GroupsYouShouldJoinFeedUnit', 'GroupSuggestionsFeedUnit'];
-  const SUGGESTED_SUBSCRIBE_STATES = ['CAN_SUBSCRIBE', 'CAN_FOLLOW', 'NOT_SUBSCRIBED'];
+  // Only CAN_SUBSCRIBE is trusted, exactly like the reference implementation. CAN_FOLLOW
+  // and NOT_SUBSCRIBED were tried and rejected: NOT_SUBSCRIBED matches nearly every actor
+  // the viewer does not subscribe to (group post authors, strangers, pages), which folded
+  // ordinary friend activity as "suggested" (STRATEGY.md, misclassifications 1 & 2).
+  const SUGGESTED_SUBSCRIBE_STATES = ['CAN_SUBSCRIBE'];
   const SUGGESTED_JOIN_STATES = ['CAN_JOIN'];
+  // Only a story_header stored under one of these known suggestion location keys WITH a
+  // non-empty title counts as suggestion evidence. A location-free story_header is NOT
+  // evidence: contextual stories ("X commented on ...") carry a plain story_header too,
+  // and folding those hid real friend activity (STRATEGY.md, misclassifications 1 & 2).
   const SUGGESTED_STORY_LOCATIONS = ['homepage_stream', 'groups_tab', 'feed'];
+
+  // The Reels attachment style wrapper only renders reel attachments INSIDE another story
+  // (typically a friend's share of a reel). The record that reaches the classifier from
+  // this module IS the attachment, whose __typename is ShowcaseFeedUnit, so the typename
+  // based Reels rule must be suppressed in this context (STRATEGY.md, misclassification 3).
+  const STORY_ATTACHMENT_MODULE = 'CometFeedStoryFBReelsAttachmentStyle.react';
 
   const SPONSORED_PATH = '^sponsored_data.ad_id';
   const SUBSCRIBE_PATH = '^^actors[0].subscribe_status';
@@ -107,15 +121,25 @@ window.FBDietClassify = (() => {
       if (typeof candidate === 'string' && candidate && ids.indexOf(candidate) === -1) ids.push(candidate);
     }
 
+    // ownTypename must never be derived from the nested attachment record: a friend's
+    // share of a reel nests a ShowcaseFeedUnit inside an ordinary Story, and only the
+    // unit itself being a ShowcaseFeedUnit identifies a Reels surface.
+    const ownTypename =
+      toStringOrNull(readProp(payload, 'unitTypename')) ||
+      toStringOrNull(readProp(feedUnit, '__typename')) ||
+      toStringOrNull(readProp(payload, '__typename'));
+    const nestedTypename = toStringOrNull(readProp(nestedUnit, '__typename'));
+
     return {
       feedUnit,
       nestedUnit,
       record,
       ids,
-      unitTypename:
-        toStringOrNull(readProp(payload, 'unitTypename')) ||
-        toStringOrNull(readProp(record, '__typename')) ||
-        toStringOrNull(readProp(payload, '__typename'))
+      // Reporting / debug value; prefers the unit's own typename and only falls back to
+      // the nested attachment record for diagnostics.
+      unitTypename: ownTypename || nestedTypename,
+      ownTypename,
+      nestedTypename
     };
   }
 /* ------------------------------------------------------------------ *
@@ -129,12 +153,15 @@ window.FBDietClassify = (() => {
   function gatherEvidence(unit) {
     const evidence = {
       unitTypename: unit.unitTypename,
+      ownTypename: unit.ownTypename,
+      nestedTypename: unit.nestedTypename,
       ids: unit.ids.slice(0, 4),
       adId: null,
       subscribeStatus: null,
       joinState: null,
       storyType: null,
       storyLocation: null,
+      storyTitle: null,
       source: 'none'
     };
 
@@ -187,28 +214,19 @@ window.FBDietClassify = (() => {
         evidence.source = 'relay';
       }
     }
+    // Only a story_header stored under a known suggestion location key WITH a real title
+    // counts as suggestion evidence. Existence-only and location-free checks were removed
+    // on purpose: contextual stories ("X commented on ...", shared group posts) carry a
+    // plain story_header too, and those must stay visible
+    // (STRATEGY.md, misclassifications 1 & 2).
     for (const location of SUGGESTED_STORY_LOCATIONS) {
       const opts = { $1: { location }, params: { $1: { location } } };
-      let value = safeRelayRead(unit.ids, STORY_HEADER_PATH, opts);
-      if (!value) {
-        // Also check if story_header linked record exists for this location
-        const headerRec = safeRelayRead(unit.ids, '^story_header{$1}', opts);
-        if (headerRec) value = location;
-      }
-      if (value) {
+      const title = toStringOrNull(safeRelayRead(unit.ids, STORY_HEADER_PATH, opts));
+      if (title) {
         evidence.storyLocation = location;
+        evidence.storyTitle = title;
         evidence.source = 'relay';
         break;
-      }
-    }
-    if (!evidence.storyLocation) {
-      // Check location-free story_header
-      let val = safeRelayRead(unit.ids, '^story_header.^title.text');
-      if (!val) val = safeRelayRead(unit.ids, '^story_header.title.text');
-      if (!val && safeRelayRead(unit.ids, '^story_header')) val = 'header';
-      if (val) {
-        evidence.storyLocation = 'header';
-        evidence.source = 'relay';
       }
     }
 
@@ -219,7 +237,7 @@ window.FBDietClassify = (() => {
    * Assigns a single category. Order matters: an ad that is also a group suggestion must
    * be reported as an ad, and a unit is never classified twice.
    */
-  function pickCategory(evidence) {
+  function pickCategory(evidence, context) {
     if (evidence.adId) return { category: CATEGORY.SPONSORED, reason: 'sponsored_data.ad_id' };
 
     if (evidence.unitTypename && SUGGESTED_GROUP_TYPENAMES.indexOf(evidence.unitTypename) !== -1) {
@@ -236,9 +254,14 @@ window.FBDietClassify = (() => {
     }
 
     // Reels is only the clear-cut Reels surface (the rail / showcase feed units).
-    // showcase_story_type alone is NOT enough: a friend sharing a reel also exposes
-    // SHOWCASE_SHORT_VIDEO on an ordinary Story, and those must stay visible.
-    if (evidence.unitTypename === 'ShowcaseFeedUnit') {
+    // Two guards keep friend shares visible (STRATEGY.md, misclassification 3):
+    //   1. The ShowcaseFeedUnit typename must belong to the unit itself. A friend's share
+    //      of a reel nests a ShowcaseFeedUnit attachment inside an ordinary Story, and a
+    //      typename read off that nested record is NOT a Reels surface.
+    //   2. The Reels attachment style wrapper renders attachments by definition, so units
+    //      arriving through it never fold as Reels. (showcase_story_type alone is
+    //      likewise NOT enough: an ordinary Story sharing a reel carries it too.)
+    if (evidence.ownTypename === 'ShowcaseFeedUnit' && !(context && context.moduleName === STORY_ATTACHMENT_MODULE)) {
       return { category: CATEGORY.REELS, reason: 'unitTypename:ShowcaseFeedUnit' };
     }
 
@@ -258,8 +281,15 @@ window.FBDietClassify = (() => {
     return /[?&]fb_diet_debug=1(?:&|$)/.test(window.location.search);
   }
 
-  function classifyFeedUnit(payload) {
-    const result = { category: null, unitId: null, unitTypename: null, reason: 'no-payload', evidence: null };
+  function classifyFeedUnit(payload, context) {
+    const result = {
+      category: null,
+      unitId: null,
+      unitTypename: null,
+      reason: 'no-payload',
+      evidence: null,
+      moduleName: context && context.moduleName ? context.moduleName : null
+    };
 
     try {
       if (!payload || typeof payload !== 'object') return result;
@@ -271,12 +301,12 @@ window.FBDietClassify = (() => {
       const evidence = gatherEvidence(unit);
       result.evidence = evidence;
 
-      const picked = pickCategory(evidence);
+      const picked = pickCategory(evidence, context);
       result.category = picked.category;
       result.reason = picked.reason;
 
       if (result.category && isDebugEnabled()) {
-        console.info('[FB Diet][Classify] Matched:', result.category, 'for unit:', shortUnitId(result.unitId), '(' + (result.unitTypename || 'no-type') + ')', 'reason:', result.reason);
+        console.info('[FB Diet][Classify] Matched:', result.category, 'for unit:', shortUnitId(result.unitId), '(' + (result.unitTypename || 'no-type') + ')', 'reason:', result.reason, 'module:', result.moduleName || '-', 'evidence:', result.evidence);
       }
 
       return result;

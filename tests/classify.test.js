@@ -65,12 +65,31 @@ function run(c) {
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
   equals(c, 'suggested by subscribe status', r.category, 'suggested');
 
+  // CAN_FOLLOW / NOT_SUBSCRIBED are NOT suggestion evidence: they matched nearly
+  // every actor the viewer does not subscribe to and folded real friend activity
+  // (STRATEGY.md, misclassifications 1 & 2).
+  calls.mapValue = (path) => (path === P.SUBSCRIBE_PATH ? 'NOT_SUBSCRIBED' : null);
+  r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
+  equals(c, 'NOT_SUBSCRIBED actor is not suggested', r.category, null);
+  calls.mapValue = (path) => (path === P.SUBSCRIBE_PATH ? 'CAN_FOLLOW' : null);
+  r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
+  equals(c, 'CAN_FOLLOW actor is not suggested', r.category, null);
   /* --- suggested by story header location --- */
   calls.mapValue = (path) => (path === P.STORY_HEADER_PATH ? 'Suggested for you' : null);
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
   equals(c, 'suggested by story location', r.category, 'suggested');
   equals(c, 'story location evidence', r.evidence.storyLocation, 'homepage_stream');
 
+  // A location-free story_header ("X commented on ...") is NOT suggestion evidence:
+  // contextual stories carry one too and must stay visible.
+  calls.mapValue = (path) => (path.indexOf('story_header') !== -1 && path.indexOf('$1') === -1 ? 'A friend commented on a post' : null);
+  r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
+  equals(c, 'plain contextual story_header is not suggested', r.category, null);
+
+  // Existence of a location-keyed story_header without a title is not enough either.
+  calls.mapValue = (path) => (path === '^story_header{$1}' ? { location: 'homepage_stream' } : null);
+  r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
+  equals(c, 'story_header existence without title is not suggested', r.category, null);
   /* --- reels --- */
   calls.mapValue = () => null;
 
@@ -86,6 +105,27 @@ function run(c) {
   r = C.classifyFeedUnit({ unitTypename: 'Story', feedUnit: feedUnitOf({ showcase_story_type: 'SHOWCASE_SHORT_VIDEO' }) });
   equals(c, 'friend shared reel (Story) stays visible', r.category, null);
 
+  // A friend's share nests a ShowcaseFeedUnit attachment inside an ordinary Story:
+  // the nested record's typename must never trigger the Reels rule
+  // (STRATEGY.md, misclassification 3).
+  r = C.classifyFeedUnit({
+    unitTypename: 'Story',
+    feedUnit: feedUnitOf(),
+    children: [{ props: { feedUnit: { id: 'reel-1', __typename: 'ShowcaseFeedUnit' } } }]
+  });
+  equals(c, 'friend share with nested showcase stays visible', r.category, null);
+
+  // A payload whose OWN typename is missing (attachment-level payload) is equally not
+  // a Reels surface: only a typename read off the nested record would match.
+  r = C.classifyFeedUnit({ children: [{ props: { feedUnit: { id: 'reel-2', __typename: 'ShowcaseFeedUnit' } } }] });
+  equals(c, 'nested-only showcase typename is not reels', r.category, null);
+
+  // The Reels attachment style wrapper renders attachments by definition; units
+  // classified from that module must never fold as Reels.
+  r = C.classifyFeedUnit({ feedUnit: feedUnitOf({ __typename: 'ShowcaseFeedUnit' }) }, { moduleName: 'CometFeedStoryFBReelsAttachmentStyle.react' });
+  equals(c, 'attachment module context never folds as reels', r.category, null);
+  r = C.classifyFeedUnit({ feedUnit: feedUnitOf({ __typename: 'ShowcaseFeedUnit' }) }, { moduleName: 'CometFeedUnitErrorBoundary.react' });
+  equals(c, 'reels still folds for other modules', r.category, 'reels');
   /* --- priority: an ad that is also a group suggestion is an ad --- */
   calls.mapValue = (path) => (path === P.SPONSORED_PATH ? 'ad-9' : 'CAN_JOIN');
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf({ __typename: 'GroupsYouShouldJoinFeedUnit' }) });
