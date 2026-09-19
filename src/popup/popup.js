@@ -8,10 +8,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   const totalCounter = document.getElementById('totalCount');
   const settingsBtn = document.getElementById('settingsBtn');
 
+  const i18n = window.FBDietI18N;
+
+  // Apply all data-i18n / data-i18n-title texts for the active language.
+  function applyTranslations() {
+    if (!i18n) return;
+    document.documentElement.lang = i18n.getLang();
+    document.querySelectorAll('[data-i18n]').forEach((el) => {
+      el.textContent = i18n.t(el.dataset.i18n);
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+      el.title = i18n.t(el.dataset.i18nTitle);
+    });
+  }
+
   // Load initial state
   const data = await chrome.storage.local.get(['settings', 'counts']);
   const settings = data.settings || {};
   const counts = data.counts || {};
+
+  if (i18n) i18n.setLang(settings.lang || i18n.detect());
+  applyTranslations();
 
   masterToggle.checked = settings.enabled !== false;
   totalCounter.textContent = (counts.total || 0).toLocaleString();
@@ -52,6 +69,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const s = changes.settings.newValue;
         if (s.enabled !== undefined && s.enabled !== masterToggle.checked) {
           masterToggle.checked = s.enabled;
+        }
+        if (s.lang && i18n && s.lang !== i18n.getLang()) {
+          i18n.setLang(s.lang);
+          applyTranslations();
         }
       }
     }

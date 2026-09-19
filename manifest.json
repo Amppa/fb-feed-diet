@@ -50,6 +50,7 @@
         "*://*.facebook.com/*"
       ],
       "js": [
+        "src/i18n/i18n.js",
         "src/inject/proxy.js",
         "src/inject/relay.js",
         "src/inject/classify.js",
@@ -68,6 +69,7 @@
         "src/content/content.css"
       ],
       "js": [
+        "src/i18n/i18n.js",
         "src/content/detector.js",
         "src/content/content.js"
       ],

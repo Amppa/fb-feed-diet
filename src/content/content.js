@@ -8,6 +8,7 @@
   // Runtime configuration state
   let currentSettings = {
     enabled: true,
+    lang: window.FBDietI18N ? window.FBDietI18N.getLang() : 'en',
     removeSponsored: true,
     removeSuggested: true,
     removeSuggestedGroup: true,
@@ -16,6 +17,15 @@
     removeStories: true,
     removeReels: true
   };
+
+  // Localized text helper: falls back to English ever if the i18n module is missing.
+  function t(key, fallback) {
+    if (window.FBDietI18N) {
+      const value = window.FBDietI18N.t(key, currentSettings.lang);
+      if (value && value !== key) return value;
+    }
+    return fallback;
+  }
 
   // MAIN world bridge protocol (see src/inject/bridge.js)
   const MAIN_SOURCE = 'fb-diet/main';
@@ -270,6 +280,9 @@
     if (data?.settings) {
       currentSettings = { ...currentSettings, ...data.settings };
     }
+    if (window.FBDietI18N && currentSettings.lang) {
+      window.FBDietI18N.setLang(currentSettings.lang);
+    }
 
     // Context was invalidated before we could even read settings: stay dormant.
     if (isShutDown) return;
@@ -292,6 +305,12 @@
         if (area === 'local' && changes.settings) {
           const oldEnabled = currentSettings.enabled;
           currentSettings = { ...currentSettings, ...changes.settings.newValue };
+
+          // Language switch: refresh the i18n module and visible placeholder texts.
+          if (window.FBDietI18N && changes.settings.newValue && changes.settings.newValue.lang) {
+            window.FBDietI18N.setLang(changes.settings.newValue.lang);
+            syncPlaceholderLanguage();
+          }
 
           if (proxyActive) {
             // The MAIN world wrapper renders live, so pushing settings is all that is
@@ -387,45 +406,57 @@
     const config = {
       sponsored: {
         badgeClass: 'fb-diet-badge-sponsored',
-        badgeText: 'Sponsored'
+        badgeText: 'Sponsored',
+        i18nKey: 'badgeSponsored'
       },
       suggested: {
         badgeClass: 'fb-diet-badge-suggested',
-        badgeText: 'Suggested post'
+        badgeText: 'Suggested post',
+        i18nKey: 'badgeSuggested'
       },
       suggestedGroup: {
         badgeClass: 'fb-diet-badge-group',
-        badgeText: 'Suggested group'
+        badgeText: 'Suggested group',
+        i18nKey: 'badgeSuggestedGroup'
       },
       marketAds: {
         badgeClass: 'fb-diet-badge-market',
-        badgeText: 'Market ad'
+        badgeText: 'Market ad',
+        i18nKey: 'badgeMarketAds'
       },
       searchingAds: {
         badgeClass: 'fb-diet-badge-search',
-        badgeText: 'Search ad'
+        badgeText: 'Search ad',
+        i18nKey: 'badgeSearchingAds'
       },
       stories: {
         badgeClass: 'fb-diet-badge-stories',
-        badgeText: 'Stories'
+        badgeText: 'Stories',
+        i18nKey: 'badgeStories'
       },
       reels: {
         badgeClass: 'fb-diet-badge-reels',
-        badgeText: 'Reels'
+        badgeText: 'Reels',
+        i18nKey: 'badgeReels'
       }
     }[type] || {
       badgeClass: 'fb-diet-badge-sponsored',
-      badgeText: 'Sponsored'
+      badgeText: 'Sponsored',
+      i18nKey: 'badgeSponsored'
     };
+
+    const badgeText = t(config.i18nKey, config.badgeText);
+    const showPost = t('showPost', 'Show post');
+    const refold = t('refold', 'Re-fold');
 
     const bar = document.createElement('div');
     bar.className = 'fb-diet-placeholder';
     bar.setAttribute('data-fb-diet-type', type);
-    bar.title = 'Show post';
+    bar.title = showPost;
 
     bar.innerHTML = `
       <div class="fb-diet-placeholder-left">
-        <span class="fb-diet-badge ${config.badgeClass}">${config.badgeText}</span>
+        <span class="fb-diet-badge ${config.badgeClass}">${badgeText}</span>
       </div>
       <span class="fb-diet-toggle-symbol">[+]</span>
     `;
@@ -440,19 +471,46 @@
       if (isExpanded) {
         originalElement.classList.add('fb-diet-is-expanded');
         bar.classList.add('fb-diet-state-expanded');
-        bar.title = 'Re-fold';
+        bar.title = refold;
         if (symbol) symbol.textContent = '[-]';
-        if (badge) badge.textContent = config.badgeText;
+        if (badge) badge.textContent = badgeText;
       } else {
         originalElement.classList.remove('fb-diet-is-expanded');
         bar.classList.remove('fb-diet-state-expanded');
-        bar.title = 'Show post';
+        bar.title = showPost;
         if (symbol) symbol.textContent = '[+]';
-        if (badge) badge.textContent = config.badgeText;
+        if (badge) badge.textContent = badgeText;
       }
     });
 
     return bar;
+  }
+
+  /**
+   * Re-syncs visible placeholder labels & titles when the UI language changes.
+   */
+  function syncPlaceholderLanguage() {
+    document.querySelectorAll('.fb-diet-placeholder').forEach((bar) => {
+      const type = bar.getAttribute('data-fb-diet-type');
+      const metaLang = type && {
+        sponsored: 'badgeSponsored',
+        suggested: 'badgeSuggested',
+        suggestedGroup: 'badgeSuggestedGroup',
+        marketAds: 'badgeMarketAds',
+        searchingAds: 'badgeSearchingAds',
+        stories: 'badgeStories',
+        reels: 'badgeReels'
+      }[type];
+      if (metaLang) {
+        const badge = bar.querySelector('.fb-diet-badge');
+        if (badge) badge.textContent = t(metaLang, badge.textContent);
+      }
+      if (bar.classList.contains('fb-diet-state-expanded')) {
+        bar.title = t('refold', 'Re-fold');
+      } else {
+        bar.title = t('showPost', 'Show post');
+      }
+    });
   }
 
   /**

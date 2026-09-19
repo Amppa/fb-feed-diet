@@ -15,13 +15,17 @@
       <div class="brand">
         <div class="logo-badge">FD</div>
         <div>
-          <h1 class="title">FB Diet Options</h1>
-          <p class="subtitle">Configure your feed diet preferences</p>
+          <h1 class="title" data-i18n="optionsTitle">FB Diet Options</h1>
+          <p class="subtitle" data-i18n="optionsSubtitle">Configure your feed diet preferences</p>
         </div>
       </div>
       <div class="header-action">
-        <span class="master-status-label" id="masterStatus">Active</span>
-        <label class="switch main-toggle" title="Master Toggle">
+        <div class="lang-switch" id="langSwitch" title="Switch language" data-i18n-title="langToggleTitle">
+          <button type="button" class="lang-segment" data-lang="en">EN</button>
+          <button type="button" class="lang-segment" data-lang="zh-TW">繁中</button>
+        </div>
+        <span class="master-status-label" id="masterStatus" data-i18n="masterStatusActive">Active</span>
+        <label class="switch main-toggle" title="Master Toggle" data-i18n-title="masterToggleTitle">
           <input type="checkbox" id="enabled">
           <span class="slider round"></span>
         </label>
@@ -33,66 +37,66 @@
       <div class="stat-main">
         <div class="stat-info">
           <span class="stat-number" id="totalCount">0</span>
-          <span class="stat-title">Items Folded on Diet</span>
+          <span class="stat-title" data-i18n="itemsFoldedOnDiet">Items Folded on Diet</span>
         </div>
-        <button class="reset-btn" id="resetBtn" title="Reset all counter stats">Reset</button>
+        <button class="reset-btn" id="resetBtn" title="Reset all counter stats" data-i18n-title="resetOptionsTitle" data-i18n="reset">Reset</button>
       </div>
 
       <!-- Sub-counters breakdown -->
       <div class="stat-breakdown">
         <div class="stat-sub-item">
-          <span class="sub-label">Sponsored</span>
+          <span class="sub-label" data-i18n="labelSponsored">Sponsored</span>
           <span class="sub-value" id="sponsoredCount">0</span>
         </div>
         <div class="stat-sub-item">
-          <span class="sub-label">Suggested</span>
+          <span class="sub-label" data-i18n="labelSuggested">Suggested</span>
           <span class="sub-value" id="suggestedCount">0</span>
         </div>
         <div class="stat-sub-item">
-          <span class="sub-label">Groups</span>
+          <span class="sub-label" data-i18n="labelGroups">Groups</span>
           <span class="sub-value" id="suggestedGroupCount">0</span>
         </div>
         <div class="stat-sub-item">
-          <span class="sub-label">Market</span>
+          <span class="sub-label" data-i18n="labelMarket">Market</span>
           <span class="sub-value" id="marketCount">0</span>
         </div>
         <div class="stat-sub-item">
-          <span class="sub-label">Search</span>
+          <span class="sub-label" data-i18n="labelSearch">Search</span>
           <span class="sub-value" id="searchCount">0</span>
         </div>
         <div class="stat-sub-item">
-          <span class="sub-label">Stories</span>
+          <span class="sub-label" data-i18n="labelStories">Stories</span>
           <span class="sub-value" id="storiesCount">0</span>
         </div>
         <div class="stat-sub-item">
-          <span class="sub-label">Reels</span>
+          <span class="sub-label" data-i18n="labelReels">Reels</span>
           <span class="sub-value" id="reelsCount">0</span>
         </div>
       </div>
     </div>
 
     <!-- Engine Mode Selection (Proxy vs DOM) -->
-    <div class="section-label">DETECTION ENGINE MODE</div>
+    <div class="section-label" data-i18n="sectionEngineMode">DETECTION ENGINE MODE</div>
     <div class="mode-selector">
       <label class="mode-option" id="modeProxyLabel">
         <input type="radio" name="engineMode" value="proxy" id="modeProxy" checked>
         <div class="mode-content">
-          <div class="mode-title">⚡ Proxy Mode <span class="badge-recommended">Recommended</span></div>
-          <div class="mode-desc">Direct React & Relay interceptor. Zero CPU overhead.</div>
+          <div class="mode-title"><span class="mode-emoji">⚡</span><span data-i18n="modeProxyTitle">Proxy Mode</span> <span class="badge-recommended" data-i18n="modeRecommended">Recommended</span></div>
+          <div class="mode-desc" data-i18n="modeProxyDesc">Direct React & Relay interceptor. Zero CPU overhead.</div>
         </div>
       </label>
       <label class="mode-option" id="modeDomLabel">
         <input type="radio" name="engineMode" value="dom" id="modeDom">
         <div class="mode-content">
-          <div class="mode-title">🔍 DOM Mode</div>
-          <div class="mode-desc">Traditional MutationObserver text scanner. Scans on-screen text and attributes
+          <div class="mode-title"><span class="mode-emoji">🔍</span><span data-i18n="modeDomTitle">DOM Mode</span></div>
+          <div class="mode-desc" data-i18n="modeDomDesc">Traditional MutationObserver text scanner. Scans on-screen text and attributes
             directly.</div>
         </div>
       </label>
     </div>
 
     <!-- Feature Switches List -->
-    <div class="section-label">DIET OPTIONS</div>
+    <div class="section-label" data-i18n="sectionDietOptions">DIET OPTIONS</div>
     <div class="features-list" id="featuresList">
 
       <!-- 1. Remove Sponsored -->
@@ -100,8 +104,8 @@
         <div class="feature-meta">
           <span class="feature-icon">🛡️</span>
           <div>
-            <div class="feature-title">Remove Sponsored</div>
-            <div class="feature-desc">Fold sponsored ads & sidebar promos</div>
+            <div class="feature-title" data-i18n="featSponsoredTitle">Remove Sponsored</div>
+            <div class="feature-desc" data-i18n="featSponsoredDesc">Fold sponsored ads & sidebar promos</div>
           </div>
         </div>
         <label class="switch">
@@ -115,8 +119,8 @@
         <div class="feature-meta">
           <span class="feature-icon">💡</span>
           <div>
-            <div class="feature-title">Remove Suggested Posts</div>
-            <div class="feature-desc">Fold recommended posts, pages & people</div>
+            <div class="feature-title" data-i18n="featSuggestedTitle">Remove Suggested Posts</div>
+            <div class="feature-desc" data-i18n="featSuggestedDesc">Fold recommended posts, pages & people</div>
           </div>
         </div>
         <label class="switch">
@@ -130,8 +134,8 @@
         <div class="feature-meta">
           <span class="feature-icon">👥</span>
           <div>
-            <div class="feature-title">Remove Suggested Groups</div>
-            <div class="feature-desc">Fold recommended groups & community suggestions</div>
+            <div class="feature-title" data-i18n="featSuggestedGroupTitle">Remove Suggested Groups</div>
+            <div class="feature-desc" data-i18n="featSuggestedGroupDesc">Fold recommended groups & community suggestions</div>
           </div>
         </div>
         <label class="switch">
@@ -145,8 +149,8 @@
         <div class="feature-meta">
           <span class="feature-icon">📸</span>
           <div>
-            <div class="feature-title">Remove Stories</div>
-            <div class="feature-desc">Fold stories tray & top feed story tiles</div>
+            <div class="feature-title" data-i18n="featStoriesTitle">Remove Stories</div>
+            <div class="feature-desc" data-i18n="featStoriesDesc">Fold stories tray & top feed story tiles</div>
           </div>
         </div>
         <label class="switch">
@@ -160,8 +164,8 @@
         <div class="feature-meta">
           <span class="feature-icon">🎬</span>
           <div>
-            <div class="feature-title">Remove Reels</div>
-            <div class="feature-desc">Fold reels feed units, trays & video recommendations</div>
+            <div class="feature-title" data-i18n="featReelsTitle">Remove Reels</div>
+            <div class="feature-desc" data-i18n="featReelsDesc">Fold reels feed units, trays & video recommendations</div>
           </div>
         </div>
         <label class="switch">
@@ -175,8 +179,8 @@
         <div class="feature-meta">
           <span class="feature-icon">🛒</span>
           <div>
-            <div class="feature-title">Remove Market Ads</div>
-            <div class="feature-desc">Fold sponsored items in Marketplace</div>
+            <div class="feature-title" data-i18n="featMarketAdsTitle">Remove Market Ads</div>
+            <div class="feature-desc" data-i18n="featMarketAdsDesc">Fold sponsored items in Marketplace</div>
           </div>
         </div>
         <label class="switch">
@@ -190,8 +194,8 @@
         <div class="feature-meta">
           <span class="feature-icon">🔍</span>
           <div>
-            <div class="feature-title">Remove Searching Ads</div>
-            <div class="feature-desc">Fold ad results in search page</div>
+            <div class="feature-title" data-i18n="featSearchingAdsTitle">Remove Searching Ads</div>
+            <div class="feature-desc" data-i18n="featSearchingAdsDesc">Fold ad results in search page</div>
           </div>
         </div>
         <label class="switch">
@@ -203,6 +207,7 @@
     </div>
   </div>
 
+  <script src="../i18n/i18n.js"></script>
   <script src="options.js"></script>
 </body>
 

@@ -16,10 +16,10 @@
         <div class="logo-badge">FD</div>
         <div>
           <h1 class="title">FB Diet</h1>
-          <p class="subtitle">Feed Declutter & Diet</p>
+          <p class="subtitle" data-i18n="popupSubtitle">Feed Declutter & Diet</p>
         </div>
       </div>
-      <label class="switch main-toggle" title="Master Toggle">
+      <label class="switch main-toggle" title="Master Toggle" data-i18n-title="masterToggleTitle">
         <input type="checkbox" id="enabled">
         <span class="slider round"></span>
       </label>
@@ -29,15 +29,16 @@
     <div class="stat-card">
       <div class="stat-info">
         <span class="stat-number" id="totalCount">0</span>
-        <span class="stat-title">Items Folded on Diet</span>
+        <span class="stat-title" data-i18n="itemsFoldedOnDiet">Items Folded on Diet</span>
       </div>
-      <button class="reset-btn" id="resetBtn" title="Reset counter">Reset</button>
+      <button class="reset-btn" id="resetBtn" title="Reset counter" data-i18n-title="resetPopupTitle" data-i18n="reset">Reset</button>
     </div>
 
     <!-- Settings Button -->
-    <button class="settings-btn" id="settingsBtn">⚙️ Options</button>
+    <button class="settings-btn" id="settingsBtn" data-i18n="optionsBtn">⚙️ Options</button>
   </div>
 
+  <script src="../i18n/i18n.js"></script>
   <script src="popup.js"></script>
 </body>
 

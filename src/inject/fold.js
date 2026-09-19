@@ -35,33 +35,59 @@ window.FBDietFold = (() => {
   const CATEGORY_META = {
     sponsored: {
       badgeClass: 'fb-diet-badge-sponsored',
-      badgeText: 'Sponsored'
+      badgeText: 'Sponsored',
+      i18nKey: 'badgeSponsored'
     },
     suggested: {
       badgeClass: 'fb-diet-badge-suggested',
-      badgeText: 'Suggested post'
+      badgeText: 'Suggested post',
+      i18nKey: 'badgeSuggested'
     },
     suggestedGroup: {
       badgeClass: 'fb-diet-badge-group',
-      badgeText: 'Suggested group'
+      badgeText: 'Suggested group',
+      i18nKey: 'badgeSuggestedGroup'
     },
     reels: {
       badgeClass: 'fb-diet-badge-reels',
-      badgeText: 'Reels'
+      badgeText: 'Reels',
+      i18nKey: 'badgeReels'
     },
     stories: {
       badgeClass: 'fb-diet-badge-stories',
-      badgeText: 'Stories'
+      badgeText: 'Stories',
+      i18nKey: 'badgeStories'
     },
     marketAds: {
       badgeClass: 'fb-diet-badge-market',
-      badgeText: 'Market ad'
+      badgeText: 'Market ad',
+      i18nKey: 'badgeMarketAds'
     },
     searchingAds: {
       badgeClass: 'fb-diet-badge-search',
-      badgeText: 'Search ad'
+      badgeText: 'Search ad',
+      i18nKey: 'badgeSearchingAds'
     }
   };
+
+  /**
+   * Localized helper. The language comes from the bridge settings (pushed by the
+   * content script from chrome.storage); it falls back to the i18n module's own
+   * detected language and finally to the English fallback text.
+   */
+  function t(key, fallback) {
+    const bridgeSettings = window.FBDietBridge ? window.FBDietBridge.getSettings() : null;
+    const lang = (bridgeSettings && bridgeSettings.lang) || (window.FBDietI18N ? window.FBDietI18N.getLang() : null);
+    if (window.FBDietI18N && lang) {
+      const value = window.FBDietI18N.t(key, lang);
+      if (value && value !== key) return value;
+    }
+    return fallback;
+  }
+
+  function badgeText(meta) {
+    return t(meta.i18nKey, meta.badgeText);
+  }
 
   function createEl(type, props, children) {
     const React = window.FBDietProxy ? window.FBDietProxy.getReact() : null;
@@ -77,7 +103,7 @@ window.FBDietFold = (() => {
     const meta = CATEGORY_META[props.category] || CATEGORY_META.sponsored;
 
     const left = createEl('div', { className: 'fb-diet-placeholder-left' }, [
-      createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText])
+      createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [badgeText(meta)])
     ]);
 
     const symbol = createEl('span', { className: 'fb-diet-toggle-symbol' }, ['[+]']);
@@ -86,7 +112,7 @@ window.FBDietFold = (() => {
       'div',
       {
         className: 'fb-diet-placeholder',
-        title: 'Show post',
+        title: t('showPost', 'Show post'),
         onClick: props.onToggle
       },
       [left, symbol]
@@ -181,14 +207,14 @@ window.FBDietFold = (() => {
       if (isExpanded) {
         const meta = CATEGORY_META[category] || CATEGORY_META.sponsored;
         const refoldLeft = createEl('div', { className: 'fb-diet-placeholder-left' }, [
-          createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText])
+          createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [badgeText(meta)])
         ]);
         const refoldSymbol = createEl('span', { className: 'fb-diet-toggle-symbol' }, ['[-]']);
         const refoldBar = createEl(
           'div',
           {
             className: 'fb-diet-placeholder fb-diet-state-expanded',
-            title: 'Re-fold',
+            title: t('refold', 'Re-fold'),
             onClick: onToggle
           },
           [refoldLeft, refoldSymbol]

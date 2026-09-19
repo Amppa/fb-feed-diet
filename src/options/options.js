@@ -11,6 +11,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const modeProxy = document.getElementById('modeProxy');
   const modeDom = document.getElementById('modeDom');
 
+  const i18n = window.FBDietI18N;
+  const langSegments = document.querySelectorAll('.lang-segment');
+
   const DEFAULTS = {
     removeSponsored: true,
     removeSuggested: true,
@@ -51,7 +54,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function updateMasterUI(isEnabled) {
     if (masterToggle) masterToggle.checked = isEnabled;
-    if (masterStatus) masterStatus.textContent = isEnabled ? 'Active' : 'Disabled';
+    if (masterStatus) masterStatus.textContent = i18n ? i18n.t(isEnabled ? 'masterStatusActive' : 'masterStatusDisabled') : (isEnabled ? 'Active' : 'Disabled');
     if (isEnabled) {
       featuresList.classList.remove('disabled');
     } else {
@@ -67,10 +70,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // Applies all data-i18n / data-i18n-title translations for the active language.
+  function applyTranslations() {
+    if (!i18n) return;
+    const lang = i18n.getLang();
+    document.documentElement.lang = lang;
+    document.title = i18n.t('optionsTitle');
+    document.querySelectorAll('[data-i18n]').forEach((el) => {
+      el.textContent = i18n.t(el.dataset.i18n);
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+      el.title = i18n.t(el.dataset.i18nTitle);
+    });
+    langSegments.forEach((btn) => {
+      const active = btn.dataset.lang === lang;
+      btn.classList.toggle('is-active', active);
+      if (active) btn.setAttribute('aria-pressed', 'true');
+      else btn.removeAttribute('aria-pressed');
+    });
+    // Dynamic statuses depend on the language too.
+    updateMasterUI(masterToggle ? masterToggle.checked : true);
+  }
+
   // Load initial settings and counts
   const data = await chrome.storage.local.get(['settings', 'counts']);
   const settings = data.settings || {};
   const counts = data.counts || {};
+
+  // Resolve language: stored setting wins, otherwise detect from the browser UI.
+  const lang = settings.lang || (i18n ? i18n.detect() : 'en');
+  if (i18n) i18n.setLang(lang);
+  if (!settings.lang && i18n) {
+    chrome.storage.local.set({ settings: { ...settings, lang } });
+  }
 
   // Initialize master switch, mode & feature switches
   updateMasterUI(settings.enabled !== false);
@@ -85,6 +117,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Initialize counts
   renderCounts(counts);
+
+  // Apply the resolved language to the whole page
+  applyTranslations();
+
+  // Language switch: persist the choice and re-render all texts
+  langSegments.forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const next = btn.dataset.lang;
+      if (!next || (i18n && next === i18n.getLang())) return;
+      if (i18n) i18n.setLang(next);
+      const { settings: current } = await chrome.storage.local.get('settings');
+      await chrome.storage.local.set({ settings: { ...current, lang: next } });
+      applyTranslations();
+    });
+  });
 
   // Handle Master toggle
   if (masterToggle) {
@@ -148,6 +195,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (s) {
           if (s.enabled !== undefined) updateMasterUI(s.enabled !== false);
           if (s.mode) updateModeUI(s.mode);
+          if (s.lang && i18n && s.lang !== i18n.getLang()) {
+            i18n.setLang(s.lang);
+            applyTranslations();
+          }
         }
       }
     }
