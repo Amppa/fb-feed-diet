@@ -20,15 +20,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     removeReels: true,
     removeMarketAds: true,
     removeSearchingAds: true,
-    hideLeftMetaAI: false,
+    hideLeftProfile: false,
+    hideLeftFriends: false,
+    hideLeftFeeds: false,
+    hideLeftGroups: false,
+    hideLeftMarketplace: false,
     hideLeftReels: false,
     hideLeftMemories: false,
     hideLeftSaved: false,
-    hideLeftMarketplace: false,
+    hideLeftPages: false,
+    hideLeftEvents: false,
+    hideLeftGaming: false,
+    hideLeftMetaAI: false,
+    hideLeftAdsManager: false,
+    hideLeftRecentAdActivity: false,
+    hideLeftProfessionalDashboard: false,
+    hideLeftMessengerKids: false,
+    hideLeftMetaQuest: false,
+    hideLeftFundraisers: false,
+    hideLeftOrdersPayments: false,
     hideTopReels: false,
     hideTopMarketplace: false,
-    hideTopGaming: false,
-    hideRightSponsoredHeader: true
+    hideTopGaming: false
   };
 
   const switches = {
@@ -39,16 +52,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     removeReels: document.getElementById('removeReels'),
     removeMarketAds: document.getElementById('removeMarketAds'),
     removeSearchingAds: document.getElementById('removeSearchingAds'),
-    // UI clean switches
-    hideLeftMetaAI: document.getElementById('hideLeftMetaAI'),
+    // UI clean switches - Left Sidebar
+    hideLeftProfile: document.getElementById('hideLeftProfile'),
+    hideLeftFriends: document.getElementById('hideLeftFriends'),
+    hideLeftFeeds: document.getElementById('hideLeftFeeds'),
+    hideLeftGroups: document.getElementById('hideLeftGroups'),
+    hideLeftMarketplace: document.getElementById('hideLeftMarketplace'),
     hideLeftReels: document.getElementById('hideLeftReels'),
     hideLeftMemories: document.getElementById('hideLeftMemories'),
     hideLeftSaved: document.getElementById('hideLeftSaved'),
-    hideLeftMarketplace: document.getElementById('hideLeftMarketplace'),
+    hideLeftPages: document.getElementById('hideLeftPages'),
+    hideLeftEvents: document.getElementById('hideLeftEvents'),
+    hideLeftGaming: document.getElementById('hideLeftGaming'),
+    hideLeftMetaAI: document.getElementById('hideLeftMetaAI'),
+    hideLeftAdsManager: document.getElementById('hideLeftAdsManager'),
+    hideLeftRecentAdActivity: document.getElementById('hideLeftRecentAdActivity'),
+    hideLeftProfessionalDashboard: document.getElementById('hideLeftProfessionalDashboard'),
+    hideLeftMessengerKids: document.getElementById('hideLeftMessengerKids'),
+    hideLeftMetaQuest: document.getElementById('hideLeftMetaQuest'),
+    hideLeftFundraisers: document.getElementById('hideLeftFundraisers'),
+    hideLeftOrdersPayments: document.getElementById('hideLeftOrdersPayments'),
+    // UI clean switches - Top Navigation
     hideTopReels: document.getElementById('hideTopReels'),
     hideTopMarketplace: document.getElementById('hideTopMarketplace'),
-    hideTopGaming: document.getElementById('hideTopGaming'),
-    hideRightSponsoredHeader: document.getElementById('hideRightSponsoredHeader')
+    hideTopGaming: document.getElementById('hideTopGaming')
   };
 
   const counters = {

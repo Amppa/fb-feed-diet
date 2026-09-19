@@ -15,11 +15,25 @@
     removeSearchingAds: true,
     removeStories: true,
     removeReels: true,
-    hideLeftMetaAI: false,
+    hideLeftProfile: false,
+    hideLeftFriends: false,
+    hideLeftFeeds: false,
+    hideLeftGroups: false,
+    hideLeftMarketplace: false,
     hideLeftReels: false,
     hideLeftMemories: false,
     hideLeftSaved: false,
-    hideLeftMarketplace: false,
+    hideLeftPages: false,
+    hideLeftEvents: false,
+    hideLeftGaming: false,
+    hideLeftMetaAI: false,
+    hideLeftAdsManager: false,
+    hideLeftRecentAdActivity: false,
+    hideLeftProfessionalDashboard: false,
+    hideLeftMessengerKids: false,
+    hideLeftMetaQuest: false,
+    hideLeftFundraisers: false,
+    hideLeftOrdersPayments: false,
     hideTopReels: false,
     hideTopMarketplace: false,
     hideTopGaming: false,
@@ -294,6 +308,38 @@
     }
   }
 
+  /**
+   * Scans and marks dynamic Left Rail items (e.g. Ads Manager).
+   */
+  function scanLeftRailDynamicItems() {
+    try {
+      if (!currentSettings || currentSettings.enabled === false) return;
+
+      if (currentSettings.hideLeftAdsManager) {
+        const candidates = document.querySelectorAll(
+          'a[href*="adsmanager"], a[href*="ads/manager"], a[href*="ad_center"], a[aria-label*="廣告管理員"], a[aria-label*="Ads Manager" i]'
+        );
+        for (const el of candidates) {
+          const row = el.closest('li, div[role="listitem"], div[role="button"], div[data-visualcompletion]') || el;
+          row.classList.add('fb-diet-hide-left-ads-manager-node');
+        }
+
+        const spans = document.querySelectorAll('span');
+        for (const span of spans) {
+          if (span.children.length === 0) {
+            const text = span.textContent.trim();
+            if (text === '廣告管理員' || text.toLowerCase() === 'ads manager') {
+              const row = span.closest('li, div[role="listitem"], div[role="button"], div[data-visualcompletion]') || span.closest('a') || span;
+              row.classList.add('fb-diet-hide-left-ads-manager-node');
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Non-fatal
+    }
+  }
+
   let railScanScheduled = false;
   function triggerThrottledRailScan() {
     if (railScanScheduled || isShutDown) return;
@@ -303,6 +349,9 @@
       if (isShutDown) return;
       if (currentSettings.enabled && currentSettings.hideRightSponsoredHeader !== false) {
         scanRightRailSponsoredHeaders();
+      }
+      if (currentSettings.enabled) {
+        scanLeftRailDynamicItems();
       }
     });
   }
@@ -318,11 +367,25 @@
     const isMasterEnabled = settings.enabled !== false;
 
     const classMap = {
-      'fb-diet-hide-left-metaai': isMasterEnabled && Boolean(settings.hideLeftMetaAI),
+      'fb-diet-hide-left-profile': isMasterEnabled && Boolean(settings.hideLeftProfile),
+      'fb-diet-hide-left-friends': isMasterEnabled && Boolean(settings.hideLeftFriends),
+      'fb-diet-hide-left-feeds': isMasterEnabled && Boolean(settings.hideLeftFeeds),
+      'fb-diet-hide-left-groups': isMasterEnabled && Boolean(settings.hideLeftGroups),
+      'fb-diet-hide-left-marketplace': isMasterEnabled && Boolean(settings.hideLeftMarketplace),
       'fb-diet-hide-left-reels': isMasterEnabled && Boolean(settings.hideLeftReels),
       'fb-diet-hide-left-memories': isMasterEnabled && Boolean(settings.hideLeftMemories),
       'fb-diet-hide-left-saved': isMasterEnabled && Boolean(settings.hideLeftSaved),
-      'fb-diet-hide-left-marketplace': isMasterEnabled && Boolean(settings.hideLeftMarketplace),
+      'fb-diet-hide-left-pages': isMasterEnabled && Boolean(settings.hideLeftPages),
+      'fb-diet-hide-left-events': isMasterEnabled && Boolean(settings.hideLeftEvents),
+      'fb-diet-hide-left-gaming': isMasterEnabled && Boolean(settings.hideLeftGaming),
+      'fb-diet-hide-left-metaai': isMasterEnabled && Boolean(settings.hideLeftMetaAI),
+      'fb-diet-hide-left-ads-manager': isMasterEnabled && Boolean(settings.hideLeftAdsManager),
+      'fb-diet-hide-left-recent-ad-activity': isMasterEnabled && Boolean(settings.hideLeftRecentAdActivity),
+      'fb-diet-hide-left-professional-dashboard': isMasterEnabled && Boolean(settings.hideLeftProfessionalDashboard),
+      'fb-diet-hide-left-messenger-kids': isMasterEnabled && Boolean(settings.hideLeftMessengerKids),
+      'fb-diet-hide-left-meta-quest': isMasterEnabled && Boolean(settings.hideLeftMetaQuest),
+      'fb-diet-hide-left-fundraisers': isMasterEnabled && Boolean(settings.hideLeftFundraisers),
+      'fb-diet-hide-left-orders-payments': isMasterEnabled && Boolean(settings.hideLeftOrdersPayments),
       'fb-diet-hide-top-reels': isMasterEnabled && Boolean(settings.hideTopReels),
       'fb-diet-hide-top-marketplace': isMasterEnabled && Boolean(settings.hideTopMarketplace),
       'fb-diet-hide-top-gaming': isMasterEnabled && Boolean(settings.hideTopGaming),
@@ -337,7 +400,7 @@
       }
     }
 
-    if (classMap['fb-diet-hide-right-sponsored-header']) {
+    if (classMap['fb-diet-hide-right-sponsored-header'] || classMap['fb-diet-hide-left-ads-manager']) {
       triggerThrottledRailScan();
     }
   }
@@ -356,7 +419,7 @@
     // Watch for dynamic right sidebar changes to hide sponsored headers
     try {
       const railObserver = new MutationObserver(() => {
-        if (currentSettings.enabled && currentSettings.hideRightSponsoredHeader !== false) {
+        if (currentSettings.enabled) {
           triggerThrottledRailScan();
         }
       });

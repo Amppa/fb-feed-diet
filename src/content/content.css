@@ -190,23 +190,38 @@
  * Strictly isolated so Left Sidebar and Top Navigation never conflict.
  * ------------------------------------------------------------------ */
 
-/* Left Sidebar Scope: only inside left rail, never in top banner/header */
-html.fb-diet-hide-left-metaai :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/meta_ai"]),
-html.fb-diet-hide-left-metaai :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/metaai"]),
-html.fb-diet-hide-left-metaai :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="meta.ai"]),
-html.fb-diet-hide-left-metaai :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[aria-label*="Meta AI" i]) {
+/* Left Sidebar: Profile */
+html.fb-diet-hide-left-profile :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/me/"], a[href*="/profile.php"], a[aria-label*="Profile" i], a[aria-label*="個人檔案"]) {
   display: none !important;
 }
 
-/* Left Sidebar: Reels */
-html.fb-diet-hide-left-reels :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/reel"]),
-html.fb-diet-hide-left-reels :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/watch"]) {
+/* Left Sidebar: Friends */
+html.fb-diet-hide-left-friends :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/friends"]) {
+  display: none !important;
+}
+
+/* Left Sidebar: Feeds */
+html.fb-diet-hide-left-feeds :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/feeds"], a[href*="/feed/"]) {
+  display: none !important;
+}
+
+/* Left Sidebar: Groups */
+html.fb-diet-hide-left-groups :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/groups"]) {
+  display: none !important;
+}
+
+/* Left Sidebar: Marketplace */
+html.fb-diet-hide-left-marketplace :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/marketplace"]) {
+  display: none !important;
+}
+
+/* Left Sidebar: Reels / Video */
+html.fb-diet-hide-left-reels :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/reel"], a[href*="/watch"], a[href*="/videos"]) {
   display: none !important;
 }
 
 /* Left Sidebar: Memories (動態回顧) */
-html.fb-diet-hide-left-memories :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/memories"]),
-html.fb-diet-hide-left-memories :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/onthisday"]) {
+html.fb-diet-hide-left-memories :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/memories"], a[href*="/onthisday"]) {
   display: none !important;
 }
 
@@ -215,8 +230,75 @@ html.fb-diet-hide-left-saved :is([data-pagelet="LeftRail"], div[role="navigation
   display: none !important;
 }
 
-/* Left Sidebar: Marketplace */
-html.fb-diet-hide-left-marketplace :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/marketplace"]) {
+/* Left Sidebar: Pages (粉絲專頁) */
+html.fb-diet-hide-left-pages :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/pages"]) {
+  display: none !important;
+}
+
+/* Left Sidebar: Events (活動) */
+html.fb-diet-hide-left-events :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/events"]) {
+  display: none !important;
+}
+
+/* Left Sidebar: Gaming (遊戲) */
+html.fb-diet-hide-left-gaming :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/gaming"], a[href*="/games"]) {
+  display: none !important;
+}
+
+/* Left Sidebar: Meta AI */
+html.fb-diet-hide-left-metaai :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/meta_ai"], a[href*="/metaai"], a[href*="meta.ai"], a[aria-label*="Meta AI" i]) {
+  display: none !important;
+}
+
+/* Left Sidebar: Ads Manager (廣告管理員) */
+html.fb-diet-hide-left-ads-manager a[href*="adsmanager"],
+html.fb-diet-hide-left-ads-manager a[href*="ads/manager"],
+html.fb-diet-hide-left-ads-manager a[href*="ads/manage"],
+html.fb-diet-hide-left-ads-manager a[href*="ad_center"],
+html.fb-diet-hide-left-ads-manager a[href*="adcenter"],
+html.fb-diet-hide-left-ads-manager a[aria-label*="廣告管理員"],
+html.fb-diet-hide-left-ads-manager a[aria-label*="Ads Manager" i],
+html.fb-diet-hide-left-ads-manager :is(li, div[role="listitem"], div[role="button"], div[data-visualcompletion]):has(a[href*="adsmanager"]),
+html.fb-diet-hide-left-ads-manager :is(li, div[role="listitem"], div[role="button"], div[data-visualcompletion]):has(a[href*="ads/manager"]),
+html.fb-diet-hide-left-ads-manager :is(li, div[role="listitem"], div[role="button"], div[data-visualcompletion]):has(a[href*="ad_center"]),
+html.fb-diet-hide-left-ads-manager :is(li, div[role="listitem"], div[role="button"], div[data-visualcompletion]):has(a[aria-label*="廣告管理員"]),
+html.fb-diet-hide-left-ads-manager div:has(> a[href*="adsmanager"]),
+html.fb-diet-hide-left-ads-manager div:has(> div > a[href*="adsmanager"]),
+html.fb-diet-hide-left-ads-manager .fb-diet-hide-left-ads-manager-node {
+  display: none !important;
+}
+
+/* Left Sidebar: Recent Ad Activity (你的廣告動態) */
+html.fb-diet-hide-left-recent-ad-activity :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"], div[role="button"]):has(
+  a[href*="ads/activity"],
+  a[aria-label*="廣告動態"],
+  a[aria-label*="Ad Activity" i]
+) {
+  display: none !important;
+}
+
+/* Left Sidebar: Professional Dashboard (專業主控板) */
+html.fb-diet-hide-left-professional-dashboard :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="professional_dashboard"]) {
+  display: none !important;
+}
+
+/* Left Sidebar: Messenger Kids */
+html.fb-diet-hide-left-messenger-kids :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="messenger_kids"], a[href*="/kids"]) {
+  display: none !important;
+}
+
+/* Left Sidebar: Meta Quest */
+html.fb-diet-hide-left-meta-quest :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="quest"]) {
+  display: none !important;
+}
+
+/* Left Sidebar: Fundraisers (募款活動) */
+html.fb-diet-hide-left-fundraisers :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/fundraisers"]) {
+  display: none !important;
+}
+
+/* Left Sidebar: Orders & Payments (訂單與付款) */
+html.fb-diet-hide-left-orders-payments :is([data-pagelet="LeftRail"], div[role="navigation"]:not(header *):not([role="banner"] *):not([data-pagelet="Header"] *)) :is(li, div[role="listitem"]):has(a[href*="/facebook_pay"], a[href*="/orders"]) {
   display: none !important;
 }
 
