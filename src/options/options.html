@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FB Diet — Options</title>
   <link rel="stylesheet" href="options.css">
 </head>
+
 <body>
   <div class="container">
     <!-- Header -->
@@ -76,14 +78,15 @@
         <input type="radio" name="engineMode" value="proxy" id="modeProxy" checked>
         <div class="mode-content">
           <div class="mode-title">⚡ Proxy Mode <span class="badge-recommended">Recommended</span></div>
-          <div class="mode-desc">Direct React & Relay interceptor. Zero CPU overhead, runs at native Facebook 60fps speed.</div>
+          <div class="mode-desc">Direct React & Relay interceptor. Zero CPU overhead.</div>
         </div>
       </label>
       <label class="mode-option" id="modeDomLabel">
         <input type="radio" name="engineMode" value="dom" id="modeDom">
         <div class="mode-content">
           <div class="mode-title">🔍 DOM Mode</div>
-          <div class="mode-desc">Traditional MutationObserver text scanner. Scans on-screen text and attributes directly.</div>
+          <div class="mode-desc">Traditional MutationObserver text scanner. Scans on-screen text and attributes
+            directly.</div>
         </div>
       </label>
     </div>
@@ -325,4 +328,5 @@
 
   <script src="options.js"></script>
 </body>
+
 </html>
