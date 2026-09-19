@@ -14,30 +14,7 @@
     removeMarketAds: true,
     removeSearchingAds: true,
     removeStories: true,
-    removeReels: true,
-    hideLeftProfile: false,
-    hideLeftFriends: false,
-    hideLeftFeeds: false,
-    hideLeftGroups: false,
-    hideLeftMarketplace: false,
-    hideLeftReels: false,
-    hideLeftMemories: false,
-    hideLeftSaved: false,
-    hideLeftPages: false,
-    hideLeftEvents: false,
-    hideLeftGaming: false,
-    hideLeftMetaAI: false,
-    hideLeftAdsManager: false,
-    hideLeftRecentAdActivity: false,
-    hideLeftProfessionalDashboard: false,
-    hideLeftMessengerKids: false,
-    hideLeftMetaQuest: false,
-    hideLeftFundraisers: false,
-    hideLeftOrdersPayments: false,
-    hideTopReels: false,
-    hideTopMarketplace: false,
-    hideTopGaming: false,
-    hideRightSponsoredHeader: true
+    removeReels: true
   };
 
   // MAIN world bridge protocol (see src/inject/bridge.js)
@@ -285,107 +262,6 @@
     }
   }
 
-  /**
-   * Scans and marks right rail sponsored headers so CSS can hide them.
-   */
-  function scanRightRailSponsoredHeaders() {
-    try {
-      const rail = document.querySelector('[data-pagelet="RightRail"], [role="complementary"]');
-      if (!rail) return;
-
-      const candidateHeaders = rail.querySelectorAll('h3, span, div[role="heading"]');
-      for (const el of candidateHeaders) {
-        if (el.children.length === 0 || el.tagName === 'H3') {
-          const text = el.textContent.trim();
-          if (text === '贊助' || text.toLowerCase() === 'sponsored') {
-            const container = el.closest('div[role="heading"], h3, .CometHomeRightRailUnit') || el;
-            container.classList.add('fb-diet-side-sponsored-header');
-          }
-        }
-      }
-    } catch (e) {
-      // Non-fatal
-    }
-  }
-
-  /**
-   * Scans and marks dynamic Left Rail items (e.g. Ads Manager).
-   */
-  function scanLeftRailDynamicItems() {
-    try {
-      if (!currentSettings || currentSettings.enabled === false) return;
-
-      if (currentSettings.hideLeftAdsManager) {
-        const candidates = document.querySelectorAll(
-          'a[href*="adsmanager"], a[href*="ads/manager"], a[href*="ad_center"], a[aria-label*="廣告管理員"], a[aria-label*="Ads Manager" i]'
-        );
-        for (const el of candidates) {
-          const row = el.closest('li, div[role="listitem"], div[role="button"], div[data-visualcompletion]') || el;
-          row.classList.add('fb-diet-hide-left-ads-manager-node');
-        }
-
-        const spans = document.querySelectorAll('span');
-        for (const span of spans) {
-          if (span.children.length === 0) {
-            const text = span.textContent.trim();
-            if (text === '廣告管理員' || text.toLowerCase() === 'ads manager') {
-              const row = span.closest('li, div[role="listitem"], div[role="button"], div[data-visualcompletion]') || span.closest('a') || span;
-              row.classList.add('fb-diet-hide-left-ads-manager-node');
-            }
-          }
-        }
-      }
-    } catch (e) {
-      // Non-fatal
-    }
-  }
-
-  let railScanScheduled = false;
-  function triggerThrottledRailScan() {
-    if (railScanScheduled || isShutDown) return;
-    railScanScheduled = true;
-    requestAnimationFrame(() => {
-      railScanScheduled = false;
-      if (isShutDown) return;
-      if (currentSettings.enabled && currentSettings.hideRightSponsoredHeader !== false) {
-        scanRightRailSponsoredHeaders();
-      }
-      if (currentSettings.enabled) {
-        scanLeftRailDynamicItems();
-      }
-    });
-  }
-
-  /**
-   * Helper to convert settings key (e.g. hideLeftProfile) to CSS class name.
-   */
-  function getUiCleanClassName(key) {
-    if (key === 'hideLeftMetaAI') return 'fb-diet-hide-left-metaai';
-    return 'fb-diet-' + key.replace(/([A-Z])/g, '-$1').toLowerCase();
-  }
-
-  /**
-   * Updates CSS classes on document.documentElement according to Section 2 settings.
-   */
-  function applyUiCleanClasses(settings) {
-    if (!settings) return;
-    const root = document.documentElement;
-    if (!root) return;
-
-    const isMasterEnabled = settings.enabled !== false;
-
-    for (const [key, value] of Object.entries(settings)) {
-      if (!key.startsWith('hide')) continue;
-      const className = getUiCleanClassName(key);
-      const isEnabled = isMasterEnabled && (key === 'hideRightSponsoredHeader' ? value !== false : Boolean(value));
-      root.classList.toggle(className, isEnabled);
-    }
-
-    if (isMasterEnabled && (settings.hideRightSponsoredHeader !== false || Boolean(settings.hideLeftAdsManager))) {
-      triggerThrottledRailScan();
-    }
-  }
-
   window.addEventListener('message', handleMainMessage);
 
   // Initialise settings, then start the proxy handshake / fallback watchdog
@@ -393,20 +269,6 @@
     const data = await safeStorageGet('settings');
     if (data?.settings) {
       currentSettings = { ...currentSettings, ...data.settings };
-    }
-
-    applyUiCleanClasses(currentSettings);
-
-    // Watch for dynamic right sidebar changes to hide sponsored headers
-    try {
-      const railObserver = new MutationObserver(() => {
-        if (currentSettings.enabled) {
-          triggerThrottledRailScan();
-        }
-      });
-      railObserver.observe(document.documentElement, { childList: true, subtree: true });
-    } catch (e) {
-      // Non-fatal
     }
 
     // Context was invalidated before we could even read settings: stay dormant.
@@ -430,8 +292,6 @@
         if (area === 'local' && changes.settings) {
           const oldEnabled = currentSettings.enabled;
           currentSettings = { ...currentSettings, ...changes.settings.newValue };
-
-          applyUiCleanClasses(currentSettings);
 
           if (proxyActive) {
             // The MAIN world wrapper renders live, so pushing settings is all that is

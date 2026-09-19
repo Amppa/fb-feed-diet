@@ -12,32 +12,7 @@ const DEFAULT_SETTINGS = {
   removeMarketAds: true,
   removeSearchingAds: true,
   removeStories: true,
-  removeReels: true,
-  // Section 2: Hide UI Buttons - Left Sidebar
-  hideLeftProfile: false,
-  hideLeftFriends: false,
-  hideLeftFeeds: false,
-  hideLeftGroups: false,
-  hideLeftMarketplace: false,
-  hideLeftReels: false,
-  hideLeftMemories: false,
-  hideLeftSaved: false,
-  hideLeftPages: false,
-  hideLeftEvents: false,
-  hideLeftGaming: false,
-  hideLeftMetaAI: false,
-  hideLeftAdsManager: false,
-  hideLeftRecentAdActivity: false,
-  hideLeftProfessionalDashboard: false,
-  hideLeftMessengerKids: false,
-  hideLeftMetaQuest: false,
-  hideLeftFundraisers: false,
-  hideLeftOrdersPayments: false,
-  // Section 2: Hide UI Buttons - Top Navigation
-  hideTopReels: false,
-  hideTopMarketplace: false,
-  hideTopGaming: false,
-  hideRightSponsoredHeader: true
+  removeReels: true
 };
 
 const FACEBOOK_URL_PATTERNS = ['*://*.facebook.com/*'];

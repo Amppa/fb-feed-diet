@@ -6,7 +6,6 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const resetBtn = document.getElementById('resetBtn');
   const featuresList = document.getElementById('featuresList');
-  const uiCleanList = document.getElementById('uiCleanList');
   const masterToggle = document.getElementById('enabled');
   const masterStatus = document.getElementById('masterStatus');
   const modeProxy = document.getElementById('modeProxy');
@@ -23,7 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   const switches = {};
-  document.querySelectorAll('#featuresList input[type="checkbox"], #uiCleanList input[type="checkbox"]').forEach(input => {
+  document.querySelectorAll('#featuresList input[type="checkbox"]').forEach(input => {
     if (input.id) switches[input.id] = input;
   });
 
@@ -55,10 +54,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (masterStatus) masterStatus.textContent = isEnabled ? 'Active' : 'Disabled';
     if (isEnabled) {
       featuresList.classList.remove('disabled');
-      if (uiCleanList) uiCleanList.classList.remove('disabled');
     } else {
       featuresList.classList.add('disabled');
-      if (uiCleanList) uiCleanList.classList.add('disabled');
     }
   }
 
@@ -81,7 +78,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   for (const [key, checkbox] of Object.entries(switches)) {
     if (checkbox) {
-      const defaultValue = DEFAULTS[key] ?? (key.startsWith('hide') ? false : true);
+      const defaultValue = DEFAULTS[key] ?? true;
       checkbox.checked = settings[key] !== undefined ? settings[key] : defaultValue;
     }
   }
