@@ -113,7 +113,7 @@ Loaded sequentially at `document_start` before Comet finishes loading:
   - `classifyFeedUnit(payload, context)` — `context.moduleName` is part of the decision (the Reels attachment wrapper never folds as Reels).
   - Supported categories (see STRATEGY.md for the full decision log):
     - `sponsored`: `^sponsored_data.ad_id`
-    - `suggested`: `^^actors[0].subscribe_status === 'CAN_SUBSCRIBE'` (only this value) OR a story_header stored under a known suggestion location (`homepage_stream` / `groups_tab` / `feed`) with a non-empty `title.text`
+    - `suggested`: `^^actors[0].subscribe_status === 'CAN_SUBSCRIBE'` (only this value). story_header is diagnostic-only evidence and NEVER decides a category (STRATEGY.md, decision #6; retired rules kept in `src/inject/classify-retired.js`)
     - `suggestedGroup`: `GroupsYouShouldJoinFeedUnit` / `GroupSuggestionsFeedUnit` or `^to.viewer_forum_join_state === 'CAN_JOIN'`
     - `reels`: the unit's OWN `__typename === 'ShowcaseFeedUnit'` (nested attachment records and the attachment-style module are excluded on purpose)
     - `stories` / `marketAds` / `searchingAds`: component-name markers in `fold.js`, not unit classification

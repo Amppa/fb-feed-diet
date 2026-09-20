@@ -214,11 +214,12 @@ window.FBDietClassify = (() => {
         evidence.source = 'relay';
       }
     }
-    // Only a story_header stored under a known suggestion location key WITH a real title
-    // counts as suggestion evidence. Existence-only and location-free checks were removed
-    // on purpose: contextual stories ("X commented on ...", shared group posts) carry a
-    // plain story_header too, and those must stay visible
-    // (STRATEGY.md, misclassifications 1 & 2).
+    // story_header is collected as DIAGNOSTIC information only and must never decide a
+    // category: the probe proved Facebook stores contextual stories under the SAME
+    // keyed record as suggestion headers - the header of a friend said recently-commented
+    // story lives in client:1238:story_header(location:homepage_stream):title. Header
+    // titles vary by language and format, so no rule can separate suggestions from
+    // friend activity here (STRATEGY.md, decision #6).
     for (const location of SUGGESTED_STORY_LOCATIONS) {
       const opts = { $1: { location }, params: { $1: { location } } };
       const title = toStringOrNull(safeRelayRead(unit.ids, STORY_HEADER_PATH, opts));
@@ -249,9 +250,10 @@ window.FBDietClassify = (() => {
     if (evidence.subscribeStatus && SUGGESTED_SUBSCRIBE_STATES.indexOf(evidence.subscribeStatus) !== -1) {
       return { category: CATEGORY.SUGGESTED, reason: 'actors[0].subscribe_status' };
     }
-    if (evidence.storyLocation) {
-      return { category: CATEGORY.SUGGESTED, reason: 'story_header:' + evidence.storyLocation };
-    }
+    // NOTE: there is deliberately NO story_header rule. The probe proved Facebook stores
+    // a friend said recently-commented story under the SAME
+    // story_header(location:homepage_stream) record as suggestion headers, so a header
+    // title cannot separate suggestions from friend activity (STRATEGY.md, decision #6).
 
     // Reels is only the clear-cut Reels surface (the rail / showcase feed units).
     // Two guards keep friend shares visible (STRATEGY.md, misclassification 3):

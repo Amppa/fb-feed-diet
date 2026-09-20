@@ -74,11 +74,14 @@ function run(c) {
   calls.mapValue = (path) => (path === P.SUBSCRIBE_PATH ? 'CAN_FOLLOW' : null);
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
   equals(c, 'CAN_FOLLOW actor is not suggested', r.category, null);
-  /* --- suggested by story header location --- */
+  /* --- story header: diagnostic only, never decides a category --- */
+  // The probe proved Facebook stores a friend's comment story under the same keyed
+  // story_header record as suggestion headers, so headers must not fold
+  // (STRATEGY.md, decision #6). The evidence is still collected for diagnostics.
   calls.mapValue = (path) => (path === P.STORY_HEADER_PATH ? 'Suggested for you' : null);
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
-  equals(c, 'suggested by story location', r.category, 'suggested');
-  equals(c, 'story location evidence', r.evidence.storyLocation, 'homepage_stream');
+  equals(c, 'story header never folds a unit', r.category, null);
+  equals(c, 'story header evidence still collected', r.evidence.storyLocation, 'homepage_stream');
 
   // A location-free story_header ("X commented on ...") is NOT suggestion evidence:
   // contextual stories carry one too and must stay visible.

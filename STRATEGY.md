@@ -37,7 +37,7 @@
 | sponsored | `sponsored_data.ad_id` 存在 | props / Relay `^sponsored_data.ad_id` |
 | suggestedGroup | `unitTypename ∈ ['GroupsYouShouldJoinFeedUnit','GroupSuggestionsFeedUnit']` 或 `viewer_forum_join_state === 'CAN_JOIN'` | props / Relay |
 | suggested | `subscribe_status === 'CAN_SUBSCRIBE'`（**只有這一個值**） | Relay `^^actors[0].subscribe_status` |
-| suggested | `story_header{"location": homepage_stream/groups_tab/feed}` 下**讀到非空 `title.text`** | Relay `^story_header{$1}.^title.text` |
+| suggested | ~~story_header~~（決策 #6：已退役；`storyLocation`/`storyTitle` 僅為診斷欄位） | 備份：`classify-retired.js` |
 | reels | 單元**本身** `__typename === 'ShowcaseFeedUnit'`（排除附件模組 context） | props |
 | stories / marketAds / searchingAds | 元件名稱直接標記（fold.js `FEED_UNIT_MODULES`） | — |
 
@@ -53,7 +53,13 @@
 ### 決策 #2 — `story_header` 必須是「已知建議 location + 非空 title」
 - **已嘗試並否決**：(a) location-free 的 `^story_header.^title.text`；(b) `^story_header{$1}` 只查存在不查 title；(c) `^story_header` 存在即判 `header`。
 - **結果**：「朋友對某篇文章留言」、「朋友對社團文章留言」這類**情境式 story** 本來就帶 story_header（不含 location 參數），(a)(c) 直接命中 → 誤折（誤判 1、2）。(b) 讓無 title 的 header 也中。
-- **結論**：只有 `homepage_stream / groups_tab / feed` 三個 location key 下讀到非空 title 才算 suggested 證據。
+- **結論**：~~只有 `homepage_stream / groups_tab / feed` 三個 location key 下讀到非空 title 才算 suggested 證據。~~ → **已被決策 #6 取代**：整條 story_header 規則於 2026-09-19 退役（備份：`src/inject/classify-retired.js`）。
+
+### 決策 #6 — story_header 完全不作為分類證據（2026-09-19，probe 實證）
+- **已嘗試並否決**：esuit 的「`story_header{location:homepage_stream}` 下有 `title.text` 即判 suggested」，以及我們前兩輪的加強版（location-free 後備／存在即中／已知 location + 非空 title）。
+- **probe 實證**：朋友照片被留言回應的情境式 story（標題「Sunny Lin 最近留言回應。」）存在與建議標題**完全相同**的 record：`client:1238:story_header(location:homepage_stream):title`（誤判 4）。標題多語言、格式多變，字串比對無法可靠區分。
+- **結論**：story_header 相關規則全數退役，只保留 `storyLocation` / `storyTitle` 作為診斷欄位。suggested 回歸 esuit 核心：**關係狀態**（`CAN_SUBSCRIBE` / `CAN_JOIN` / 社團 typename）+ 元件名單。代價：「為你推薦」內容貼文可能漏折（會以 unknown 進入 log，等 probe 收集到建議貼文獨有訊號再補）。
+- **程式碼備份**：`src/inject/classify-retired.js`（未被 manifest 載入；含所有退役規則的可執行版本與重啟步驟）。
 
 ### 決策 #3 — Reels 只認「單元本身是 ShowcaseFeedUnit」
 - **已嘗試並否決**：(a) `showcase_story_type === 'SHOWCASE_SHORT_VIDEO'` 即判 reels（esuit 做法）；(b) typename 從 Relay record / nested record 回退讀取。
@@ -76,6 +82,7 @@
 | 1 | 朋友對某篇文章（自己圖片）留言回應被判 suggested | `story_header:header`（location-free 後備）及／或 `subscribe_status: NOT_SUBSCRIBED` | 決策 #1、#2 |
 | 2 | 朋友對公開社團文章留言回應被判 suggested | 同上（社團作者未訂閱 → NOT_SUBSCRIBED 命中） | 決策 #1、#2 |
 | 3 | 朋友轉貼含 reel 被判 reels | `unitTypename:ShowcaseFeedUnit`（nested 附件 record 的 typename） | 決策 #3 |
+| 4 | 朋友照片被留言回應（「X 最近留言回應。」情境 story）被判 suggested | `story_header:homepage_stream`（與建議標題同一個 keyed record，probe 實證） | 決策 #6（規則全數退役） |
 
 > 注意修正後的副作用：**寧可漏折、不可誤折**。如果發現某些「真的建議貼文」開始漏折，先看 `unknown` 回報的 evidence（見 §5），有資料再精準補規則，不要直接放寬上述條件。
 
