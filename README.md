@@ -58,7 +58,7 @@ Instead of abruptly wiping elements or breaking your feed, **FB Diet** neatly fo
 
 Looking for internal architecture details, MAIN world proxy mechanisms, debugging consoles, or unit tests?
 
-Please see the [Developer Guide (DEVELOPMENT.md)](DEVELOPMENT.md).
+Please see the [Developer Guide (AGENTS.md)](AGENTS.md).
 
 ---
 

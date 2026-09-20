@@ -58,7 +58,8 @@ fb-diet/
 ├── rules.json                 # DeclarativeNetRequest rule relaxing Facebook CSP
 ├── package.json               # Test script and package metadata
 ├── README.md                  # User-facing summary and installation instructions
-├── DEVELOPMENT.md             # This architecture and developer reference
+├── STRATEGY.md                # Classification strategy & decision log (zh-TW)
+├── AGENTS.md                  # This architecture and developer reference (this file)
 ├── icons/                     # Extension asset icons
 ├── src/
 │   ├── background/
@@ -67,12 +68,15 @@ fb-diet/
 │   │   ├── content.css        # Responsive styling for inline placeholders
 │   │   ├── content.js         # Isolated world: storage sync, throttled stats, DOM fallback
 │   │   └── detector.js        # Multilingual regexes & DOM heuristics for fallback
+│   ├── i18n/
+│   │   └── i18n.js            # Shared en / zh-TW dictionary for options & popup pages
 │   ├── inject/
-│   │   ├── proxy.js           # Hooks window.__d, wraps React components safely
-│   │   ├── relay.js           # Intercepts Relay Record Store and evaluates field paths
-│   │   ├── classify.js        # Pure functions mapping feed props + Relay to categories
-│   │   ├── bridge.js          # In-memory settings, postMessage router, expansion state
-│   │   └── fold.js            # FBDietFold React decorator component & placeholder UI
+│   │   ├── proxy.js            # Hooks window.__d, wraps React components safely
+│   │   ├── relay.js            # Intercepts Relay Record Store and evaluates field paths
+│   │   ├── classify.js         # Pure functions mapping feed props + Relay to categories
+│   │   ├── classify-retired.js # Retired rules kept for reference (never injected)
+│   │   ├── bridge.js           # In-memory settings, postMessage router, expansion state
+│   │   └── fold.js             # FBDietFold React decorator component & placeholder UI
 │   ├── options/
 │   │   ├── options.html       # Full dashboard & category toggles
 │   │   ├── options.css        # Dark glassmorphic styles
@@ -87,6 +91,7 @@ fb-diet/
     ├── proxy.test.js          # Unit tests for proxy.js registration & hooks
     ├── relay.test.js          # Unit tests for relay.js path navigation
     ├── classify.test.js       # Unit tests for feed unit classification
+    ├── i18n.test.js           # Unit tests for language dictionaries & fallback
     └── fold.test.js           # Unit tests for folding wrapper logic
 ```
 
@@ -138,6 +143,18 @@ Loaded sequentially at `document_start` before Comet finishes loading:
 - **`detector.js` (`window.FBDietDetector`)**:
   - Fallback text parser with multilingual keyword dictionaries (Sponsored, Suggested, etc.).
   - Handles SVG text masking, aria-labels, and obfuscated spans.
+
+### Shared i18n Module (`src/i18n/`)
+
+- **`i18n.js` (`window.FBDietI18N`)**: Dependency-free dictionary module shared by the pages that render UI text.
+  - Loaded via `<script>` from `src/options/options.html` and `src/popup/popup.html`. It is intentionally NOT in
+    `manifest.json`'s content-script lists, so neither the ISOLATED content scripts nor the MAIN world have it.
+  - Ships `en` and `zh-TW`; every other locale normalizes to `en` (`normalize`, `detect`, `FALLBACK`).
+  - API: `t(key, lang?)`, `detect()`, `getLang()`, `setLang(code)`, `normalize(code)`, `LOCALES`, `FALLBACK`.
+  - `t()` resolves the requested language, then English, then returns the key itself, so an unknown key is
+    visible instead of blank. Options/popup drive DOM text through `data-i18n` / `data-i18n-title` attributes.
+  - Feed placeholder badges stay hardcoded in `fold.js` (`CATEGORY_META.badgeText`) on purpose: the MAIN world
+    has no i18n module (`tests/i18n.test.js` asserts the badge keys were trimmed from the shared dictionary).
 
 ---
 
@@ -296,6 +313,7 @@ node tests/run.js
 - **`tests/proxy.test.js`**: Validates `window.__d` interception, factory patching, error recovery, and multiple registration handling.
 - **`tests/relay.test.js`**: Mocks Relay record stores and tests path query features (`^`, `^^`, `{$var}`, wildcards).
 - **`tests/classify.test.js`**: Tests feed unit payloads against all classification rules (sponsored ads, suggestions, groups, reels, stories).
+- **`tests/i18n.test.js`**: Loads `src/i18n/i18n.js` into a VM sandbox and validates language detection/normalization, dictionary lookups, unknown-key fallback, and the `setLang` round-trip.
 - **`tests/fold.test.js`**: Tests wrapper generation, React element creation, and category metadata binding.
 
 ### Adding New Classification Rules
@@ -313,4 +331,5 @@ node tests/run.js
 - **Code Comments**: All code comments and documentation headers must be written in **English**.
 - **No Path Literals**: Never hardcode machine-specific absolute file paths in documentation or code.
 - **Git Hygiene**: Do not perform automated Git commits without explicit developer approval.
+- **Doc Ownership**: `AGENTS.md` (this file) is the developer/architecture reference and `README.md` stays user-facing (features, install, privacy) and links here; `STRATEGY.md` owns the classification decision log. Renaming or moving these files means updating every link and the tree in §2 in the same change.
 - **Preserve React Tree**: Never manipulate Facebook's native React DOM nodes directly from the MAIN proxy; use pure React wrapper elements (`FBDietFold`).

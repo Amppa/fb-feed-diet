@@ -6,7 +6,7 @@
 
 ## 1. 參考對象：esuit-suggest-blocker v2.10.0 的分類方式
 
-來源：`../esuit-suggest-blocker/Development.md`（逆向筆記）。esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o)` 的規則：
+esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o)` 的規則：
 
 | 分類 | esuit 的判定 |
 |---|---|
