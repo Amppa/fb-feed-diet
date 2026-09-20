@@ -267,6 +267,15 @@ clicking it copies a JSON report of that unit:
 Use it to diagnose missed folds (`classify.category: null` — check `reason`) and wrong folds
 (`reason` maps back to the rule table in STRATEGY.md §3).
 
+#### Options Debug Card (probe report analyzer)
+
+The Options page has a second **DEBUG** card below DIET OPTIONS. It hosts the probe-button
+toggle plus a report analyzer: paste a copied probe JSON, press **Analyze**, and the page shows
+the captured classification side by side with a re-run of the CURRENT rules
+(`FBDietClassify.classifyProbeReport(report)`, pure & Node-tested). Known limitation: the probe
+snapshot contains only the first Relay record, so `^` / `^^` linked-record paths read as null on
+re-run and the re-run may degrade to `unknown` — the captured verdict stays authoritative.
+
 ---
 
 ## 5. Testing Strategy

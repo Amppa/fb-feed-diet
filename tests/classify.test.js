@@ -168,6 +168,78 @@ function run(c) {
   equals(c, 'null settings disable everything', C.isCategoryEnabled('sponsored', null), false);
   equals(c, 'per category switch', C.isCategoryEnabled('suggested', { removeSuggested: false }), false);
   equals(c, 'unknown category disabled', C.isCategoryEnabled('nope', {}), false);
+
+  /* --- classifyProbeReport (options debug card) --- */
+  c.ok('classifyProbeReport exposed', typeof C.classifyProbeReport === 'function');
+
+  // Structural validation
+  let a = C.classifyProbeReport(null);
+  equals(c, 'null report rejected', a.error, 'not-an-object');
+  a = C.classifyProbeReport('{"classify":{}}');
+  equals(c, 'string report rejected', a.error, 'not-an-object');
+  a = C.classifyProbeReport([1, 2]);
+  equals(c, 'array report rejected', a.error, 'not-an-object');
+  a = C.classifyProbeReport({ payload: {} });
+  equals(c, 'missing classify rejected', a.error, 'missing-classify');
+  a = C.classifyProbeReport({ classify: { category: 'sponsored' } });
+  equals(c, 'missing payload rejected', a.error, 'missing-payload');
+  equals(c, 'captured result still returned on missing payload', a.captured.category, 'sponsored');
+
+  // Props-based evidence re-runs identically (sponsored via direct props).
+  calls.mapValue = () => null; // the live reader must not influence the re-run
+  const sponsoredReport = {
+    at: '2026-09-20T00:00:00.000Z',
+    moduleName: 'CometFeedUnitErrorBoundary.react',
+    classify: { category: 'sponsored', reason: 'sponsored_data.ad_id' },
+    payload: { feedUnit: { id: 'u1', __typename: 'FeedUnitRoot', sponsored_data: { ad_id: 'ad-9' } } }
+  };
+  a = C.classifyProbeReport(sponsoredReport);
+  c.ok('props-based report ok', a.ok === true);
+  equals(c, 'captured category', a.captured.category, 'sponsored');
+  equals(c, 're-run category matches', a.current.category, 'sponsored');
+  equals(c, 're-run source is props', a.current.evidence.source, 'props');
+  equals(c, 'no relay snapshot flagged', a.relayAvailable, false);
+
+  // Relay-only evidence cannot re-run without the linked records, but the
+  // captured verdict is preserved and the limitation is flagged.
+  const relayOnlyReport = {
+    moduleName: null,
+    classify: { category: 'suggested', reason: 'actors[0].subscribe_status' },
+    payload: { feedUnit: { id: 'u1', __typename: 'FeedUnitRoot' } },
+    relayRecord: { __id: 'u1', __typename: 'Story', actors: { __refs: ['actor-1'] } }
+  };
+  a = C.classifyProbeReport(relayOnlyReport);
+  c.ok('relay-only report ok', a.ok === true);
+  equals(c, 'captured verdict preserved', a.captured.category, 'suggested');
+  equals(c, 're-run degrades to unknown', a.current.category, null);
+  equals(c, 'relay snapshot flagged', a.relayAvailable, true);
+
+  // Direct fields in the snapshot still resolve (no link hop needed).
+  const storyTypeReport = {
+    classify: { category: null, reason: 'unknown' },
+    payload: { feedUnit: { id: 'u1', __typename: 'FeedUnitRoot' } },
+    relayRecord: { __id: 'u1', showcase_story_type: 'video' }
+  };
+  a = C.classifyProbeReport(storyTypeReport);
+  equals(c, 'direct snapshot field read', a.current.evidence.storyType, 'video');
+
+  // The snapshot reader must never leak: the previously injected live reader
+  // is restored after the analysis.
+  calls.length = 0;
+  calls.mapValue = (path) => (path === P.SPONSORED_PATH ? 'ad-live' : null);
+  C.classifyProbeReport(sponsoredReport);
+  r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
+  equals(c, 'live reader restored after analysis', r.category, 'sponsored');
+  c.ok('live reader was used again', calls.length > 0);
+
+  // Hostile payloads must never throw.
+  let probeHostile = null;
+  try {
+    probeHostile = C.classifyProbeReport({ classify: {}, payload: hostile });
+  } catch (e) {
+    /* must never happen */
+  }
+  c.ok('hostile report does not throw', Boolean(probeHostile));
 }
 
 function equals(c, label, actual, expected) {

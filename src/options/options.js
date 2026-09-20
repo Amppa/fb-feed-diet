@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   const switches = {};
-  document.querySelectorAll('#featuresList input[type="checkbox"]').forEach(input => {
+  document.querySelectorAll('#featuresList input[type="checkbox"], #debugCard input[type="checkbox"]').forEach(input => {
     if (input.id) switches[input.id] = input;
   });
 
@@ -82,6 +82,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     document.querySelectorAll('[data-i18n-title]').forEach((el) => {
       el.title = i18n.t(el.dataset.i18nTitle);
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+      el.placeholder = i18n.t(el.dataset.i18nPlaceholder);
     });
     langSegments.forEach((btn) => {
       const active = btn.dataset.lang === lang;
@@ -184,6 +187,112 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   });
+
+  /* ------------------------------------------------------------------ *
+   * Debug card: probe report analyzer
+   *
+   * All classification logic lives in classify.js (classifyProbeReport, pure
+   * & Node-tested). This block only translates the result object into DOM.
+   * ------------------------------------------------------------------ */
+  const probeInput = document.getElementById('probeInput');
+  const probeRun = document.getElementById('probeRun');
+  const probeResult = document.getElementById('probeResult');
+  const CLASSIFY = window.FBDietClassify || null;
+
+  const CATEGORY_I18N = {
+    sponsored: 'labelSponsored',
+    suggested: 'labelSuggested',
+    suggestedGroup: 'labelGroups',
+    marketAds: 'labelMarket',
+    searchingAds: 'labelSearch',
+    stories: 'labelStories',
+    reels: 'labelReels'
+  };
+
+  function tt(key) {
+    return i18n ? i18n.t(key) : key;
+  }
+
+  function makeProbeEl(tag, className, text) {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (text !== undefined) el.textContent = text;
+    return el;
+  }
+
+  function categoryLabel(category) {
+    const key = CATEGORY_I18N[category];
+    return key ? tt(key) : String(category);
+  }
+
+  function appendVerdictRow(container, label, result) {
+    const row = makeProbeEl('div', 'probe-row');
+    row.appendChild(makeProbeEl('span', 'probe-row-label', label));
+    const value = makeProbeEl('span', 'probe-row-value');
+    if (!result || !result.category) {
+      value.appendChild(makeProbeEl('span', 'probe-badge probe-badge-none', tt('probeCategoryUnknown')));
+    } else {
+      value.appendChild(makeProbeEl('span', 'probe-badge probe-badge-' + result.category, categoryLabel(result.category)));
+    }
+    if (result && result.reason) {
+      value.appendChild(makeProbeEl('span', 'probe-reason', String(result.reason)));
+    }
+    row.appendChild(value);
+    container.appendChild(row);
+  }
+
+  function renderProbeResult(analysis, report) {
+    probeResult.replaceChildren();
+    probeResult.classList.add('has-result');
+
+    if (!analysis.ok) {
+      const keyByError = {
+        'not-an-object': 'probeErrorNotJson',
+        'missing-classify': 'probeErrorMissingClassify',
+        'missing-payload': 'probeErrorMissingPayload'
+      };
+      const key = keyByError[analysis.error] || 'probeErrorGeneric';
+      probeResult.appendChild(makeProbeEl('div', 'probe-error', tt(key)));
+      return;
+    }
+
+    appendVerdictRow(probeResult, tt('probeCapturedLabel'), analysis.captured);
+    appendVerdictRow(probeResult, tt('probeCurrentLabel'), analysis.current);
+
+    const capturedCategory = analysis.captured.category || null;
+    const currentCategory = analysis.current ? analysis.current.category : null;
+    if (capturedCategory && !currentCategory && !analysis.relayAvailable) {
+      probeResult.appendChild(makeProbeEl('div', 'probe-note', tt('probeNoteSnapshotLimited')));
+    }
+
+    if (report && report.moduleName) {
+      const row = makeProbeEl('div', 'probe-row');
+      row.appendChild(makeProbeEl('span', 'probe-row-label', tt('probeModuleLabel')));
+      row.appendChild(makeProbeEl('span', 'probe-module', String(report.moduleName)));
+      probeResult.appendChild(row);
+    }
+  }
+
+  if (probeRun && probeInput && probeResult) {
+    probeRun.addEventListener('click', () => {
+      if (!CLASSIFY || typeof CLASSIFY.classifyProbeReport !== 'function') {
+        probeResult.replaceChildren();
+        probeResult.classList.add('has-result');
+        probeResult.appendChild(makeProbeEl('div', 'probe-error', tt('probeErrorNoClassifier')));
+        return;
+      }
+      let report = null;
+      try {
+        report = JSON.parse(probeInput.value);
+      } catch (e) {
+        probeResult.replaceChildren();
+        probeResult.classList.add('has-result');
+        probeResult.appendChild(makeProbeEl('div', 'probe-error', tt('probeErrorNotJson')));
+        return;
+      }
+      renderProbeResult(CLASSIFY.classifyProbeReport(report), report);
+    });
+  }
 
   // Listen for storage changes
   chrome.storage.onChanged.addListener((changes, area) => {

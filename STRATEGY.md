@@ -95,8 +95,9 @@
 2. **Feed 診斷按鈕（probe，手動）**：Options 開啟「🧪 顯示 Feed 診斷按鈕」（或 URL 加 `?fb_diet_debug=1`），每個經過 `FBDietFold` 的單元右上角出現 ⧉ 按鈕，點擊即複製該單元的完整 JSON：分類結果（category/reason/evidence）、觸發的元件模組、payload 快照（深度 5）、Relay record 欄位。
    - **漏判診斷**：對沒被摺疊的貼文按 ⧉，看 `classify.category` 是 `null`（unknown，看 reason）還是被 settings 關掉；把 JSON 貼給對照 §3 補規則。
    - **誤判診斷**：對被誤折的貼文展開後按 ⧉，看 `reason` 對回 §3 的哪條規則。
-3. **即時 console**：URL 加 `?fb_diet_debug=1`，看 `[FB Diet][MAIN]` / `[FB Diet][Classify]` 輸出。
-4. **單元測試**：`npm test`；新規則務必補 `tests/classify.test.js` 迴歸測試。
+3. **Options Debug 卡（報告判讀）**：Options 頁面底部的 DEBUG 卡可貼上 probe 複製的 JSON，按「判斷」即顯示當時分類結果，並用**目前版本規則**對 `payload` 重跑一次分類做對比。已知限制：probe 快照只含第一筆 record，`^` / `^^` 連結路徑在重跑時讀不到值（結果可能退化為 unknown），此時以當時結果為準。
+4. **即時 console**：URL 加 `?fb_diet_debug=1`，看 `[FB Diet][MAIN]` / `[FB Diet][Classify]` 輸出。
+5. **單元測試**：`npm test`；新規則務必補 `tests/classify.test.js` 迴歸測試。
 
 ### 新增規則的安全流程
 1. 從 unknown 的 evidence（或 probe JSON）找出候選 Relay path / typename。

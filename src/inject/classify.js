@@ -318,6 +318,104 @@ window.FBDietClassify = (() => {
     }
   }
 
+  /* ------------------------------------------------------------------ *
+   * Probe report analysis (options page debug card)
+   *
+   * classifyProbeReport re-runs the CURRENT rules over a probe report copied
+   * from a feed ⧉ button. The captured classification is the verdict; the
+   * re-run is a comparison aid. Known limitation: the report's relayRecord is
+   * a single-record snapshot (fold.js describes only the first unit record),
+   * so paths that follow linked records (^ / ^^) cannot resolve and read as
+   * null. Diagnostics must never throw, exactly like the live classifier.
+   * ------------------------------------------------------------------ */
+
+  /**
+   * Reads a Relay-style field path against a serialized record snapshot.
+   * Supports the subset of syntax used by RELAY_PATHS: direct fields,
+   * ^ linked-record hops (__ref), ^^ linked-list hops (__refs), {$1}
+   * keyed variables. Linked records live outside the snapshot by design,
+   * so any hop through __ref / __refs resolves to null (see the note above).
+   */
+  function readSnapshotPath(record, path, options) {
+    try {
+      if (!record || typeof record !== 'object' || !path) return null;
+      let current = record;
+      for (const rawSegment of String(path).split('.')) {
+        let segment = rawSegment;
+        let linkList = false;
+        let index = 0;
+        if (segment.indexOf('^^') === 0) {
+          linkList = true;
+          segment = segment.slice(2);
+        } else if (segment.indexOf('^') === 0) {
+          segment = segment.slice(1);
+        }
+        const bracket = segment.indexOf('[');
+        if (bracket !== -1) {
+          index = parseInt(segment.slice(bracket + 1), 10) || 0;
+          segment = segment.slice(0, bracket);
+          linkList = true;
+        }
+        const variable = segment.indexOf('{$1}');
+        if (variable !== -1) {
+          const vars = options && options.$1;
+          if (!vars || typeof vars !== 'object') return null;
+          const args = Object.keys(vars).map((key) => key + ':' + vars[key]).join(',');
+          segment = segment.slice(0, variable) + '(' + args + ')';
+        }
+        if (current === null || current === undefined || typeof current !== 'object') return null;
+        if (linkList) {
+          const refs = current[segment] && current[segment].__refs;
+          const ref = Array.isArray(refs) ? refs[index] : undefined;
+          if (typeof ref !== 'string') return null;
+          return null; // linked record lives outside the snapshot
+        }
+        const field = current[segment];
+        if (field && typeof field === 'object' && typeof field.__ref === 'string') {
+          return null; // linked record lives outside the snapshot
+        }
+        current = field;
+      }
+      if (current && typeof current === 'object') return null;
+      return current === undefined ? null : current;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * Analyzes a probe report object (already parsed from JSON).
+   * Returns { ok, error?, captured, current, relayAvailable }.
+   *   error codes: 'not-an-object' | 'missing-classify' | 'missing-payload'
+   */
+  function classifyProbeReport(report) {
+    const empty = { ok: false, error: null, captured: null, current: null, relayAvailable: false };
+    try {
+      if (!report || typeof report !== 'object' || Array.isArray(report)) {
+        return { ...empty, error: 'not-an-object' };
+      }
+      const captured = report.classify && typeof report.classify === 'object' ? report.classify : null;
+      if (!captured) return { ...empty, error: 'missing-classify' };
+      if (!report.payload || typeof report.payload !== 'object') {
+        return { ...empty, error: 'missing-payload', captured };
+      }
+
+      const relayRecord = report.relayRecord && typeof report.relayRecord === 'object' ? report.relayRecord : null;
+      const previousReader = relayRead;
+      let current;
+      try {
+        relayRead = (ids, path, options) => readSnapshotPath(relayRecord, path, options);
+        current = classifyFeedUnit(report.payload, { moduleName: report.moduleName || null });
+      } finally {
+        // Never leak the snapshot reader into the caller's classifier state.
+        relayRead = previousReader;
+      }
+      return { ok: true, error: null, captured, current, relayAvailable: Boolean(relayRecord) };
+    } catch (e) {
+      return { ...empty, error: 'error:' + (e && e.message ? e.message : String(e)) };
+    }
+  }
+
   function isCategoryEnabled(category, settings) {
     if (!settings || settings.enabled === false) return false;
     const key = SETTING_BY_CATEGORY[category];
@@ -338,6 +436,7 @@ window.FBDietClassify = (() => {
     },
     setRelayReader,
     classifyFeedUnit,
+    classifyProbeReport,
     isCategoryEnabled,
     readProp
   };
