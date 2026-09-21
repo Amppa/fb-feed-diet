@@ -59,7 +59,7 @@ body {
   gap: 12px;
 }
 
-/* Language Toggle (EN / 繁中) */
+/* Language Toggle (EN / 繁中): the whole block is one click target that toggles */
 .lang-switch {
   display: inline-flex;
   align-items: center;
@@ -68,6 +68,13 @@ body {
   border: 1px solid var(--divider);
   border-radius: 8px;
   padding: 2px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.lang-switch:focus-visible {
+  outline: 2px solid var(--active-color);
+  outline-offset: 1px;
 }
 
 .lang-segment {
@@ -93,11 +100,6 @@ body {
   background: rgba(255, 255, 255, 0.14);
   color: var(--text-primary);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-}
-
-.lang-segment:focus-visible {
-  outline: 2px solid var(--active-color);
-  outline-offset: 1px;
 }
 
 .master-status-label {
@@ -285,7 +287,10 @@ body {
   font-size: 15px;
   font-weight: 700;
   color: var(--text-primary);
-  margin-top: 3px;
+  /* Push the number to the pill's bottom edge so all five pills align,
+     regardless of whether the label wraps to one or two lines. */
+  margin-top: auto;
+  padding-top: 3px;
   font-variant-numeric: tabular-nums;
   transition: color 0.15s ease, text-shadow 0.15s ease;
 }

@@ -124,10 +124,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       el.placeholder = i18n.t(el.dataset.i18nPlaceholder);
     });
     langSegments.forEach((btn) => {
-      const active = btn.dataset.lang === lang;
-      btn.classList.toggle('is-active', active);
-      if (active) btn.setAttribute('aria-pressed', 'true');
-      else btn.removeAttribute('aria-pressed');
+      btn.classList.toggle('is-active', btn.dataset.lang === lang);
     });
     // Dynamic statuses depend on the language too.
     updateMasterUI(masterToggle ? masterToggle.checked : true);
@@ -166,17 +163,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Apply the resolved language to the whole page
   applyTranslations();
 
-  // Language switch: persist the choice and re-render all texts
-  langSegments.forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const next = btn.dataset.lang;
-      if (!next || (i18n && next === i18n.getLang())) return;
-      if (i18n) i18n.setLang(next);
-      const { settings: current } = await chrome.storage.local.get('settings');
-      await chrome.storage.local.set({ settings: { ...current, lang: next } });
-      applyTranslations();
+  // Language switch: the whole block is one click target that toggles en <-> zh-TW.
+  const langSwitch = document.getElementById('langSwitch');
+  async function toggleLanguage() {
+    if (!i18n) return;
+    const next = i18n.getLang() === 'en' ? 'zh-TW' : 'en';
+    i18n.setLang(next);
+    const { settings: current } = await chrome.storage.local.get('settings');
+    await chrome.storage.local.set({ settings: { ...current, lang: next } });
+    applyTranslations();
+  }
+  if (langSwitch) {
+    langSwitch.addEventListener('click', toggleLanguage);
+    langSwitch.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleLanguage();
+      }
     });
-  });
+  }
 
   // Handle Master toggle
   if (masterToggle) {
