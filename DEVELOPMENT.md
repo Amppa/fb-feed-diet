@@ -178,6 +178,12 @@ Loaded sequentially at `document_start` before Comet finishes loading:
     - `suggestedGroup`: `GroupsYouShouldJoinFeedUnit` / `GroupSuggestionsFeedUnit` or `^to.viewer_forum_join_state === 'CAN_JOIN'`
     - `reels`: the unit's OWN `__typename === 'ShowcaseFeedUnit'` (nested attachment records and the attachment-style module are excluded on purpose)
     - `stories`: the unit's OWN `__typename === 'DiscoverFeedUnit'` (mid-feed Stories row; STRATEGY.md, decision #7); other Stories surfaces plus `marketAds` / `searchingAds` use component-name markers in `fold.js`, not unit classification
+  - **User-facing groups** (two-layer model, STRATEGY.md decision #8): fine-grained categories map to 5 groups —
+    `ads` (sponsored + marketAds + searchingAds), `regular` (no-match bucket; stats only, never foldable),
+    `suggested`, `media` (reels + stories), `other` (suggestedGroup).
+    Storage stays per-category with zero migration; Options group switches batch-write the mapped keys
+    (`SETTING_KEYS_BY_GROUP`, "on" only when every mapped key is on). Folded bars and the stats breakdown
+    display the group; probe popups and the Options analyzer show both layers (feed type + group).
 - **`bridge.js` (`window.FBDietBridge`)**:
   - Owns in-page expand/collapse state (`expandedSet`).
   - Manages deduplication sets (`reportedBlockedSet`, `reportedRegularSet`) to prevent redundant storage writes.
@@ -185,6 +191,7 @@ Loaded sequentially at `document_start` before Comet finishes loading:
   - Accepts immediate settings push via `window.__fbDietSetSettings`.
 - **`fold.js` (`window.FBDietFold`)**:
   - Wraps target feed unit components using `React.createElement`.
+  - Folded bars and re-fold bars show the user-facing GROUP badge (`GROUP_META` + local `GROUP_BY_CATEGORY`, resolved via `groupOf(category)`), not the fine-grained category (STRATEGY.md, decision #8).
   - Enforces strict Rules of Hooks (unconditional top-level hooks: `useContext`, `useState`, `useEffect`, `useSafeLayoutEffect`).
   - **Safe Hydration Commit Gate**: Returns the original `rendered` tree during initial SSR hydration pass, then transitions to folded UI via `useSafeLayoutEffect` immediately upon commit, eliminating React 18 `#418` hydration mismatch errors.
   - If a unit matches an active filter and is not expanded, renders an inline `FBDietFold` bar and sets the original element container to squash mode (`1x1` container).
@@ -326,7 +333,8 @@ window.__fbDietClearLog();     // wipes the log
 
 Enable "Show Feed Probe Buttons" in the Options page (or open Facebook with `?fb_diet_debug=1`).
 Every unit flowing through `FBDietFold` then shows a small 🔍 button floating on its left side;
-clicking it copies a JSON report of that unit and displays a floating category popup (click outside to dismiss):
+clicking it copies a JSON report of that unit and displays a floating popup (click outside to dismiss)
+showing the feed type, its user-facing group, the match reason and the evidence source:
 
 - The classification result (`category`, `unitId`, `unitTypename`, `reason`, full `evidence`)
 - The component module that produced the decision
@@ -337,7 +345,7 @@ Use it to diagnose missed folds (`classify.category: null` — check `reason`) a
 
 ### Options Debug Card (probe report analyzer)
 
-The Options page has a second **DEBUG** card below DIET OPTIONS. It hosts the probe-button
+The Options page has a second **DEBUG** card below Feed Classifies. It hosts the probe-button
 toggle plus a report analyzer: paste a copied probe JSON, press **Analyze**, and the page shows
 the captured classification side by side with a re-run of the CURRENT rules
 (`FBDietClassify.classifyProbeReport(report)`, pure & Node-tested). Known limitation: the probe
