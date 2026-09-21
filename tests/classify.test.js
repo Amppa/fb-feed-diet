@@ -129,6 +129,32 @@ function run(c) {
   equals(c, 'attachment module context never folds as reels', r.category, null);
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf({ __typename: 'ShowcaseFeedUnit' }) }, { moduleName: 'CometFeedUnitErrorBoundary.react' });
   equals(c, 'reels still folds for other modules', r.category, 'reels');
+
+  /* --- stories: mid-feed Stories row (DiscoverFeedUnit) --- */
+  // The Stories row inserted into the home feed arrives via the generic
+  // CometFeedUnitErrorBoundary.react wrapper, so only the unit's own typename can
+  // identify it (STRATEGY.md, decision #7).
+  r = C.classifyFeedUnit({ feedUnit: feedUnitOf({ __typename: 'DiscoverFeedUnit' }) }, { moduleName: 'CometFeedUnitErrorBoundary.react' });
+  equals(c, 'stories by DiscoverFeedUnit typename', r.category, 'stories');
+  equals(c, 'stories reason', r.reason, 'unitTypename:DiscoverFeedUnit');
+
+  r = C.classifyFeedUnit({ unitTypename: 'DiscoverFeedUnit', feedUnit: feedUnitOf() });
+  equals(c, 'stories by payload typename', r.category, 'stories');
+
+  // An ordinary Story wrapping a nested DiscoverFeedUnit record must stay visible:
+  // same own-typename guard as the Reels rule.
+  r = C.classifyFeedUnit({
+    unitTypename: 'Story',
+    feedUnit: feedUnitOf(),
+    children: [{ props: { feedUnit: { id: 'st-1', __typename: 'DiscoverFeedUnit' } } }]
+  });
+  equals(c, 'nested-only DiscoverFeedUnit is not stories', r.category, null);
+
+  /* --- priority: an ad in a Stories row is still an ad --- */
+  calls.mapValue = (path) => (path === P.SPONSORED_PATH ? 'ad-5' : null);
+  r = C.classifyFeedUnit({ feedUnit: feedUnitOf({ __typename: 'DiscoverFeedUnit' }) });
+  equals(c, 'sponsored beats stories', r.category, 'sponsored');
+  calls.mapValue = () => null;
   /* --- priority: an ad that is also a group suggestion is an ad --- */
   calls.mapValue = (path) => (path === P.SPONSORED_PATH ? 'ad-9' : 'CAN_JOIN');
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf({ __typename: 'GroupsYouShouldJoinFeedUnit' }) });

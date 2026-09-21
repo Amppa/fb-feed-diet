@@ -177,7 +177,7 @@ Loaded sequentially at `document_start` before Comet finishes loading:
     - `suggested`: `^^actors[0].subscribe_status === 'CAN_SUBSCRIBE'` (only this value). story_header is diagnostic-only evidence and NEVER decides a category (STRATEGY.md, decision #6; retired rules kept in `src/inject/classify-retired.js`)
     - `suggestedGroup`: `GroupsYouShouldJoinFeedUnit` / `GroupSuggestionsFeedUnit` or `^to.viewer_forum_join_state === 'CAN_JOIN'`
     - `reels`: the unit's OWN `__typename === 'ShowcaseFeedUnit'` (nested attachment records and the attachment-style module are excluded on purpose)
-    - `stories` / `marketAds` / `searchingAds`: component-name markers in `fold.js`, not unit classification
+    - `stories`: the unit's OWN `__typename === 'DiscoverFeedUnit'` (mid-feed Stories row; STRATEGY.md, decision #7); other Stories surfaces plus `marketAds` / `searchingAds` use component-name markers in `fold.js`, not unit classification
 - **`bridge.js` (`window.FBDietBridge`)**:
   - Owns in-page expand/collapse state (`expandedSet`).
   - Manages deduplication sets (`reportedBlockedSet`, `reportedRegularSet`) to prevent redundant storage writes.

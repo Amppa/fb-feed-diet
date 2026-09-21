@@ -25,8 +25,8 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
 
 ## 2. fb-diet 現行做法（與 esuit 的差異）
 
-- 分類器 `src/inject/classify.js`：props 優先 → Relay store 後備；evidence 全收集後在 `pickCategory` 用固定優先序挑分類（sponsored > suggestedGroup > suggested > reels）。
-- 分類粒度更細：`suggested` 與 `suggestedGroup` 分開設定；額外有 `stories / marketAds / searchingAds` 分類（但由 fold.js 的元件名單直接標記，非分類器判定）。
+- 分類器 `src/inject/classify.js`：props 優先 → Relay store 後備；evidence 全收集後在 `pickCategory` 用固定優先序挑分類（sponsored > suggestedGroup > suggested > stories > reels）。
+- 分類粒度更細：`suggested` 與 `suggestedGroup` 分開設定；額外有 `stories / marketAds / searchingAds` 分類（`marketAds / searchingAds` 由 fold.js 的元件名單直接標記；`stories` 以元件名單為主、加上分類器的 `DiscoverFeedUnit` typename 規則，見決策 #7）。
 - **不限首頁**；有 debug evidence 記錄（未命中規則的 `regular` 會回報完整 evidence）。
 - Reels 判定刻意比 esuit 保守（見下方決策 #3）。
 
@@ -39,7 +39,8 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
 | suggested | `subscribe_status === 'CAN_SUBSCRIBE'`（**只有這一個值**） | Relay `^^actors[0].subscribe_status` |
 | suggested | ~~story_header~~（決策 #6：已退役；`storyLocation`/`storyTitle` 僅為診斷欄位） | 備份：`classify-retired.js` |
 | reels | 單元**本身** `__typename === 'ShowcaseFeedUnit'`（排除附件模組 context） | props |
-| stories / marketAds / searchingAds | 元件名稱直接標記（fold.js `FEED_UNIT_MODULES`） | — |
+| stories | 單元**本身** `__typename === 'DiscoverFeedUnit'`（動態中間的限時動態列，決策 #7）；其餘 stories 表面仍由元件名單標記 | props |
+| marketAds / searchingAds | 元件名稱直接標記（fold.js `FEED_UNIT_MODULES`） | — |
 
 ---
 
@@ -60,6 +61,13 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
 - **probe 實證**：朋友照片被留言回應的情境式 story（標題「Sunny Lin 最近留言回應。」）存在與建議標題**完全相同**的 record：`client:1238:story_header(location:homepage_stream):title`（誤判 4）。標題多語言、格式多變，字串比對無法可靠區分。
 - **結論**：story_header 相關規則全數退役，只保留 `storyLocation` / `storyTitle` 作為診斷欄位。suggested 回歸 esuit 核心：**關係狀態**（`CAN_SUBSCRIBE` / `CAN_JOIN` / 社團 typename）+ 元件名單。代價：「為你推薦」內容貼文可能漏折（會以 `regular`（reason: `no-match`）進入 log，等 probe 收集到建議貼文獨有訊號再補）。
 - **程式碼備份**：`src/inject/classify-retired.js`（未被 manifest 載入；含所有退役規則的可執行版本與重啟步驟）。
+
+### 決策 #7 — 動態中間的限時動態列：`DiscoverFeedUnit` → stories（2026-09-21，probe 實證）
+- **症狀**：首頁動態 position 9~10 插入的限時動態列未被摺疊，probe 回報 `reason: no-match`、`unitTypename: DiscoverFeedUnit`、`moduleName: CometFeedUnitErrorBoundary.react`。
+- **根因**：stories 分類原本只靠 fold.js 元件名單（`StoriesTray*.react` / `CometStoriesTray.react`），但這種動態中間的限時動態列走**通用** `CometFeedUnitErrorBoundary.react` 包裝，元件名單看不到它，分類器又沒有對應規則。
+- **證據**：2 筆 probe（position 9、10，`CometModernHomeFeedQuery`、`renderLocation: homepage_stream`），Relay record 皆為 edges connection（一排卡片），符合橫向限時動態列結構；且無 `sponsored_data` / `actors` / story_header 等一般貼文欄位。
+- **規則**：`ownTypename === 'DiscoverFeedUnit'` → stories，與 reels 相同只認**單元本身**的 typename（nested record 不算）。優先序排在 suggested 之後、reels 之前。
+- **已知風險**：`DiscoverFeedUnit` 名稱上可能涵蓋其他「探索型」插入面板；目前無反例，若日後發現誤折（probe 看 `reason: unitTypename:DiscoverFeedUnit`），再改用 position 或 Relay 欄位收緊。
 
 ### 決策 #3 — Reels 只認「單元本身是 ShowcaseFeedUnit」
 - **已嘗試並否決**：(a) `showcase_story_type === 'SHOWCASE_SHORT_VIDEO'` 即判 reels（esuit 做法）；(b) typename 從 Relay record / nested record 回退讀取。

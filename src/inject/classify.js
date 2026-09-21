@@ -41,6 +41,12 @@ window.FBDietClassify = (() => {
 
   // Relay based classification rules (verified against the reference implementation)
   const SUGGESTED_GROUP_TYPENAMES = ['GroupsYouShouldJoinFeedUnit', 'GroupSuggestionsFeedUnit'];
+  // The Stories row inserted mid-feed (position ~9-10, homepage_stream) reaches the
+  // classifier through the generic CometFeedUnitErrorBoundary.react wrapper, so the
+  // component-name list in fold.js never sees it. Its own typename is the signal
+  // (STRATEGY.md, decision #7). Same guard as Reels: only the unit's OWN typename
+  // counts, never a nested record's.
+  const STORIES_TYPENAMES = ['DiscoverFeedUnit'];
   // Only CAN_SUBSCRIBE is trusted, exactly like the reference implementation. CAN_FOLLOW
   // and NOT_SUBSCRIBED were tried and rejected: NOT_SUBSCRIBED matches nearly every actor
   // the viewer does not subscribe to (group post authors, strangers, pages), which folded
@@ -256,6 +262,12 @@ window.FBDietClassify = (() => {
     // story_header(location:homepage_stream) record as suggestion headers, so a header
     // title cannot separate suggestions from friend activity (STRATEGY.md, decision #6).
 
+    // The mid-feed Stories row is a DiscoverFeedUnit delivered through the generic
+    // feed unit wrapper, so it needs a typename rule of its own (STRATEGY.md, #7).
+    if (evidence.ownTypename && STORIES_TYPENAMES.indexOf(evidence.ownTypename) !== -1) {
+      return { category: CATEGORY.STORIES, reason: 'unitTypename:' + evidence.ownTypename };
+    }
+
     // Reels is only the clear-cut Reels surface (the rail / showcase feed units).
     // Two guards keep friend shares visible (STRATEGY.md, misclassification 3):
     //   1. The ShowcaseFeedUnit typename must belong to the unit itself. A friend's share
@@ -431,6 +443,7 @@ window.FBDietClassify = (() => {
     CATEGORY,
     SETTING_BY_CATEGORY,
     SUGGESTED_GROUP_TYPENAMES,
+    STORIES_TYPENAMES,
     RELAY_PATHS: {
       SPONSORED_PATH,
       SUBSCRIBE_PATH,
