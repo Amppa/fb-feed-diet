@@ -326,7 +326,7 @@ window.__fbDietClearLog();     // wipes the log
 
 Enable "Show Feed Probe Buttons" in the Options page (or open Facebook with `?fb_diet_debug=1`).
 Every unit flowing through `FBDietFold` then shows a small 🔍 button floating on its left side;
-clicking it copies a JSON report of that unit:
+clicking it copies a JSON report of that unit and displays a floating category popup (click outside to dismiss):
 
 - The classification result (`category`, `unitId`, `unitTypename`, `reason`, full `evidence`)
 - The component module that produced the decision

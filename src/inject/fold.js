@@ -223,6 +223,96 @@ window.FBDietFold = (() => {
     if (!copied) promptFallbackCopy(text);
   }
 
+  let activeProbePopup = null;
+
+  function closeActiveProbePopup() {
+    if (!activeProbePopup) return;
+    const popup = activeProbePopup;
+    activeProbePopup = null;
+    try {
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('click', onOutsideProbeClick, true);
+      }
+      popup.classList.add('fb-diet-probe-popup-fadeout');
+      setTimeout(() => {
+        try { popup.remove(); } catch (e) {}
+      }, 200);
+    } catch (e) {}
+  }
+
+  function onOutsideProbeClick(e) {
+    if (!activeProbePopup) return;
+    if (e && e.target && activeProbePopup.contains(e.target)) {
+      return;
+    }
+    closeActiveProbePopup();
+  }
+
+  function showProbePopup(holder, classifyResult, props) {
+    try {
+      if (!holder || typeof document === 'undefined' || typeof document.createElement !== 'function') return;
+
+      closeActiveProbePopup();
+
+      const popup = document.createElement('div');
+      popup.className = 'fb-diet-probe-popup';
+      popup.title = '點擊外部可關閉提示 (Click outside to dismiss)';
+
+      const category = (classifyResult && classifyResult.category) || (props && props.entryCategory) || 'unknown';
+      const reason = (classifyResult && classifyResult.reason) || (props && props.moduleName ? 'component:' + props.moduleName : 'unmatched');
+
+      const evidence = classifyResult && classifyResult.evidence;
+      const source = evidence && evidence.source && evidence.source !== 'none' ? evidence.source : null;
+      const mod = (classifyResult && classifyResult.moduleName) || (props && props.moduleName) || null;
+      let evidenceText = source || '';
+      if (mod) {
+        evidenceText = evidenceText ? evidenceText + ' (' + mod + ')' : mod;
+      }
+      if (!evidenceText) evidenceText = 'none';
+
+      // 類型：sponsored
+      const typeRow = document.createElement('div');
+      typeRow.className = 'fb-diet-probe-popup-row';
+      typeRow.textContent = '類型：' + category;
+      popup.appendChild(typeRow);
+
+      // 判斷：sponsored_data.ad_id
+      const judgeRow = document.createElement('div');
+      judgeRow.className = 'fb-diet-probe-popup-row';
+      judgeRow.textContent = '判斷：' + reason;
+      popup.appendChild(judgeRow);
+
+      // 依據：props (CometFeedUnitErrorBoundary.react)
+      const basisRow = document.createElement('div');
+      basisRow.className = 'fb-diet-probe-popup-row';
+      basisRow.textContent = '依據：' + evidenceText;
+      popup.appendChild(basisRow);
+
+      // 空行
+      const spacer = document.createElement('div');
+      spacer.className = 'fb-diet-probe-popup-spacer';
+      popup.appendChild(spacer);
+
+      // 已複製json到剪貼簿
+      const copiedRow = document.createElement('div');
+      copiedRow.className = 'fb-diet-probe-popup-row';
+      copiedRow.textContent = '已複製json到剪貼簿';
+      popup.appendChild(copiedRow);
+
+      holder.appendChild(popup);
+      activeProbePopup = popup;
+
+      // Close on subsequent outside click
+      setTimeout(() => {
+        if (activeProbePopup === popup && typeof document !== 'undefined') {
+          document.addEventListener('click', onOutsideProbeClick, true);
+        }
+      }, 0);
+    } catch (e) {
+      // Non-fatal
+    }
+  }
+
   /**
    * Wraps the unit's render output in a relative holder; the copy button is only
    * appended when probe mode is on (debug URL / debugProbe setting).
@@ -253,6 +343,16 @@ window.FBDietFold = (() => {
           // Cannot happen for our own JSON, but never break the click
         }
         copyProbeReport(reportText);
+
+        try {
+          const btn = event && (event.currentTarget || event.target);
+          const holder = btn && typeof btn.closest === 'function'
+            ? btn.closest('.fb-diet-probe-holder')
+            : (btn ? btn.parentElement : null);
+          if (holder) showProbePopup(holder, classifyResult, props);
+        } catch (e) {
+          // Non-fatal
+        }
       };
 
       const button = createEl(
@@ -508,6 +608,50 @@ window.FBDietFold = (() => {
         }
         .fb-diet-probe-btn:hover {
           opacity: 1;
+        }
+        .fb-diet-probe-popup {
+          position: absolute;
+          top: 0;
+          left: 2px;
+          z-index: 10000;
+          min-width: 240px;
+          max-width: 480px;
+          padding: 12px 16px;
+          background: rgba(20, 21, 23, 0.95);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 8px;
+          box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+          color: #e4e6eb;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+          font-size: 16px;
+          line-height: 1.55;
+          cursor: pointer;
+          user-select: none;
+          animation: fb-diet-popup-in 0.2s ease-out forwards;
+        }
+        .fb-diet-probe-popup-row {
+          word-break: break-all;
+          white-space: pre-wrap;
+        }
+        .fb-diet-probe-popup-spacer {
+          height: 10px;
+        }
+        .fb-diet-probe-popup-fadeout {
+          opacity: 0;
+          transform: translateY(-4px) scale(0.96);
+          transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+        @keyframes fb-diet-popup-in {
+          from {
+            opacity: 0;
+            transform: translateY(-4px) scale(0.96);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
         }
       `;
       (document.head || document.documentElement).appendChild(style);
