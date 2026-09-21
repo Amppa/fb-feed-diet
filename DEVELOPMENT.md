@@ -325,7 +325,7 @@ window.__fbDietClearLog();     // wipes the log
 ### Feed Probe Buttons (per-unit diagnostics)
 
 Enable "Show Feed Probe Buttons" in the Options page (or open Facebook with `?fb_diet_debug=1`).
-Every unit flowing through `FBDietFold` then shows a small ⧉ button in its top-right corner;
+Every unit flowing through `FBDietFold` then shows a small 🔍 button floating on its left side;
 clicking it copies a JSON report of that unit:
 
 - The classification result (`category`, `unitId`, `unitTypename`, `reason`, full `evidence`)

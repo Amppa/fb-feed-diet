@@ -322,7 +322,7 @@ window.FBDietClassify = (() => {
    * Probe report analysis (options page debug card)
    *
    * classifyProbeReport re-runs the CURRENT rules over a probe report copied
-   * from a feed ⧉ button. The captured classification is the verdict; the
+   * from a feed 🔍 button. The captured classification is the verdict; the
    * re-run is a comparison aid. Known limitation: the report's relayRecord is
    * a single-record snapshot (fold.js describes only the first unit record),
    * so paths that follow linked records (^ / ^^) cannot resolve and read as

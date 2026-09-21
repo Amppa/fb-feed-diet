@@ -258,7 +258,7 @@ window.FBDietFold = (() => {
       const button = createEl(
         'button',
         { className: 'fb-diet-probe-btn', type: 'button', title: 'FB Diet: copy unit diagnostics (JSON)', onClick: onProbeClick },
-        ['⧉']
+        ['🔍']
       );
       return createEl('div', { className: 'fb-diet-probe-holder' }, [button, element]);
     } catch (e) {
@@ -488,8 +488,8 @@ window.FBDietFold = (() => {
         }
         .fb-diet-probe-btn {
           position: absolute;
-          top: 2px;
-          right: 2px;
+          top: 4px;
+          left: -26px;
           z-index: 9999;
           width: 22px;
           height: 22px;
@@ -499,8 +499,10 @@ window.FBDietFold = (() => {
           border: 1px solid rgba(255, 255, 255, 0.4);
           background: rgba(0, 0, 0, 0.5);
           color: #fff;
-          font-size: 13px;
-          text-align: center;
+          font-size: 11px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           cursor: pointer;
           opacity: 0.55;
         }
