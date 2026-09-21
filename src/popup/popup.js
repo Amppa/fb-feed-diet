@@ -22,10 +22,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  const SHARED_DEFAULTS = globalThis.FB_DIET_DEFAULTS || {};
+
   // Load initial state
   const data = await chrome.storage.local.get(['settings', 'counts']);
-  const settings = data.settings || {};
-  const counts = data.counts || {};
+  const settings = { ...(SHARED_DEFAULTS.SETTINGS || {}), ...(data.settings || {}) };
+  const counts = { ...(SHARED_DEFAULTS.COUNTS || {}), ...(data.counts || {}) };
 
   if (i18n) i18n.setLang(settings.lang || i18n.detect());
   applyTranslations();

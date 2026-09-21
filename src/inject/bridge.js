@@ -22,8 +22,8 @@ window.FBDietBridge = (() => {
   const SOURCE_CONTENT = 'fb-diet/content';
   const VERSION = 1;
 
-// Folding is enabled out of the box; per-category switches stay available for tuning.
-  const DEFAULT_SETTINGS = {
+  // Folding is enabled out of the box; per-category switches stay available for tuning.
+  const DEFAULT_SETTINGS = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.SETTINGS) || {
     enabled: true,
     mode: 'proxy',
     removeSponsored: true,
@@ -33,8 +33,6 @@ window.FBDietBridge = (() => {
     removeSearchingAds: true,
     removeStories: true,
     removeReels: true,
-    // Diagnostic probe buttons on every feed unit (see fold.js addProbe). Off by
-    // default; debugging sessions turn it on via the options page or the debug URL.
     debugProbe: false
   };
 

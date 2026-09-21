@@ -17,7 +17,12 @@ fb-diet-feed/
 ├── STRATEGY.md                # Feed classification strategy & decision log
 ├── design/                    # Source design assets (e.g. Affinity fb-df.af)
 ├── icons/                     # Extension asset icons (16, 32, 48, 128)
+├── scripts/                   # Zero-dependency release packagers (NOT packaged)
+│   ├── package.js             # Node.js packaging script
+│   └── package.ps1            # Windows PowerShell packaging script
 ├── src/
+│   ├── shared/
+│   │   └── defaults.js        # Single source of truth for settings & stats schemas
 │   ├── background/
 │   │   └── background.js      # Service Worker: settings sync, tab broadcast
 │   ├── content/
@@ -44,6 +49,7 @@ fb-diet-feed/
 └── tests/
     ├── harness.js             # Lightweight Node test assertion framework
     ├── run.js                 # Test runner discovering *.test.js
+    ├── defaults.test.js       # Unit tests for shared defaults schema
     ├── proxy.test.js          # Unit tests for proxy.js registration & hooks
     ├── relay.test.js          # Unit tests for relay.js path navigation
     ├── classify.test.js       # Unit tests for feed unit classification
@@ -69,6 +75,23 @@ When modifying extension code:
 1. Reload **FB Diet** on `chrome://extensions/`.
 2. Reload all open Facebook tabs.
 3. If an open tab is kept alive during extension reload, `content.js` triggers `shutdown()` automatically as soon as it detects `chrome.runtime?.id` is invalidated, disconnecting observers and preventing `Extension context invalidated` console spam.
+
+---
+
+## 📦 Packaging for Release
+
+Packagers generate a clean release `.zip` in `release/` and automatically exclude `design/`, `scripts/`, `tests/`, documentation, and git metadata:
+
+```bash
+# Using npm:
+npm run package
+
+# Using Node.js directly:
+node scripts/package.js
+
+# Or on Windows using PowerShell:
+powershell -ExecutionPolicy Bypass -File scripts/package.ps1
+```
 
 ---
 
@@ -119,6 +142,13 @@ graph TD
 ---
 
 ## 🧩 Directory & Module Breakdown
+
+### Shared Defaults Module (`src/shared/`)
+
+- **`defaults.js` (`globalThis.FB_DIET_DEFAULTS`)**: Single source of truth for configuration and stat schema.
+  - Exposes `FB_DIET_DEFAULTS.SETTINGS`, `FB_DIET_DEFAULTS.COUNTS`, and `VERSION`.
+  - Loaded before all scripts via `manifest.json` (`content_scripts`), `importScripts` (`background.js`), and `<script>` tags (`popup.html`, `options.html`).
+  - Eliminates configuration drift across contexts.
 
 ### Main World Modules (`src/inject/`)
 

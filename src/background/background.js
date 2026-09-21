@@ -3,7 +3,13 @@
  * Manages initial extension state, settings persistence, and count synchronization.
  */
 
-const DEFAULT_SETTINGS = {
+try {
+  importScripts('../shared/defaults.js');
+} catch (e) {
+  // Ignore in environments where importScripts is not available
+}
+
+const DEFAULT_SETTINGS = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.SETTINGS) || {
   enabled: true,
   mode: 'proxy',
   removeSponsored: true,
@@ -12,12 +18,13 @@ const DEFAULT_SETTINGS = {
   removeMarketAds: true,
   removeSearchingAds: true,
   removeStories: true,
-  removeReels: true
+  removeReels: true,
+  debugProbe: false
 };
 
 const FACEBOOK_URL_PATTERNS = ['*://*.facebook.com/*'];
 
-const DEFAULT_COUNTS = {
+const DEFAULT_COUNTS = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.COUNTS) || {
   total: 0,
   sponsored: 0,
   suggested: 0,

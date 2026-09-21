@@ -5,17 +5,32 @@
  */
 
 (() => {
-  // Runtime configuration state
-  let currentSettings = {
+  const DEFAULTS = globalThis.FB_DIET_DEFAULTS || {};
+  const DEFAULT_SETTINGS = DEFAULTS.SETTINGS || {
     enabled: true,
+    mode: 'proxy',
     removeSponsored: true,
     removeSuggested: true,
     removeSuggestedGroup: true,
     removeMarketAds: true,
     removeSearchingAds: true,
     removeStories: true,
-    removeReels: true
+    removeReels: true,
+    debugProbe: false
   };
+  const DEFAULT_COUNTS = DEFAULTS.COUNTS || {
+    total: 0,
+    sponsored: 0,
+    suggested: 0,
+    suggestedGroup: 0,
+    marketAds: 0,
+    searchingAds: 0,
+    stories: 0,
+    reels: 0
+  };
+
+  // Runtime configuration state
+  let currentSettings = Object.assign({}, DEFAULT_SETTINGS);
 
   // MAIN world bridge protocol (see src/inject/bridge.js)
   const MAIN_SOURCE = 'fb-diet/main';
@@ -44,16 +59,7 @@
   let logFlushTimer = null;
 
   // Buffer for throttled stats updates (transferred every 3 seconds)
-  let countBuffer = {
-    total: 0,
-    sponsored: 0,
-    suggested: 0,
-    suggestedGroup: 0,
-    marketAds: 0,
-    searchingAds: 0,
-    stories: 0,
-    reels: 0
-  };
+  let countBuffer = Object.assign({}, DEFAULT_COUNTS);
   let flushTimer = null;
   let observer = null;
   let scanScheduled = false;
@@ -61,7 +67,7 @@
 
   // Builds a zeroed counts object (used for the buffer and storage fallbacks)
   function createEmptyCounts() {
-    return { total: 0, sponsored: 0, suggested: 0, suggestedGroup: 0, marketAds: 0, searchingAds: 0, stories: 0, reels: 0 };
+    return Object.assign({}, DEFAULT_COUNTS);
   }
 
   // Unit ids are opaque base64 blobs; show a short fingerprint instead.

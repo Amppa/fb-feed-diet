@@ -11,6 +11,7 @@
   "author": "",
   "license": "MIT",
   "scripts": {
-    "test": "node tests/run.js"
+    "test": "node tests/run.js",
+    "package": "node scripts/package.js"
   }
 }

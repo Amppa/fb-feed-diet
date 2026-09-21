@@ -1,4 +1,5 @@
 _metadata/
 node_modules/
+release/
 .DS_Store
 Thumbs.db

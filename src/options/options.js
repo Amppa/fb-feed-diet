@@ -14,15 +14,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   const i18n = window.FBDietI18N;
   const langSegments = document.querySelectorAll('.lang-segment');
 
+  const SHARED_DEFAULTS = globalThis.FB_DIET_DEFAULTS?.SETTINGS || {};
   const DEFAULTS = {
-    removeSponsored: true,
-    removeSuggested: true,
-    removeSuggestedGroup: true,
-    removeStories: true,
-    removeReels: true,
-    removeMarketAds: true,
-    removeSearchingAds: true,
-    debugProbe: false
+    removeSponsored: SHARED_DEFAULTS.removeSponsored !== false,
+    removeSuggested: SHARED_DEFAULTS.removeSuggested !== false,
+    removeSuggestedGroup: SHARED_DEFAULTS.removeSuggestedGroup !== false,
+    removeStories: SHARED_DEFAULTS.removeStories !== false,
+    removeReels: SHARED_DEFAULTS.removeReels !== false,
+    removeMarketAds: SHARED_DEFAULTS.removeMarketAds !== false,
+    removeSearchingAds: SHARED_DEFAULTS.removeSearchingAds !== false,
+    debugProbe: Boolean(SHARED_DEFAULTS.debugProbe)
   };
 
   const switches = {};
