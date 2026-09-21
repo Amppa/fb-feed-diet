@@ -9,13 +9,13 @@
   const DEFAULT_SETTINGS = DEFAULTS.SETTINGS || {
     enabled: true,
     mode: 'proxy',
-    removeSponsored: true,
-    removeSuggested: true,
-    removeSuggestedGroup: true,
-    removeMarketAds: true,
-    removeSearchingAds: true,
-    removeStories: true,
-    removeReels: true,
+    foldSponsored: true,
+    foldSuggested: true,
+    foldSuggestedGroup: true,
+    foldMarketAds: true,
+    foldSearchingAds: true,
+    foldStories: true,
+    foldReels: true,
     debugProbe: false
   };
   const DEFAULT_COUNTS = DEFAULTS.COUNTS || {
@@ -615,43 +615,43 @@
     if (!detector || typeof detector.isSponsored !== 'function') return;
 
     // Check Stories
-    if (currentSettings.removeStories && safeDetect(detector.isStories, el)) {
+    if (currentSettings.foldStories && safeDetect(detector.isStories, el)) {
       foldElement(el, 'stories');
       return;
     }
 
     // Check Reels
-    if (currentSettings.removeReels && safeDetect(detector.isReels, el)) {
+    if (currentSettings.foldReels && safeDetect(detector.isReels, el)) {
       foldElement(el, 'reels');
       return;
     }
 
     // Check Marketplace Ads
-    if (currentSettings.removeMarketAds && safeDetect(detector.isMarketAd, el)) {
+    if (currentSettings.foldMarketAds && safeDetect(detector.isMarketAd, el)) {
       foldElement(el, 'marketAds');
       return;
     }
 
     // Check Search Result Ads
-    if (currentSettings.removeSearchingAds && safeDetect(detector.isSearchAd, el)) {
+    if (currentSettings.foldSearchingAds && safeDetect(detector.isSearchAd, el)) {
       foldElement(el, 'searchingAds');
       return;
     }
 
     // Check Sponsored Feed posts
-    if (currentSettings.removeSponsored && safeDetect(detector.isSponsored, el)) {
+    if (currentSettings.foldSponsored && safeDetect(detector.isSponsored, el)) {
       foldElement(el, 'sponsored');
       return;
     }
 
     // Check Suggested Groups
-    if (currentSettings.removeSuggestedGroup && safeDetect(detector.isSuggestedGroup, el)) {
+    if (currentSettings.foldSuggestedGroup && safeDetect(detector.isSuggestedGroup, el)) {
       foldElement(el, 'suggestedGroup');
       return;
     }
 
     // Check Suggested Feed posts
-    if (currentSettings.removeSuggested && safeDetect(detector.isSuggested, el)) {
+    if (currentSettings.foldSuggested && safeDetect(detector.isSuggested, el)) {
       foldElement(el, 'suggested');
       return;
     }

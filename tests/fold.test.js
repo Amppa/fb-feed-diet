@@ -118,9 +118,9 @@ function run(c) {
     c.ok('master off renders untouched', t.render(payloadOf('u1')).__source === true);
     t.bridge.setSettings({ enabled: true });
 
-    t.bridge.setSettings({ removeSponsored: false });
+    t.bridge.setSettings({ foldSponsored: false });
     c.ok('category off renders untouched', t.render(payloadOf('u1')).__source === true);
-    t.bridge.setSettings({ removeSponsored: true });
+    t.bridge.setSettings({ foldSponsored: true });
     c.ok('category restored folds again', t.render(payloadOf('u1')).type === t.React.Fragment);
   }
 

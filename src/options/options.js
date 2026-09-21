@@ -16,13 +16,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const SHARED_DEFAULTS = globalThis.FB_DIET_DEFAULTS?.SETTINGS || {};
   const DEFAULTS = {
-    removeSponsored: SHARED_DEFAULTS.removeSponsored !== false,
-    removeSuggested: SHARED_DEFAULTS.removeSuggested !== false,
-    removeSuggestedGroup: SHARED_DEFAULTS.removeSuggestedGroup !== false,
-    removeStories: SHARED_DEFAULTS.removeStories !== false,
-    removeReels: SHARED_DEFAULTS.removeReels !== false,
-    removeMarketAds: SHARED_DEFAULTS.removeMarketAds !== false,
-    removeSearchingAds: SHARED_DEFAULTS.removeSearchingAds !== false,
+    foldSponsored: SHARED_DEFAULTS.foldSponsored !== false,
+    foldSuggested: SHARED_DEFAULTS.foldSuggested !== false,
+    foldSuggestedGroup: SHARED_DEFAULTS.foldSuggestedGroup !== false,
+    foldStories: SHARED_DEFAULTS.foldStories !== false,
+    foldReels: SHARED_DEFAULTS.foldReels !== false,
+    foldMarketAds: SHARED_DEFAULTS.foldMarketAds !== false,
+    foldSearchingAds: SHARED_DEFAULTS.foldSearchingAds !== false,
     debugProbe: Boolean(SHARED_DEFAULTS.debugProbe)
   };
 

@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 const { Checker, createWindow, loadInject } = require('./harness');
 
 function makeReader(calls) {
@@ -166,7 +166,7 @@ function run(c) {
   equals(c, 'default settings enable sponsored', C.isCategoryEnabled('sponsored', {}), true);
   equals(c, 'master switch disables everything', C.isCategoryEnabled('sponsored', { enabled: false }), false);
   equals(c, 'null settings disable everything', C.isCategoryEnabled('sponsored', null), false);
-  equals(c, 'per category switch', C.isCategoryEnabled('suggested', { removeSuggested: false }), false);
+  equals(c, 'per category switch', C.isCategoryEnabled('suggested', { foldSuggested: false }), false);
   equals(c, 'unknown category disabled', C.isCategoryEnabled('nope', {}), false);
 
   /* --- classifyProbeReport (options debug card) --- */

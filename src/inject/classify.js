@@ -29,13 +29,13 @@ window.FBDietClassify = (() => {
 
   // Maps a category to the storage key owned by the options page / popup
   const SETTING_BY_CATEGORY = {
-    sponsored: 'removeSponsored',
-    suggested: 'removeSuggested',
-    suggestedGroup: 'removeSuggestedGroup',
-    reels: 'removeReels',
-    stories: 'removeStories',
-    marketAds: 'removeMarketAds',
-    searchingAds: 'removeSearchingAds'
+    sponsored: 'foldSponsored',
+    suggested: 'foldSuggested',
+    suggestedGroup: 'foldSuggestedGroup',
+    reels: 'foldReels',
+    stories: 'foldStories',
+    marketAds: 'foldMarketAds',
+    searchingAds: 'foldSearchingAds'
   };
 
   // Relay based classification rules (verified against the reference implementation)

@@ -409,7 +409,7 @@ window.FBDietFold = (() => {
     if (!bridge || !React || !rendered) return rendered;
 
     const settings = bridge.getSettings();
-    if (!settings.enabled || settings.removeSponsored === false) return rendered;
+    if (!settings.enabled || settings.foldSponsored === false) return rendered;
 
     bridge.reportBlocked({ category: 'sponsored', unitId: 'side_ad', reason: 'right-rail-sponsored' });
 

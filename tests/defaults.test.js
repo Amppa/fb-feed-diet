@@ -26,13 +26,13 @@ function run(checker) {
   checker.ok('SETTINGS object exists', Boolean(settings));
   checker.equals('settings.enabled is true', settings && settings.enabled, true);
   checker.equals('settings.mode is proxy', settings && settings.mode, 'proxy');
-  checker.equals('settings.removeSponsored is true', settings && settings.removeSponsored, true);
-  checker.equals('settings.removeSuggested is true', settings && settings.removeSuggested, true);
-  checker.equals('settings.removeSuggestedGroup is true', settings && settings.removeSuggestedGroup, true);
-  checker.equals('settings.removeMarketAds is true', settings && settings.removeMarketAds, true);
-  checker.equals('settings.removeSearchingAds is true', settings && settings.removeSearchingAds, true);
-  checker.equals('settings.removeStories is true', settings && settings.removeStories, true);
-  checker.equals('settings.removeReels is true', settings && settings.removeReels, true);
+  checker.equals('settings.foldSponsored is true', settings && settings.foldSponsored, true);
+  checker.equals('settings.foldSuggested is true', settings && settings.foldSuggested, true);
+  checker.equals('settings.foldSuggestedGroup is true', settings && settings.foldSuggestedGroup, true);
+  checker.equals('settings.foldMarketAds is true', settings && settings.foldMarketAds, true);
+  checker.equals('settings.foldSearchingAds is true', settings && settings.foldSearchingAds, true);
+  checker.equals('settings.foldStories is true', settings && settings.foldStories, true);
+  checker.equals('settings.foldReels is true', settings && settings.foldReels, true);
   checker.equals('settings.debugProbe is false', settings && settings.debugProbe, false);
 
   const counts = defaults && defaults.COUNTS;

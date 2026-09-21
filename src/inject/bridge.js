@@ -26,13 +26,13 @@ window.FBDietBridge = (() => {
   const DEFAULT_SETTINGS = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.SETTINGS) || {
     enabled: true,
     mode: 'proxy',
-    removeSponsored: true,
-    removeSuggested: true,
-    removeSuggestedGroup: true,
-    removeMarketAds: true,
-    removeSearchingAds: true,
-    removeStories: true,
-    removeReels: true,
+    foldSponsored: true,
+    foldSuggested: true,
+    foldSuggestedGroup: true,
+    foldMarketAds: true,
+    foldSearchingAds: true,
+    foldStories: true,
+    foldReels: true,
     debugProbe: false
   };
 
