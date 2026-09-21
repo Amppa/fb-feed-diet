@@ -56,6 +56,7 @@ function run(c) {
 
   /* --- feed-only keys were trimmed from the shared module --- */
   c.equals('feed badge keys removed', i18n.t('badgeSponsored', 'zh-TW'), 'badgeSponsored');
+  c.equals('probe unknown badge key replaced by labelRegular', i18n.t('probeCategoryUnknown', 'zh-TW'), 'probeCategoryUnknown');
 }
 
 module.exports = { run };

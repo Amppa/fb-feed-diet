@@ -6,11 +6,11 @@
  *   - settings pushed from the service worker (window.__fbDietSetSettings) or from the
  *     content script (postMessage)
  *   - per feed unit expand/collapse state plus the "already reported" dedupe sets
- *   - blocked / unknown events posted back to the content script, which keeps
+ *   - blocked / allowed / regular events posted back to the content script, which keeps
  *     writing the throttled counters to chrome.storage
  *
  * Message protocol
- *   MAIN    -> content : { source: 'fb-diet/main',    type: ready | blocked | unknown | settings-applied }
+ *   MAIN    -> content : { source: 'fb-diet/main',    type: ready | blocked | allowed | regular | settings-applied }
  *   content -> MAIN    : { source: 'fb-diet/content', type: ping | settings }
  *
  * Loading order (manifest): proxy.js -> relay.js -> classify.js -> bridge.js -> fold.js
@@ -38,7 +38,7 @@ window.FBDietBridge = (() => {
 
   const MAX_EXPANDED = 400;
   const MAX_REPORTS = 200;
-  const MAX_UNKNOWN = 150;
+  const MAX_REGULAR = 150;
 
   let settings = Object.assign({}, DEFAULT_SETTINGS);
   let lastError = null;
@@ -53,8 +53,8 @@ window.FBDietBridge = (() => {
   const expandedSet = new Set();
   const reportedBlocked = [];
   const reportedBlockedSet = new Set();
-  const reportedUnknown = [];
-  const reportedUnknownSet = new Set();
+  const reportedRegular = [];
+  const reportedRegularSet = new Set();
   const reportedAllowed = [];
   const reportedAllowedSet = new Set();
   const recentReports = [];
@@ -185,7 +185,7 @@ window.FBDietBridge = (() => {
 
   function reportRegular(result) {
     const key = (result.unitTypename || 'none') + ':' + (result.unitId || 'none');
-    if (!remember(reportedUnknown, reportedUnknownSet, key, MAX_UNKNOWN)) return;
+    if (!remember(reportedRegular, reportedRegularSet, key, MAX_REGULAR)) return;
     post('regular', {
       unitId: result.unitId,
       unitTypename: result.unitTypename,
@@ -201,10 +201,6 @@ window.FBDietBridge = (() => {
       evidence: result.evidence,
       moduleName: result.moduleName || null
     });
-  }
-
-  function reportUnknown(result) {
-    reportRegular(result);
   }
 
   function announceReady(reason) {
@@ -257,7 +253,7 @@ window.FBDietBridge = (() => {
     },
     counts: {
       blocked: reportedBlocked.length,
-      unknown: reportedUnknown.length,
+      regular: reportedRegular.length,
       expanded: expanded.length
     },
     lastError,
@@ -284,7 +280,6 @@ window.FBDietBridge = (() => {
     reportBlocked,
     reportAllowed,
     reportRegular,
-    reportUnknown,
     debugLog,
     isDebugEnabled: () => debugEnabled,
     announceReady,

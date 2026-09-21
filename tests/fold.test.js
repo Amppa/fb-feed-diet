@@ -70,10 +70,12 @@ function run(c) {
   /* --- regular payload: untouched + reported once --- */
   {
     const t = setup({});
-    const result = t.render(payloadOf('u-unknown'));
+    const result = t.render(payloadOf('u-regular'));
     c.ok('regular unit renders the untouched tree', result.__source === true && result.props.children === 'original post');
     c.equals('regular reported', countMessages(t.win, 'regular'), 1);
-    t.render(payloadOf('u-unknown'));
+    const regularMsg = t.win.__messages.filter((m) => m && m.type === 'regular')[0];
+    c.equals('regular report carries the no-match reason', regularMsg && regularMsg.payload.reason, 'no-match');
+    t.render(payloadOf('u-regular'));
     c.equals('regular dedupe by unit id', countMessages(t.win, 'regular'), 1);
     c.equals('no folding in regular state', countMessages(t.win, 'blocked'), 0);
   }

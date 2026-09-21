@@ -6,7 +6,8 @@
  * same code is unit tested under Node (see tests/classify.test.js).
  *
  * Evidence fields are always returned, even when nothing matched: they are what gets
- * logged for unknown units so mis-detections can be diagnosed without guessing.
+ * logged for unmatched (reason: no-match) units so mis-detections can be diagnosed
+ * without guessing.
  *
  * Public API (window.FBDietClassify):
  *   classifyFeedUnit(payload, context)    -> { category, unitId, unitTypename, reason, evidence, moduleName }
@@ -267,7 +268,10 @@ window.FBDietClassify = (() => {
       return { category: CATEGORY.REELS, reason: 'unitTypename:ShowcaseFeedUnit' };
     }
 
-    return { category: null, reason: evidence.ids.length ? 'unknown' : 'no-unit-id' };
+    // No rule matched. 'no-match' belongs to the no-* absence family (no-unit-id /
+    // no-payload) and never claims the unit IS a normal post: a missed suggestion
+    // carries the same category: null, which is exactly what the probe is for.
+    return { category: null, reason: evidence.ids.length ? 'no-match' : 'no-unit-id' };
   }
 
   /** Unit ids are opaque base64 blobs; show a short fingerprint instead. */

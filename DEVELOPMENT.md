@@ -180,7 +180,7 @@ Loaded sequentially at `document_start` before Comet finishes loading:
     - `stories` / `marketAds` / `searchingAds`: component-name markers in `fold.js`, not unit classification
 - **`bridge.js` (`window.FBDietBridge`)**:
   - Owns in-page expand/collapse state (`expandedSet`).
-  - Manages deduplication sets (`reportedBlockedSet`, `reportedUnknownSet`) to prevent redundant storage writes.
+  - Manages deduplication sets (`reportedBlockedSet`, `reportedRegularSet`) to prevent redundant storage writes.
   - Handles `window.postMessage` communication between MAIN and ISOLATED worlds.
   - Accepts immediate settings push via `window.__fbDietSetSettings`.
 - **`fold.js` (`window.FBDietFold`)**:
@@ -195,7 +195,7 @@ Loaded sequentially at `document_start` before Comet finishes loading:
 ### Isolated World Modules (`src/content/`)
 
 - **`content.js`**:
-  - Listens for `fb-diet/main` messages (`ready`, `blocked`, `unknown`).
+  - Listens for `fb-diet/main` messages (`ready`, `blocked`, `allowed`, `regular`).
   - Persists a capped diagnostic log of classification events to `chrome.storage.local` (`fbDietLog`, last 300 entries, batched flush).
   - Manages a 3-second throttled buffer (`countBuffer`) to batch-update `chrome.storage.local`.
   - Disables DOM scanning as soon as `ready` is received from MAIN world.
@@ -260,7 +260,7 @@ FBDietFold wrapper executes
   │
   ├─► Matched active category?
   │     ├─► NO:
-  │     │     Report unknown (if suspicious) -> return original element
+  │     │     Report regular (reason: no-match) -> return original element
   │     │
   │     └─► YES:
   │           1. bridge.reportBlocked(unitId, category)
@@ -342,7 +342,7 @@ toggle plus a report analyzer: paste a copied probe JSON, press **Analyze**, and
 the captured classification side by side with a re-run of the CURRENT rules
 (`FBDietClassify.classifyProbeReport(report)`, pure & Node-tested). Known limitation: the probe
 snapshot contains only the first Relay record, so `^` / `^^` linked-record paths read as null on
-re-run and the re-run may degrade to `unknown` — the captured verdict stays authoritative.
+re-run and the re-run may degrade to `no-match` — the captured verdict stays authoritative.
 
 ---
 

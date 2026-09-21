@@ -27,7 +27,7 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
 
 - 分類器 `src/inject/classify.js`：props 優先 → Relay store 後備；evidence 全收集後在 `pickCategory` 用固定優先序挑分類（sponsored > suggestedGroup > suggested > reels）。
 - 分類粒度更細：`suggested` 與 `suggestedGroup` 分開設定；額外有 `stories / marketAds / searchingAds` 分類（但由 fold.js 的元件名單直接標記，非分類器判定）。
-- **不限首頁**；有 debug evidence 記錄（`unknown` 會回報完整 evidence）。
+- **不限首頁**；有 debug evidence 記錄（未命中規則的 `regular` 會回報完整 evidence）。
 - Reels 判定刻意比 esuit 保守（見下方決策 #3）。
 
 ### 現行規則一覽（classify.js）
@@ -58,7 +58,7 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
 ### 決策 #6 — story_header 完全不作為分類證據（2026-09-19，probe 實證）
 - **已嘗試並否決**：esuit 的「`story_header{location:homepage_stream}` 下有 `title.text` 即判 suggested」，以及我們前兩輪的加強版（location-free 後備／存在即中／已知 location + 非空 title）。
 - **probe 實證**：朋友照片被留言回應的情境式 story（標題「Sunny Lin 最近留言回應。」）存在與建議標題**完全相同**的 record：`client:1238:story_header(location:homepage_stream):title`（誤判 4）。標題多語言、格式多變，字串比對無法可靠區分。
-- **結論**：story_header 相關規則全數退役，只保留 `storyLocation` / `storyTitle` 作為診斷欄位。suggested 回歸 esuit 核心：**關係狀態**（`CAN_SUBSCRIBE` / `CAN_JOIN` / 社團 typename）+ 元件名單。代價：「為你推薦」內容貼文可能漏折（會以 unknown 進入 log，等 probe 收集到建議貼文獨有訊號再補）。
+- **結論**：story_header 相關規則全數退役，只保留 `storyLocation` / `storyTitle` 作為診斷欄位。suggested 回歸 esuit 核心：**關係狀態**（`CAN_SUBSCRIBE` / `CAN_JOIN` / 社團 typename）+ 元件名單。代價：「為你推薦」內容貼文可能漏折（會以 `regular`（reason: `no-match`）進入 log，等 probe 收集到建議貼文獨有訊號再補）。
 - **程式碼備份**：`src/inject/classify-retired.js`（未被 manifest 載入；含所有退役規則的可執行版本與重啟步驟）。
 
 ### 決策 #3 — Reels 只認「單元本身是 ShowcaseFeedUnit」
@@ -84,23 +84,25 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
 | 3 | 朋友轉貼含 reel 被判 reels | `unitTypename:ShowcaseFeedUnit`（nested 附件 record 的 typename） | 決策 #3 |
 | 4 | 朋友照片被留言回應（「X 最近留言回應。」情境 story）被判 suggested | `story_header:homepage_stream`（與建議標題同一個 keyed record，probe 實證） | 決策 #6（規則全數退役） |
 
-> 注意修正後的副作用：**寧可漏折、不可誤折**。如果發現某些「真的建議貼文」開始漏折，先看 `unknown` 回報的 evidence（見 §5），有資料再精準補規則，不要直接放寬上述條件。
+> 注意修正後的副作用：**寧可漏折、不可誤折**。如果發現某些「真的建議貼文」開始漏折，先看 `regular`（reason: `no-match`）回報的 evidence（見 §5），有資料再精準補規則，不要直接放寬上述條件。
 
 ---
 
 ## 5. 診斷工具與 runbook（遇到漏判／誤判時）
 
-1. **診斷日誌（自動、持久）**：`chrome.storage.local` 的 `fbDietLog` key，記錄最近 300 筆分類事件（blocked / unknown，含 category、reason、unitTypename、moduleName、evidence、頁面路徑）。
+> **術語**：未命中任何規則的貼文在統計中記為 `regular`（一般貼文），診斷層的 `reason` 為 `no-match`（`no-unit-id` / `no-payload` 代表連單元資訊都拿不到）；`category: null` **不代表已確認是一般貼文**，也可能是漏折的建議貼文，這正是 probe 要抓的線索。v1.2.0 前上述值都叫 `unknown`，舊 `fbDietLog` 與舊 probe JSON 仍可能出現該字串。
+
+1. **診斷日誌（自動、持久）**：`chrome.storage.local` 的 `fbDietLog` key，記錄最近 300 筆分類事件（blocked / allowed / regular，含 category、reason、unitTypename、moduleName、evidence、頁面路徑）。
    - Facebook 分頁 Console（選 content script context）：`__fbDietDumpLog()`、`__fbDietClearLog()`。
 2. **Feed 診斷按鈕（probe，手動）**：Options 開啟「🧪 顯示 Feed 診斷按鈕」（或 URL 加 `?fb_diet_debug=1`），每個經過 `FBDietFold` 的單元左側外浮現 🔍 按鈕，點擊即複製該單元的完整 JSON（並在左側浮現類型提示氣泡，點擊外部可關閉）：分類結果（category/reason/evidence）、觸發的元件模組、payload 快照（深度 5）、Relay record 欄位。
-   - **漏判診斷**：對沒被摺疊的貼文按 🔍，看 `classify.category` 是 `null`（unknown，看 reason）還是被 settings 關掉；把 JSON 貼給對照 §3 補規則。
+   - **漏判診斷**：對沒被摺疊的貼文按 🔍，看 `classify.category` 是 `null`（看 `reason`：`no-match` 為沒命中規則）還是被 settings 關掉；把 JSON 貼給對照 §3 補規則。
    - **誤判診斷**：對被誤折的貼文展開後按 🔍，看 `reason` 對回 §3 的哪條規則。
-3. **Options Debug 卡（報告判讀）**：Options 頁面底部的 DEBUG 卡可貼上 probe 複製的 JSON，按「判斷」即顯示當時分類結果，並用**目前版本規則**對 `payload` 重跑一次分類做對比。已知限制：probe 快照只含第一筆 record，`^` / `^^` 連結路徑在重跑時讀不到值（結果可能退化為 unknown），此時以當時結果為準。
+3. **Options Debug 卡（報告判讀）**：Options 頁面底部的 DEBUG 卡可貼上 probe 複製的 JSON，按「判斷」即顯示當時分類結果，並用**目前版本規則**對 `payload` 重跑一次分類做對比。已知限制：probe 快照只含第一筆 record，`^` / `^^` 連結路徑在重跑時讀不到值（結果可能退化為 `no-match`），此時以當時結果為準。
 4. **即時 console**：URL 加 `?fb_diet_debug=1`，看 `[FB Diet][MAIN]` / `[FB Diet][Classify]` 輸出。
 5. **單元測試**：`npm test`；新規則務必補 `tests/classify.test.js` 迴歸測試。
 
 ### 新增規則的安全流程
-1. 從 unknown 的 evidence（或 probe JSON）找出候選 Relay path / typename。
+1. 從 `no-match` 的 evidence（或 probe JSON）找出候選 Relay path / typename。
 2. 確認該證據**不會**命中正常朋友貼文（在多個情境下驗證）。
 3. 加到 `pickCategory` 的優先序中（廣告 > 社團 > 建議 > reels）。
 4. 補測試（正向 + 至少一個「朋友貼文不得命中」的反向測試）。

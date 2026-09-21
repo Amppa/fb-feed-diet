@@ -258,7 +258,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     row.appendChild(makeProbeEl('span', 'probe-row-label', label));
     const value = makeProbeEl('span', 'probe-row-value');
     if (!result || !result.category) {
-      value.appendChild(makeProbeEl('span', 'probe-badge probe-badge-none', tt('probeCategoryUnknown')));
+      // No category means "no rule matched", which for the reader is a normal post:
+      // reuse the stats wording so both surfaces name it identically.
+      value.appendChild(makeProbeEl('span', 'probe-badge probe-badge-none', tt('labelRegular')));
     } else {
       value.appendChild(makeProbeEl('span', 'probe-badge probe-badge-' + result.category, categoryLabel(result.category)));
     }

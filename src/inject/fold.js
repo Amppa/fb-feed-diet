@@ -258,8 +258,8 @@ window.FBDietFold = (() => {
       popup.className = 'fb-diet-probe-popup';
       popup.title = '點擊外部可關閉提示 (Click outside to dismiss)';
 
-      const category = (classifyResult && classifyResult.category) || (props && props.entryCategory) || 'unknown';
-      const reason = (classifyResult && classifyResult.reason) || (props && props.moduleName ? 'component:' + props.moduleName : 'unmatched');
+      const category = (classifyResult && classifyResult.category) || (props && props.entryCategory) || 'regular';
+      const reason = (classifyResult && classifyResult.reason) || (props && props.moduleName ? 'component:' + props.moduleName : 'no-match');
 
       const evidence = classifyResult && classifyResult.evidence;
       const source = evidence && evidence.source && evidence.source !== 'none' ? evidence.source : null;
@@ -430,11 +430,7 @@ window.FBDietFold = (() => {
         const result = classify.classifyFeedUnit(props.payload, { moduleName: props.moduleName || null });
         classifyResult = result;
         if (!result.category) {
-          if (typeof bridge.reportRegular === 'function') {
-            bridge.reportRegular(result);
-          } else {
-            bridge.reportUnknown(result);
-          }
+          if (typeof bridge.reportRegular === 'function') bridge.reportRegular(result);
           return addProbe(rendered, props, classifyResult);
         }
 

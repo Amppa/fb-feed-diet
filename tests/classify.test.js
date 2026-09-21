@@ -134,11 +134,11 @@ function run(c) {
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf({ __typename: 'GroupsYouShouldJoinFeedUnit' }) });
   equals(c, 'sponsored beats suggestedGroup', r.category, 'sponsored');
 
-  /* --- unknown / empty --- */
+  /* --- no-match / empty --- */
   calls.mapValue = () => null;
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
-  equals(c, 'unmatched unit is unknown, not folded', r.category, null);
-  equals(c, 'unknown reason', r.reason, 'unknown');
+  equals(c, 'unmatched unit is no-match, not folded', r.category, null);
+  equals(c, 'no-match reason', r.reason, 'no-match');
   equals(c, 'unit id still present for debugging', r.unitId, 'u1');
   c.ok('evidence block always returned', Boolean(r.evidence) && Array.isArray(r.evidence.ids));
 
@@ -211,12 +211,12 @@ function run(c) {
   a = C.classifyProbeReport(relayOnlyReport);
   c.ok('relay-only report ok', a.ok === true);
   equals(c, 'captured verdict preserved', a.captured.category, 'suggested');
-  equals(c, 're-run degrades to unknown', a.current.category, null);
+  equals(c, 're-run degrades to no-match', a.current.category, null);
   equals(c, 'relay snapshot flagged', a.relayAvailable, true);
 
   // Direct fields in the snapshot still resolve (no link hop needed).
   const storyTypeReport = {
-    classify: { category: null, reason: 'unknown' },
+    classify: { category: null, reason: 'no-match' },
     payload: { feedUnit: { id: 'u1', __typename: 'FeedUnitRoot' } },
     relayRecord: { __id: 'u1', showcase_story_type: 'video' }
   };

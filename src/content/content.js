@@ -268,7 +268,7 @@
     pushPersistedLog(type, payload);
 
     if (mainReports.length <= MAX_MAIN_REPORT_LOGS && isDebugUrl()) {
-      if (type === 'unknown' && payload.reason === 'unknown' && payload.unitTypename === 'Story') {
+      if (type === 'regular' && payload.reason === 'no-match' && payload.unitTypename === 'Story') {
         console.debug('[FB Diet] Normal/unclassified feed story:', shortUnitId(payload.unitId));
       } else {
         console.info(
@@ -358,7 +358,7 @@
         return;
       }
 
-      if (data.type === 'regular' || data.type === 'unknown') {
+      if (data.type === 'regular') {
         recordRegular();
         storeMainReport(data.type, data.payload || {});
       }
