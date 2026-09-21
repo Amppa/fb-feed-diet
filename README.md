@@ -9,8 +9,8 @@ Instead of abruptly wiping elements or breaking your feed, **FB Feed Diet** neat
 ## ✨ Features
 
 - **Master Switch**: One-click global toggle to pause or resume diet filtering anytime.
-- **🛡️ Fold Ads**: Folds sponsored posts, Marketplace listings, and search ads.
-- **💡 Fold Facebook Suggestions**: Folds recommended posts from people you don't follow ("Suggested for you").
+- **💸 Fold Ads**: Folds sponsored posts, Marketplace listings, and search ads.
+- **🤵 Fold Facebook Suggestions**: Folds recommended posts from people you don't follow ("Suggested for you").
 - **🎬 Fold Reels & Stories**: Keeps your feed focused by folding Reels and Stories carousels.
 - **👥 Fold Other Recommendations**: Folds group recommendations ("Groups you should join").
 - **One-Click Expand & Restore**:
