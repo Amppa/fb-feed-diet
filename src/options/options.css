@@ -107,10 +107,17 @@ body {
   letter-spacing: 0.3px;
 }
 
-.logo-badge {
+.logo-badge,
+.logo-img {
   width: 44px;
   height: 44px;
   border-radius: 11px;
+  display: block;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.logo-badge {
   background: var(--accent-gradient);
   display: flex;
   align-items: center;

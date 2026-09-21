@@ -1,8 +1,8 @@
-# FB Diet - Feed Declutter & Ads Diet for Facebook™
+# FB Feed Diet - Clean Feed & Ads Declutter for Facebook™
 
 A modern, lightweight Chrome Extension designed to put your Facebook feed on a clean, healthy diet.
 
-Instead of abruptly wiping elements or breaking your feed, **FB Diet** neatly folds sponsored posts, suggestions, and ads into elegant inline placeholders with seamless **one-click expand and restore**.
+Instead of abruptly wiping elements or breaking your feed, **FB Feed Diet** neatly folds sponsored posts, suggestions, and ads into elegant inline placeholders with seamless **one-click expand and restore**.
 
 ---
 
@@ -40,7 +40,7 @@ Instead of abruptly wiping elements or breaking your feed, **FB Diet** neatly fo
 
 ## 💡 How to Use
 
-- **Quick Toggle**: Click the **FB Diet** icon in your Chrome toolbar to turn filtering ON or OFF instantly.
+- **Quick Toggle**: Click the **FB Feed Diet** icon in your Chrome toolbar to turn filtering ON or OFF instantly.
 - **Detailed Settings**: Click **"Options"** in the popup to customize which types of content to fold (e.g. keep Reels while folding Sponsored ads).
 - **Expand a Post**: When a post is folded, click **"Expand"** on the placeholder bar to view it without reloading the page.
 

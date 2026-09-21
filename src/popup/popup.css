@@ -45,10 +45,17 @@ body {
   gap: 10px;
 }
 
-.logo-badge {
+.logo-badge,
+.logo-img {
   width: 34px;
   height: 34px;
   border-radius: 9px;
+  display: block;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.logo-badge {
   background: var(--accent-gradient);
   display: flex;
   align-items: center;

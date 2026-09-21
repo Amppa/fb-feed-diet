@@ -29,7 +29,7 @@ function run(c) {
   c.equals('unsupported locale falls back to en', i18nFallback.getLang(), 'en');
 
   /* --- translation lookups --- */
-  c.equals('zh-TW options title', i18n.t('optionsTitle'), 'FB Diet 設定');
+  c.equals('zh-TW options title', i18n.t('optionsTitle'), 'FB Feed Diet 設定');
   c.equals('zh-TW mode title', i18n.t('modeProxyTitle'), '代理模式');
   c.equals('en mode title via lang arg', i18n.t('modeProxyTitle', 'en'), 'Proxy Mode');
   c.equals('explicit en overrides current zh', i18n.getLang(), 'zh-TW', 'after lang-arg read lang is unchanged');

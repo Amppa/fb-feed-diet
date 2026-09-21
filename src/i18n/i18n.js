@@ -17,9 +17,9 @@ window.FBDietI18N = (() => {
 
   const LOCALES = {
     en: {
-      appName: 'FB Diet',
-      optionsTitle: 'FB Diet Options',
-      optionsSubtitle: 'Configure your feed diet preferences',
+      appName: 'FB Feed Diet',
+      optionsTitle: 'FB Feed Diet Options',
+      optionsSubtitle: 'Classify feeds and fold ads on your wall.',
       masterToggleTitle: 'Master Toggle',
       masterStatusActive: 'Active',
       masterStatusDisabled: 'Disabled',
@@ -72,14 +72,14 @@ window.FBDietI18N = (() => {
       probeErrorGeneric: 'Could not analyze this report.',
       probeErrorNoClassifier: 'Classifier module failed to load. Reload this page and try again.',
       langToggleTitle: 'Switch language',
-      popupSubtitle: 'Feed Declutter & Diet',
+      popupSubtitle: 'Clean & fold Facebook feeds',
       optionsBtn: '⚙️ Options',
       resetPopupTitle: 'Reset counter'
     },
     'zh-TW': {
-      appName: 'FB Diet',
-      optionsTitle: 'FB Diet 設定',
-      optionsSubtitle: '設定你的動態牆「減肥」偏好',
+      appName: 'FB Feed Diet',
+      optionsTitle: 'FB Feed Diet 設定',
+      optionsSubtitle: '分類動態饋給並摺疊動態牆上的廣告',
       masterToggleTitle: '總開關',
       masterStatusActive: '已啟用',
       masterStatusDisabled: '已停用',
