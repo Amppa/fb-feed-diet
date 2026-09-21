@@ -251,8 +251,12 @@ window.FBDietClassify = (() => {
     if (evidence.unitTypename && SUGGESTED_GROUP_TYPENAMES.indexOf(evidence.unitTypename) !== -1) {
       return { category: CATEGORY.SUGGESTED_GROUP, reason: 'unitTypename:' + evidence.unitTypename };
     }
+    // A plain Story with viewer_forum_join_state CAN_JOIN is a "suggested for you"
+    // group post from a group the viewer has not joined: it folds with the suggested
+    // surface (STRATEGY.md, decision #10). Only the horizontal GYSJ list unit above
+    // is suggestedGroup / the "Other" group.
     if (evidence.joinState && SUGGESTED_JOIN_STATES.indexOf(evidence.joinState) !== -1) {
-      return { category: CATEGORY.SUGGESTED_GROUP, reason: 'to.viewer_forum_join_state' };
+      return { category: CATEGORY.SUGGESTED, reason: 'to.viewer_forum_join_state' };
     }
     if (evidence.subscribeStatus && SUGGESTED_SUBSCRIBE_STATES.indexOf(evidence.subscribeStatus) !== -1) {
       return { category: CATEGORY.SUGGESTED, reason: 'actors[0].subscribe_status' };

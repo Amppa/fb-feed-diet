@@ -52,13 +52,14 @@ function run(c) {
   r = C.classifyFeedUnit({ unitTypename: 'GroupsYouShouldJoinFeedUnit', feedUnit: feedUnitOf() });
   equals(c, 'suggestedGroup by payload typename', r.category, 'suggestedGroup');
 
-  /* --- suggested group by join state (props + relay) --- */
-  r = C.classifyFeedUnit({ feedUnit: feedUnitOf({ to: { viewer_forum_join_state: 'CAN_JOIN' } }) });
-  equals(c, 'suggestedGroup by props join state', r.category, 'suggestedGroup');
+  /* --- suggested by join state (props + relay): a can-join group POST is a
+     suggestion, not the "Other" group list (STRATEGY.md, decision #10) --- */
+  r = C.classifyFeedUnit({ feedUnit: feedUnitOf({ __typename: 'Story', to: { viewer_forum_join_state: 'CAN_JOIN' } }) });
+  equals(c, 'suggested by props join state', r.category, 'suggested');
 
   calls.mapValue = (path) => (path === P.JOIN_PATH ? 'CAN_JOIN' : null);
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
-  equals(c, 'suggestedGroup by relay join state', r.category, 'suggestedGroup');
+  equals(c, 'suggested by relay join state', r.category, 'suggested');
 
   /* --- suggested by subscribe status --- */
   calls.mapValue = (path) => (path === P.SUBSCRIBE_PATH ? 'CAN_SUBSCRIBE' : null);

@@ -35,8 +35,8 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
 | 分類 | 判定 | 來源 |
 |---|---|---|
 | sponsored | `sponsored_data.ad_id` 存在 | props / Relay `^sponsored_data.ad_id` |
-| suggestedGroup | `unitTypename ∈ ['GroupsYouShouldJoinFeedUnit','GroupSuggestionsFeedUnit']` 或 `viewer_forum_join_state === 'CAN_JOIN'` | props / Relay |
-| suggested | `subscribe_status === 'CAN_SUBSCRIBE'`（**只有這一個值**） | Relay `^^actors[0].subscribe_status` |
+| suggestedGroup | `unitTypename ∈ ['GroupsYouShouldJoinFeedUnit','GroupSuggestionsFeedUnit']`（僅橫式「推薦你加入的社團」列表，歸 other 群組） | props / Relay |
+| suggested | `subscribe_status === 'CAN_SUBSCRIBE'`（**只有這一個值**）；或 `viewer_forum_join_state === 'CAN_JOIN'`（未加入社團的推薦貼文，決策 #10） | Relay `^^actors[0].subscribe_status` / `^to.viewer_forum_join_state` |
 | suggested | ~~story_header~~（決策 #6：已退役；`storyLocation`/`storyTitle` 僅為診斷欄位） | 備份：`classify-retired.js` |
 | reels | 單元**本身** `__typename === 'ShowcaseFeedUnit'`（排除附件模組 context） | props |
 | stories | 單元**本身** `__typename === 'DiscoverFeedUnit'`（動態中間的限時動態列，決策 #7）；其餘 stories 表面仍由元件名單標記 | props |
@@ -80,6 +80,11 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
 - **運作方式**：群組是純「顯示與操作層」。Options 群組開關批次寫入映射的 per-category key（`SETTING_KEYS_BY_GROUP`）；「群組內全部開啟」才顯示為開。統計仍按 category 累計，顯示時加總。folded bar 顯示群組名；probe 氣泡與 Options 分析器同時顯示 type + group。
 - **命名（Phase A 暫定）**：`regular` 群組顯示為「一般貼文」。未來 Phase B 若用 probe 驗證出「朋友 vs 陌生人」「已追蹤 vs 未追蹤粉專」的可靠訊號，再把陌生人貼文從 regular 移到 suggested 群組，屆時 regular 群組更名「我認識的、追蹤的貼文」。所有關係欄位規則必須照 §5 安全流程驗證（決策 #1、#2 的教訓）。
 - **取捨**：使用者失去單一 category 的獨立開關（例如只想折 marketplace ad）；若日後有需要，可在群組下加進階子選項。
+
+### 決策 #10 — CAN_JOIN 貼文歸 suggested、僅 GYSJ 列表歸 suggestedGroup（2026-09-21，probe 實證）
+- **症狀**：動態中「可加入社團」的推薦**貼文**（`__typename: Story` + `to.viewer_forum_join_state: CAN_JOIN`）被歸 `suggestedGroup` → other 群組；依兩層架構（決策 #8）它應屬於 suggested → Facebook 推薦群組。
+- **規則**：`viewer_forum_join_state === 'CAN_JOIN'` → `suggested`（reason: `to.viewer_forum_join_state`）；只有橫式「推薦你加入的社團」列表（`GroupsYouShouldJoinFeedUnit` 等 typename）→ `suggestedGroup`。
+- **注意**：CAN_JOIN 只在「未加入」的社團貼文上出現，與決策 #1 的 subscribe_status 教訓不同——它是單元本身的屬性（`^to.viewer_forum_join_state`），不是 actors 的訂閱狀態，誤傷面小；3 筆 probe 皆為 Story + CAN_JOIN。
 
 ### 決策 #3 — Reels 只認「單元本身是 ShowcaseFeedUnit」
 - **已嘗試並否決**：(a) `showcase_story_type === 'SHOWCASE_SHORT_VIDEO'` 即判 reels（esuit 做法）；(b) typename 從 Relay record / nested record 回退讀取。
