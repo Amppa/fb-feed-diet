@@ -38,8 +38,11 @@ function run(checker) {
   const counts = defaults && defaults.COUNTS;
   checker.ok('COUNTS object exists', Boolean(counts));
   checker.equals('counts.total is 0', counts && counts.total, 0);
+  checker.equals('counts.filtered is 0', counts && counts.filtered, 0);
   checker.equals('counts.sponsored is 0', counts && counts.sponsored, 0);
   checker.equals('counts.suggested is 0', counts && counts.suggested, 0);
+  checker.equals('counts.regular is 0', counts && counts.regular, 0);
+  checker.ok('counts.date is a string', typeof (counts && counts.date) === 'string' && counts.date.length >= 8);
 
   // Idempotency: repeated execution does not throw
   let threw = false;

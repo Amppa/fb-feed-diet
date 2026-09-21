@@ -82,6 +82,12 @@ function createFakeReact() {
           state.values[index] = next;
         }
       ];
+    },
+    useEffect(cb) {
+      try { cb(); } catch (e) {}
+    },
+    useLayoutEffect(cb) {
+      try { cb(); } catch (e) {}
     }
   };
 

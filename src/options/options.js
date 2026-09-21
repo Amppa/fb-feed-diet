@@ -31,27 +31,52 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (input.id) switches[input.id] = input;
   });
 
+  const SETTING_KEY_BY_CATEGORY = {
+    sponsored: 'foldSponsored',
+    suggested: 'foldSuggested',
+    suggestedGroup: 'foldSuggestedGroup',
+    marketAds: 'foldMarketAds',
+    searchingAds: 'foldSearchingAds',
+    stories: 'foldStories',
+    reels: 'foldReels'
+  };
+
   const counters = {
     total: document.getElementById('totalCount'),
+    filtered: document.getElementById('filteredCount'),
     sponsored: document.getElementById('sponsoredCount'),
     suggested: document.getElementById('suggestedCount'),
     suggestedGroup: document.getElementById('suggestedGroupCount'),
     marketAds: document.getElementById('marketCount'),
     searchingAds: document.getElementById('searchCount'),
     stories: document.getElementById('storiesCount'),
-    reels: document.getElementById('reelsCount')
+    reels: document.getElementById('reelsCount'),
+    regular: document.getElementById('regularCount')
   };
+
+  function updateHighlighting() {
+    const isMasterActive = masterToggle ? masterToggle.checked : true;
+    for (const [cat, el] of Object.entries(counters)) {
+      if (!el || cat === 'total' || cat === 'filtered' || cat === 'regular') continue;
+      const settingKey = SETTING_KEY_BY_CATEGORY[cat];
+      const isFolded = isMasterActive && settingKey && switches[settingKey] ? switches[settingKey].checked : false;
+      el.classList.toggle('active-folded', Boolean(isFolded));
+    }
+  }
 
   function renderCounts(counts) {
     if (!counts) return;
-    counters.total.textContent = (counts.total || 0).toLocaleString();
-    counters.sponsored.textContent = (counts.sponsored || 0).toLocaleString();
-    counters.suggested.textContent = (counts.suggested || 0).toLocaleString();
-    counters.suggestedGroup.textContent = (counts.suggestedGroup || 0).toLocaleString();
-    counters.marketAds.textContent = (counts.marketAds || 0).toLocaleString();
-    counters.searchingAds.textContent = (counts.searchingAds || 0).toLocaleString();
+    if (counters.total) counters.total.textContent = (counts.total || 0).toLocaleString();
+    if (counters.filtered) counters.filtered.textContent = (counts.filtered || 0).toLocaleString();
+    if (counters.sponsored) counters.sponsored.textContent = (counts.sponsored || 0).toLocaleString();
+    if (counters.suggested) counters.suggested.textContent = (counts.suggested || 0).toLocaleString();
+    if (counters.suggestedGroup) counters.suggestedGroup.textContent = (counts.suggestedGroup || 0).toLocaleString();
+    if (counters.marketAds) counters.marketAds.textContent = (counts.marketAds || 0).toLocaleString();
+    if (counters.searchingAds) counters.searchingAds.textContent = (counts.searchingAds || 0).toLocaleString();
     if (counters.stories) counters.stories.textContent = (counts.stories || 0).toLocaleString();
     if (counters.reels) counters.reels.textContent = (counts.reels || 0).toLocaleString();
+    if (counters.regular) counters.regular.textContent = (counts.regular || 0).toLocaleString();
+    updateHighlighting();
   }
 
   function updateMasterUI(isEnabled) {
@@ -62,6 +87,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
       featuresList.classList.add('disabled');
     }
+    updateHighlighting();
   }
 
   function updateModeUI(mode) {
@@ -174,6 +200,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const { settings: current } = await chrome.storage.local.get('settings');
         const updated = { ...current, [key]: checkbox.checked };
         await chrome.storage.local.set({ settings: updated });
+        updateHighlighting();
       });
     }
   }
@@ -184,7 +211,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (res && res.counts) {
         renderCounts(res.counts);
       } else {
-        renderCounts({ total: 0, sponsored: 0, suggested: 0, suggestedGroup: 0, marketAds: 0, searchingAds: 0, stories: 0, reels: 0 });
+        renderCounts({ date: '', total: 0, filtered: 0, sponsored: 0, suggested: 0, suggestedGroup: 0, marketAds: 0, searchingAds: 0, stories: 0, reels: 0, regular: 0 });
       }
     });
   });
@@ -306,6 +333,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (s) {
           if (s.enabled !== undefined) updateMasterUI(s.enabled !== false);
           if (s.mode) updateModeUI(s.mode);
+          for (const [key, checkbox] of Object.entries(switches)) {
+            if (checkbox && s[key] !== undefined) checkbox.checked = s[key];
+          }
+          updateHighlighting();
           if (s.lang && i18n && s.lang !== i18n.getLang()) {
             i18n.setLang(s.lang);
             applyTranslations();

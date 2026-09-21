@@ -37,8 +37,15 @@
     <div class="stat-card">
       <div class="stat-main">
         <div class="stat-info">
-          <span class="stat-number" id="totalCount">0</span>
-          <span class="stat-title" data-i18n="itemsFoldedOnDiet">Items Folded on Diet</span>
+          <div class="stat-daily-row">
+            <span class="stat-daily-prefix" data-i18n="todayFilteredPrefix">今日已過濾:</span>
+            <span class="stat-daily-values">
+              <span class="stat-number stat-filtered-num" id="filteredCount">0</span>
+              <span class="stat-daily-sep">/</span>
+              <span class="stat-number stat-total-num" id="totalCount">0</span>
+            </span>
+          </div>
+          <span class="stat-title" data-i18n="dailyPostStatsDesc">每日貼文瀏覽與過濾統計</span>
         </div>
         <button class="reset-btn" id="resetBtn" title="Reset all counter stats" data-i18n-title="resetOptionsTitle" data-i18n="reset">Reset</button>
       </div>
@@ -46,8 +53,8 @@
       <!-- Sub-counters breakdown -->
       <div class="stat-breakdown">
         <div class="stat-sub-item">
-          <span class="sub-label" data-i18n="labelSponsored">Sponsored</span>
-          <span class="sub-value" id="sponsoredCount">0</span>
+          <span class="sub-label" data-i18n="labelRegular">Regular</span>
+          <span class="sub-value" id="regularCount">0</span>
         </div>
         <div class="stat-sub-item">
           <span class="sub-label" data-i18n="labelSuggested">Suggested</span>
@@ -58,12 +65,8 @@
           <span class="sub-value" id="suggestedGroupCount">0</span>
         </div>
         <div class="stat-sub-item">
-          <span class="sub-label" data-i18n="labelMarket">Market</span>
-          <span class="sub-value" id="marketCount">0</span>
-        </div>
-        <div class="stat-sub-item">
-          <span class="sub-label" data-i18n="labelSearch">Search</span>
-          <span class="sub-value" id="searchCount">0</span>
+          <span class="sub-label" data-i18n="labelSponsored">Sponsored</span>
+          <span class="sub-value" id="sponsoredCount">0</span>
         </div>
         <div class="stat-sub-item">
           <span class="sub-label" data-i18n="labelStories">Stories</span>
@@ -72,6 +75,14 @@
         <div class="stat-sub-item">
           <span class="sub-label" data-i18n="labelReels">Reels</span>
           <span class="sub-value" id="reelsCount">0</span>
+        </div>
+        <div class="stat-sub-item">
+          <span class="sub-label" data-i18n="labelMarket">Market</span>
+          <span class="sub-value" id="marketCount">0</span>
+        </div>
+        <div class="stat-sub-item">
+          <span class="sub-label" data-i18n="labelSearch">Search</span>
+          <span class="sub-value" id="searchCount">0</span>
         </div>
       </div>
     </div>

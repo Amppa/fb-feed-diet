@@ -430,7 +430,11 @@ window.FBDietFold = (() => {
         const result = classify.classifyFeedUnit(props.payload, { moduleName: props.moduleName || null });
         classifyResult = result;
         if (!result.category) {
-          bridge.reportUnknown(result);
+          if (typeof bridge.reportRegular === 'function') {
+            bridge.reportRegular(result);
+          } else {
+            bridge.reportUnknown(result);
+          }
           return addProbe(rendered, props, classifyResult);
         }
 
@@ -440,12 +444,25 @@ window.FBDietFold = (() => {
         unitTypename = result.unitTypename;
       }
 
-      if (!bridge.isEnabled(category)) return addProbe(rendered, props, classifyResult);
-
       if (!unitId) {
         const mod = props.moduleName || 'unit';
         const type = (props.payload && props.payload.unitTypename) || 'ad';
         unitId = mod + '_' + type;
+      }
+
+      if (!bridge.isEnabled(category)) {
+        if (typeof bridge.reportAllowed === 'function') {
+          bridge.reportAllowed({
+            category,
+            unitId,
+            reason,
+            unitTypename:
+              unitTypename ||
+              (props.payload && typeof props.payload.unitTypename === 'string' ? props.payload.unitTypename : null),
+            moduleName: props.moduleName || null
+          });
+        }
+        return addProbe(rendered, props, classifyResult);
       }
 
       // unitTypename / moduleName ride along so the diagnostic log shows which

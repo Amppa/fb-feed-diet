@@ -33,7 +33,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   applyTranslations();
 
   masterToggle.checked = settings.enabled !== false;
-  totalCounter.textContent = (counts.total || 0).toLocaleString();
+  const initialFiltered = counts.filtered !== undefined ? counts.filtered : (counts.total || 0);
+  totalCounter.textContent = initialFiltered.toLocaleString();
 
   // Handle Master Toggle
   masterToggle.addEventListener('change', async () => {
@@ -53,7 +54,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     resetBtn.addEventListener('click', () => {
       chrome.runtime.sendMessage({ type: 'RESET_COUNTS' }, (res) => {
         if (res && res.counts) {
-          totalCounter.textContent = (res.counts.total || 0).toLocaleString();
+          const val = res.counts.filtered !== undefined ? res.counts.filtered : (res.counts.total || 0);
+          totalCounter.textContent = val.toLocaleString();
         } else {
           totalCounter.textContent = '0';
         }
@@ -65,7 +67,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local') {
       if (changes.counts) {
-        totalCounter.textContent = (changes.counts.newValue.total || 0).toLocaleString();
+        const c = changes.counts.newValue || {};
+        const val = c.filtered !== undefined ? c.filtered : (c.total || 0);
+        totalCounter.textContent = val.toLocaleString();
       }
       if (changes.settings) {
         const s = changes.settings.newValue;

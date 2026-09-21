@@ -43,7 +43,11 @@ function setup(relayMap) {
     render(payload) {
       React.resetHooks();
       const element = wrapper(payload);
-      if (element && typeof element.type === 'function') return element.type(element.props);
+      if (element && typeof element.type === 'function') {
+        element.type(element.props);
+        React.resetHooks();
+        return element.type(element.props);
+      }
       return element;
     },
     sourceCallCount: () => sourceCalls
@@ -63,15 +67,25 @@ function run(c) {
     c.equals('HIDE_MODE is squash', t.fold.HIDE_MODE, 'squash');
   }
 
-  /* --- unknown payload: untouched + reported once --- */
+  /* --- regular payload: untouched + reported once --- */
   {
     const t = setup({});
     const result = t.render(payloadOf('u-unknown'));
-    c.ok('unknown unit renders the untouched tree', result.__source === true && result.props.children === 'original post');
-    c.equals('unknown reported', countMessages(t.win, 'unknown'), 1);
+    c.ok('regular unit renders the untouched tree', result.__source === true && result.props.children === 'original post');
+    c.equals('regular reported', countMessages(t.win, 'regular'), 1);
     t.render(payloadOf('u-unknown'));
-    c.equals('unknown dedupe by unit id', countMessages(t.win, 'unknown'), 1);
-    c.equals('no folding in unknown state', countMessages(t.win, 'blocked'), 0);
+    c.equals('regular dedupe by unit id', countMessages(t.win, 'regular'), 1);
+    c.equals('no folding in regular state', countMessages(t.win, 'blocked'), 0);
+  }
+
+  /* --- category disabled reports allowed instead of blocked --- */
+  {
+    const t = setup({ [SPONSORED_PATH]: 'ad-allowed' });
+    t.bridge.setSettings({ foldSponsored: false });
+    const result = t.render(payloadOf('u-allowed'));
+    c.ok('disabled category renders untouched', result.__source === true);
+    c.equals('allowed reported', countMessages(t.win, 'allowed'), 1);
+    c.equals('not blocked', countMessages(t.win, 'blocked'), 0);
   }
 
   /* --- folding happens by default (no dry run) --- */

@@ -55,6 +55,8 @@ window.FBDietBridge = (() => {
   const reportedBlockedSet = new Set();
   const reportedUnknown = [];
   const reportedUnknownSet = new Set();
+  const reportedAllowed = [];
+  const reportedAllowedSet = new Set();
   const recentReports = [];
 
   function recordError(error) {
@@ -159,24 +161,50 @@ window.FBDietBridge = (() => {
     });
   }
 
-  function reportUnknown(result) {
+  function reportAllowed(result) {
+    const key = result.unitId + ':' + result.category;
+    if (!remember(reportedAllowed, reportedAllowedSet, key, MAX_EXPANDED)) return;
+    post('allowed', {
+      category: result.category,
+      unitId: result.unitId,
+      reason: result.reason,
+      unitTypename: result.unitTypename || null,
+      moduleName: result.moduleName || null,
+      evidence: result.evidence || null
+    });
+    attachReport('allowed', result);
+    debugLog('allowed', {
+      category: result.category,
+      unitId: result.unitId,
+      reason: result.reason,
+      unitTypename: result.unitTypename || null,
+      moduleName: result.moduleName || null,
+      evidence: result.evidence || null
+    });
+  }
+
+  function reportRegular(result) {
     const key = (result.unitTypename || 'none') + ':' + (result.unitId || 'none');
     if (!remember(reportedUnknown, reportedUnknownSet, key, MAX_UNKNOWN)) return;
-    post('unknown', {
+    post('regular', {
       unitId: result.unitId,
       unitTypename: result.unitTypename,
       reason: result.reason,
       evidence: result.evidence,
       moduleName: result.moduleName || null
     });
-    attachReport('unknown', result);
-    debugLog('unknown', {
+    attachReport('regular', result);
+    debugLog('regular', {
       unitTypename: result.unitTypename,
       unitId: result.unitId,
       reason: result.reason,
       evidence: result.evidence,
       moduleName: result.moduleName || null
     });
+  }
+
+  function reportUnknown(result) {
+    reportRegular(result);
   }
 
   function announceReady(reason) {
@@ -253,7 +281,9 @@ window.FBDietBridge = (() => {
     isExpanded,
     setExpanded,
     toggle,
-reportBlocked,
+    reportBlocked,
+    reportAllowed,
+    reportRegular,
     reportUnknown,
     debugLog,
     isDebugEnabled: () => debugEnabled,

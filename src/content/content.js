@@ -19,14 +19,17 @@
     debugProbe: false
   };
   const DEFAULT_COUNTS = DEFAULTS.COUNTS || {
+    date: '',
     total: 0,
+    filtered: 0,
     sponsored: 0,
     suggested: 0,
     suggestedGroup: 0,
     marketAds: 0,
     searchingAds: 0,
     stories: 0,
-    reels: 0
+    reels: 0,
+    regular: 0
   };
 
   // Runtime configuration state
@@ -65,9 +68,20 @@
   let scanScheduled = false;
   let isShutDown = false;
 
+  function getTodayString() {
+    if (typeof DEFAULTS.getTodayDateString === 'function') {
+      return DEFAULTS.getTodayDateString();
+    }
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   // Builds a zeroed counts object (used for the buffer and storage fallbacks)
   function createEmptyCounts() {
-    return Object.assign({}, DEFAULT_COUNTS);
+    return Object.assign({}, DEFAULT_COUNTS, { date: getTodayString() });
   }
 
   // Unit ids are opaque base64 blobs; show a short fingerprint instead.
@@ -337,7 +351,15 @@
         return;
       }
 
-      if (data.type === 'unknown') {
+      if (data.type === 'allowed') {
+        const category = data.payload && data.payload.category;
+        if (category) recordAllowed(category);
+        storeMainReport(data.type, data.payload || {});
+        return;
+      }
+
+      if (data.type === 'regular' || data.type === 'unknown') {
+        recordRegular();
         storeMainReport(data.type, data.payload || {});
       }
     } catch (e) {
@@ -456,9 +478,15 @@
       const data = await safeStorageGet('counts');
       if (!data || isShutDown) return;
 
-      const counts = data.counts || createEmptyCounts();
+      const today = getTodayString();
+      let counts = data.counts;
+      if (!counts || counts.date !== today) {
+        counts = createEmptyCounts();
+      }
 
+      counts.date = today;
       counts.total = (counts.total || 0) + delta.total;
+      counts.filtered = (counts.filtered || 0) + (delta.filtered || 0);
       counts.sponsored = (counts.sponsored || 0) + delta.sponsored;
       counts.suggested = (counts.suggested || 0) + delta.suggested;
       counts.suggestedGroup = (counts.suggestedGroup || 0) + (delta.suggestedGroup || 0);
@@ -466,6 +494,7 @@
       counts.searchingAds = (counts.searchingAds || 0) + delta.searchingAds;
       counts.stories = (counts.stories || 0) + (delta.stories || 0);
       counts.reels = (counts.reels || 0) + (delta.reels || 0);
+      counts.regular = (counts.regular || 0) + (delta.regular || 0);
 
       await safeStorageSet({ counts });
     }, 3000);
@@ -476,9 +505,30 @@
    */
   function recordBlock(category) {
     countBuffer.total += 1;
+    countBuffer.filtered = (countBuffer.filtered || 0) + 1;
     if (countBuffer[category] !== undefined) {
       countBuffer[category] += 1;
     }
+    scheduleCountFlush();
+  }
+
+  /**
+   * Tracks an allowed item (matched category but user filter disabled)
+   */
+  function recordAllowed(category) {
+    countBuffer.total += 1;
+    if (countBuffer[category] !== undefined) {
+      countBuffer[category] += 1;
+    }
+    scheduleCountFlush();
+  }
+
+  /**
+   * Tracks a regular (normal) feed post
+   */
+  function recordRegular() {
+    countBuffer.total += 1;
+    countBuffer.regular = (countBuffer.regular || 0) + 1;
     scheduleCountFlush();
   }
 
