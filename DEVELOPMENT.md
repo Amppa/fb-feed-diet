@@ -8,8 +8,7 @@ This document covers project architecture, internal data flow, runtime specifica
 
 ```text
 fb-diet-feed/
-├── manifest.json              # MV3 configuration with dual-world content scripts & DNR
-├── rules.json                 # DeclarativeNetRequest rules relaxing Facebook CSP
+├── manifest.json              # MV3 configuration with dual-world content scripts
 ├── package.json               # Test script and package metadata
 ├── README.md                  # User-facing summary and installation instructions
 ├── DEVELOPMENT.md             # Developer guide, architecture & debugging (this file)
@@ -133,8 +132,8 @@ graph TD
 
 ### Core Design Principles
 
-1. **CSP Relaxation for Reliable Injection (`rules.json`)**: Uses `declarativeNetRequest` to remove Facebook's restrictive CSP header limits, enabling synchronous function compiling for module source hooks.
-2. **Authoritative Relay Store Capture**: Automatically rewrites `relay-runtime/store/RelayPublishQueue` on module definition to assign the live `RelayRecordSourceProxy` instance to `window.___rs`.
+1. **Pure Object Patching (no eval, no CSP games)**: The MAIN-world modules only wrap live objects (module registrar, exported classes) — never `eval` / `new Function` / inline scripts, so the Facebook page CSP stays untouched and cannot interfere with page loading.
+2. **Authoritative Relay Store Capture**: Wraps the exported class of `relay-runtime/mutations/RelayRecordSourceProxy` with a Proxy construct trap, so every Relay store instance is remembered without rewriting any module source. (The old `rules.json` CSP override + `RelayPublishQueue` source rewrite were removed in STRATEGY.md decision #9: the CSP replacement risked breaking page loads, and the construct trap captures the same store.)
 3. **Non-Destructive React Tree (1x1 Squash)**: Feed units are never removed or destroyed. `fold.js` wraps the original component and applies a `1x1` squash container with `overflow: hidden`, ensuring Facebook video players and IntersectionObserver monitors stay stable.
 4. **Dual Engine Modes (Proxy Mode vs DOM Mode)**: Users can toggle between high-speed MAIN world Proxy mode (default) and traditional ISOLATED world DOM mode in the Options page.
 5. **Resilient Lifecycle (`shutdown`)**: To eliminate `Extension context invalidated` errors when developers reload the extension, open tabs safely disconnect `MutationObserver` instances, clear pending timers, and silence storage flushes.

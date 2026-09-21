@@ -43,7 +43,7 @@ if (fs.existsSync(zipFilePath)) {
 }
 
 // 3. Entries to include in the package
-const includeItems = ['manifest.json', 'rules.json', 'icons', 'src'];
+const includeItems = ['manifest.json', 'icons', 'src'];
 
 // Validate that required items exist
 for (const item of includeItems) {

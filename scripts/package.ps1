@@ -30,7 +30,7 @@ if (Test-Path $zipFilePath) {
     Remove-Item $zipFilePath -Force
 }
 
-$includeItems = @("manifest.json", "rules.json", "icons", "src")
+$includeItems = @("manifest.json", "icons", "src")
 
 Write-Host "Packaging $rawName v$version..."
 
@@ -38,7 +38,7 @@ $tarCmd = Get-Command tar.exe -ErrorAction SilentlyContinue
 if ($tarCmd) {
     Push-Location $rootDir
     try {
-        & tar.exe -a -cf $zipFilePath manifest.json rules.json icons src
+        & tar.exe -a -cf $zipFilePath manifest.json icons src
     } finally {
         Pop-Location
     }

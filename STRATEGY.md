@@ -88,7 +88,16 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
 
 ### 決策 #4 — Relay store 捕捉：Proxy construct trap 而非字串改寫
 - esuit 用 CSP 放寬 + inline `<script>` 字串替換 `RelayPublishQueue`，把 store 塞進 `window.___rs`。
-- fb-diet 主路徑是 Proxy 包 `RelayRecordSourceProxy` 建構子（免 eval、不受 CSP 限制），同時**保留** `window.___rs` 全域 fallback（`relay.js checkGlobalStore()`），且 proxy.js 也註冊了 RelayPublishQueue source hook。兩條路都通。
+- fb-diet 主路徑是 Proxy 包 `RelayRecordSourceProxy` 建構子（免 eval、不受 CSP 限制）。`window.___rs` 的讀取路徑保留作為外部相容 fallback（若其他工具設定該變數仍可讀），但本擴充功能不再主動填入它（見決策 #9）。
+
+### 決策 #9 — 移除 CSP 放寬與 RelayPublishQueue source hook（2026-09-21，穩定性修正）
+- **症狀**：間歇性「FB 頁面載入不進來」，console 停在最後一條 `[FB Diet][MAIN] Successfully source-patched module: RelayPublishQueue`。
+- **根因**（兩個高風險機制）：
+  1. `rules.json` 用 declarativeNetRequest 把 Facebook 回應的 CSP **整份替換**成硬編碼副本（只為塞入 `'unsafe-eval'`）。FB 的資源網域經常變動，過時的網域白名單會擋掉新資源 → 間歇性載入失敗。
+  2. source hook 在 `__d` 層把模組 factory `toString()` 後用 inline script / eval 重編譯執行，只為把 store 指到 `window.___rs`。重編譯強制 `'use strict'`、可能拋錯，且與原 factory 產生雙重執行競爭。
+- **關鍵事實**：兩者皆非必要——`RelayPublishQueue` 內部 `new` 出來的 store 正是 `RelayRecordSourceProxy` 的實例，construct trap（決策 #4 主路徑）本來就會捕捉到同一個 store。
+- **修正**：刪除 `rules.json` 與 `declarativeNetRequest` 權限；刪除 proxy.js 的 source hook / `compileFunctionString` / inline-script 編譯；分類改為完全依賴 construct trap（`window.___rs` 讀取保留為外部 fallback）。
+- **驗證**：重載後 console 應**不再**出現 source-patch 訊息；`FBDietRelay.isReady()` 應為 true、分類 evidence `source` 仍為 `relay`。
 
 ### 決策 #5 — 處理方式：摺疊可還原 vs 1x1 隱藏
 - esuit 用 1x1 透明容器（避免 IntersectionObserver 崩潰）；fb-diet 用 squash 隱藏 + 可展開還原的 placeholder bar。維持 fb-diet 方式。
