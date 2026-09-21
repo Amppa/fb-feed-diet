@@ -58,7 +58,9 @@ Instead of abruptly wiping elements or breaking your feed, **FB Diet** neatly fo
 
 Looking for internal architecture details, MAIN world proxy mechanisms, debugging consoles, or unit tests?
 
-Please see the [Developer Guide (AGENTS.md)](AGENTS.md).
+- **[Development Guide & Architecture (DEVELOPMENT.md)](DEVELOPMENT.md)**: Deep dive into the Dual-World architecture, module responsibilities, in-browser diagnostic consoles, and test suites.
+- **[Engineering Contract & Rules (AGENTS.md)](AGENTS.md)**: Engineering discipline, MV3 coding guidelines, Git workflow, and AI assistant behavior specifications.
+- **[Classification Strategy & Decision Log (STRATEGY.md)](STRATEGY.md)**: Authoritative documentation of Relay field paths and feed classification rules.
 
 ---
 
