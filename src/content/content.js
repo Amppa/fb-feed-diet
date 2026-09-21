@@ -536,38 +536,33 @@
    * Builds the folding placeholder element
    */
   function createPlaceholder(type, originalElement) {
+    // Bars show the user-facing group, not the fine-grained category
+    // (STRATEGY.md, decision #8). Meta mirrors fold.js GROUP_META.
+    const GROUP_BY_CATEGORY = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.GROUP_BY_CATEGORY) || {};
     const config = {
-      sponsored: {
-        badgeClass: 'fb-diet-badge-sponsored',
-        badgeText: 'Sponsored'
+      ads: {
+        badgeClass: 'fb-diet-badge-ads',
+        badgeText: 'Ads'
+      },
+      regular: {
+        badgeClass: 'fb-diet-badge-regular',
+        badgeText: 'Regular'
       },
       suggested: {
         badgeClass: 'fb-diet-badge-suggested',
-        badgeText: 'Suggested post'
+        badgeText: 'Suggested'
       },
-      suggestedGroup: {
-        badgeClass: 'fb-diet-badge-group',
-        badgeText: 'Suggested group'
+      media: {
+        badgeClass: 'fb-diet-badge-media',
+        badgeText: 'Reels & Stories'
       },
-      marketAds: {
-        badgeClass: 'fb-diet-badge-market',
-        badgeText: 'Market ad'
-      },
-      searchingAds: {
-        badgeClass: 'fb-diet-badge-search',
-        badgeText: 'Search ad'
-      },
-      stories: {
-        badgeClass: 'fb-diet-badge-stories',
-        badgeText: 'Stories'
-      },
-      reels: {
-        badgeClass: 'fb-diet-badge-reels',
-        badgeText: 'Reels'
+      other: {
+        badgeClass: 'fb-diet-badge-other',
+        badgeText: 'Other'
       }
-    }[type] || {
-      badgeClass: 'fb-diet-badge-sponsored',
-      badgeText: 'Sponsored'
+    }[GROUP_BY_CATEGORY[type]] || {
+      badgeClass: 'fb-diet-badge-ads',
+      badgeText: 'Ads'
     };
 
     const bar = document.createElement('div');

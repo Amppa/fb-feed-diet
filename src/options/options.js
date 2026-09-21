@@ -31,35 +31,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (input.id) switches[input.id] = input;
   });
 
-  const SETTING_KEY_BY_CATEGORY = {
-    sponsored: 'foldSponsored',
-    suggested: 'foldSuggested',
-    suggestedGroup: 'foldSuggestedGroup',
-    marketAds: 'foldMarketAds',
-    searchingAds: 'foldSearchingAds',
-    stories: 'foldStories',
-    reels: 'foldReels'
+  // Options exposes one switch per user-facing group (STRATEGY.md, decision #8).
+  // Storage stays per-category: a group switch batch-writes its mapped keys.
+  const DEFAULTS_MAP = globalThis.FB_DIET_DEFAULTS || {};
+  const SETTING_KEYS_BY_GROUP = DEFAULTS_MAP.SETTING_KEYS_BY_GROUP || {};
+  const GROUP_BY_CATEGORY = DEFAULTS_MAP.GROUP_BY_CATEGORY || {};
+
+  const GROUP_BY_SWITCH = {
+    groupAds: 'ads',
+    groupSuggested: 'suggested',
+    groupMedia: 'media',
+    groupOther: 'other'
   };
+  const SWITCH_BY_GROUP = {
+    ads: 'groupAds',
+    suggested: 'groupSuggested',
+    media: 'groupMedia',
+    other: 'groupOther'
+  };
+
+  // A group reads "on" only when every mapped category key is on.
+  function isGroupOn(settings, group) {
+    const keys = SETTING_KEYS_BY_GROUP[group] || [];
+    return keys.length > 0 && keys.every((key) => settings[key] !== false);
+  }
 
   const counters = {
     total: document.getElementById('totalCount'),
     filtered: document.getElementById('filteredCount'),
-    sponsored: document.getElementById('sponsoredCount'),
+    ads: document.getElementById('adsCount'),
     suggested: document.getElementById('suggestedCount'),
-    suggestedGroup: document.getElementById('suggestedGroupCount'),
-    marketAds: document.getElementById('marketCount'),
-    searchingAds: document.getElementById('searchCount'),
-    stories: document.getElementById('storiesCount'),
-    reels: document.getElementById('reelsCount'),
+    media: document.getElementById('mediaCount'),
+    other: document.getElementById('otherCount'),
     regular: document.getElementById('regularCount')
   };
 
   function updateHighlighting() {
     const isMasterActive = masterToggle ? masterToggle.checked : true;
-    for (const [cat, el] of Object.entries(counters)) {
-      if (!el || cat === 'total' || cat === 'filtered' || cat === 'regular') continue;
-      const settingKey = SETTING_KEY_BY_CATEGORY[cat];
-      const isFolded = isMasterActive && settingKey && switches[settingKey] ? switches[settingKey].checked : false;
+    for (const [group, el] of Object.entries(counters)) {
+      if (!el || group === 'total' || group === 'filtered' || group === 'regular') continue;
+      const switchId = SWITCH_BY_GROUP[group];
+      const isFolded = isMasterActive && switchId && switches[switchId] ? switches[switchId].checked : false;
       el.classList.toggle('active-folded', Boolean(isFolded));
     }
   }
@@ -68,13 +80,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!counts) return;
     if (counters.total) counters.total.textContent = (counts.total || 0).toLocaleString();
     if (counters.filtered) counters.filtered.textContent = (counts.filtered || 0).toLocaleString();
-    if (counters.sponsored) counters.sponsored.textContent = (counts.sponsored || 0).toLocaleString();
+    // Counts are stored per category; the breakdown shows user-facing groups.
+    if (counters.ads) counters.ads.textContent = ((counts.sponsored || 0) + (counts.marketAds || 0) + (counts.searchingAds || 0)).toLocaleString();
     if (counters.suggested) counters.suggested.textContent = (counts.suggested || 0).toLocaleString();
-    if (counters.suggestedGroup) counters.suggestedGroup.textContent = (counts.suggestedGroup || 0).toLocaleString();
-    if (counters.marketAds) counters.marketAds.textContent = (counts.marketAds || 0).toLocaleString();
-    if (counters.searchingAds) counters.searchingAds.textContent = (counts.searchingAds || 0).toLocaleString();
-    if (counters.stories) counters.stories.textContent = (counts.stories || 0).toLocaleString();
-    if (counters.reels) counters.reels.textContent = (counts.reels || 0).toLocaleString();
+    if (counters.media) counters.media.textContent = ((counts.stories || 0) + (counts.reels || 0)).toLocaleString();
+    if (counters.other) counters.other.textContent = (counts.suggestedGroup || 0).toLocaleString();
     if (counters.regular) counters.regular.textContent = (counts.regular || 0).toLocaleString();
     updateHighlighting();
   }
@@ -140,7 +150,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateModeUI(settings.mode || 'proxy');
 
   for (const [key, checkbox] of Object.entries(switches)) {
-    if (checkbox) {
+    if (!checkbox) continue;
+    const group = GROUP_BY_SWITCH[key];
+    if (group) {
+      checkbox.checked = isGroupOn(settings, group);
+    } else {
       const defaultValue = DEFAULTS[key] ?? true;
       checkbox.checked = settings[key] !== undefined ? settings[key] : defaultValue;
     }
@@ -195,14 +209,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Handle Sub-switches changes
   for (const [key, checkbox] of Object.entries(switches)) {
-    if (checkbox) {
-      checkbox.addEventListener('change', async () => {
-        const { settings: current } = await chrome.storage.local.get('settings');
-        const updated = { ...current, [key]: checkbox.checked };
-        await chrome.storage.local.set({ settings: updated });
-        updateHighlighting();
-      });
-    }
+    if (!checkbox) continue;
+    checkbox.addEventListener('change', async () => {
+      const { settings: current } = await chrome.storage.local.get('settings');
+      const updated = { ...current };
+      const group = GROUP_BY_SWITCH[key];
+      if (group) {
+        // A group switch batch-writes every mapped per-category key.
+        for (const settingKey of SETTING_KEYS_BY_GROUP[group] || []) {
+          updated[settingKey] = checkbox.checked;
+        }
+      } else {
+        updated[key] = checkbox.checked;
+      }
+      await chrome.storage.local.set({ settings: updated });
+      updateHighlighting();
+    });
   }
 
   // Handle Reset button
@@ -253,6 +275,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     return key ? tt(key) : String(category);
   }
 
+  // The analyzer reports both layers: the fine-grained feed type plus the
+  // user-facing group it belongs to (STRATEGY.md, decision #8).
+  const GROUP_I18N = {
+    ads: 'groupAdsTitle',
+    regular: 'groupRegularTitle',
+    suggested: 'groupSuggestedTitle',
+    media: 'groupMediaTitle',
+    other: 'groupOtherTitle'
+  };
+
+  function groupLabel(category) {
+    const group = GROUP_BY_CATEGORY[category] || 'regular';
+    return tt(GROUP_I18N[group] || 'groupRegularTitle');
+  }
+
   function appendVerdictRow(container, label, result) {
     const row = makeProbeEl('div', 'probe-row');
     row.appendChild(makeProbeEl('span', 'probe-row-label', label));
@@ -267,6 +304,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (result && result.reason) {
       value.appendChild(makeProbeEl('span', 'probe-reason', String(result.reason)));
     }
+    value.appendChild(makeProbeEl('span', 'probe-group', tt('probeGroupLabel') + ': ' + groupLabel(result && result.category)));
     row.appendChild(value);
     container.appendChild(row);
   }
@@ -336,7 +374,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (s.enabled !== undefined) updateMasterUI(s.enabled !== false);
           if (s.mode) updateModeUI(s.mode);
           for (const [key, checkbox] of Object.entries(switches)) {
-            if (checkbox && s[key] !== undefined) checkbox.checked = s[key];
+            if (!checkbox) continue;
+            const group = GROUP_BY_SWITCH[key];
+            if (group) checkbox.checked = isGroupOn(s, group);
+            else if (s[key] !== undefined) checkbox.checked = s[key];
           }
           updateHighlighting();
           if (s.lang && i18n && s.lang !== i18n.getLang()) {

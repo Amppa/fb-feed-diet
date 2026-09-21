@@ -60,7 +60,7 @@
   gap: 6px !important;
 }
 
-/* Badge for post category (Sponsored, Suggested, etc.) */
+/* Badge for the fold group (Ads, Suggested, etc.) */
 .fb-diet-badge {
   display: inline-flex !important;
   align-items: center !important;
@@ -73,10 +73,15 @@
   letter-spacing: 0.2px !important;
 }
 
-/* Specific Badge Types */
-.fb-diet-badge-sponsored {
+/* Specific Badge Types (one per user-facing group, STRATEGY.md decision #8) */
+.fb-diet-badge-ads {
   background: rgba(239, 68, 68, 0.12) !important;
   color: #ef4444 !important;
+}
+
+.fb-diet-badge-regular {
+  background: rgba(107, 114, 128, 0.14) !important;
+  color: #4b5563 !important;
 }
 
 .fb-diet-badge-suggested {
@@ -84,29 +89,14 @@
   color: #f59e0b !important;
 }
 
-.fb-diet-badge-group {
-  background: rgba(16, 185, 129, 0.12) !important;
-  color: #10b981 !important;
-}
-
-.fb-diet-badge-market {
-  background: rgba(139, 92, 246, 0.12) !important;
-  color: #8b5cf6 !important;
-}
-
-.fb-diet-badge-search {
-  background: rgba(107, 114, 128, 0.14) !important;
-  color: #4b5563 !important;
-}
-
-.fb-diet-badge-stories {
-  background: rgba(236, 72, 153, 0.12) !important;
-  color: #ec4899 !important;
-}
-
-.fb-diet-badge-reels {
+.fb-diet-badge-media {
   background: rgba(168, 85, 247, 0.12) !important;
   color: #a855f7 !important;
+}
+
+.fb-diet-badge-other {
+  background: rgba(16, 185, 129, 0.12) !important;
+  color: #10b981 !important;
 }
 
 /* Toggle symbol [+] / [-] (no animation, no opacity, instant response) */

@@ -9,12 +9,10 @@ Instead of abruptly wiping elements or breaking your feed, **FB Feed Diet** neat
 ## ✨ Features
 
 - **Master Switch**: One-click global toggle to pause or resume diet filtering anytime.
-- **🛡️ Fold Sponsored Posts**: Folds sponsored posts and promotional ads across your feed.
-- **💡 Fold Suggested Content**: Folds algorithmic suggestions ("Suggested for you", recommended follow prompts).
-- **👥 Fold Suggested Groups**: Separately folds group recommendations ("Groups you should join").
+- **🛡️ Fold Ads**: Folds sponsored posts, Marketplace listings, and search ads.
+- **💡 Fold Facebook Suggestions**: Folds recommended posts from people you don't follow ("Suggested for you").
 - **🎬 Fold Reels & Stories**: Keeps your feed focused by folding Reels and Stories carousels.
-- **🛒 Fold Marketplace Ads**: Folds sponsored listings and promo cards in Facebook Marketplace.
-- **🔍 Fold Search Ads**: Folds advertising units in Facebook search results.
+- **👥 Fold Other Recommendations**: Folds group recommendations ("Groups you should join").
 - **One-Click Expand & Restore**:
   - Folded items are replaced with a sleek, non-intrusive placeholder bar matching Facebook's Light and Dark themes.
   - Curious about a folded post? Click **"Expand"** to view the original content instantly, and re-fold it whenever you want.

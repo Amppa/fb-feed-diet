@@ -44,6 +44,23 @@ function run(checker) {
   checker.equals('counts.regular is 0', counts && counts.regular, 0);
   checker.ok('counts.date is a string', typeof (counts && counts.date) === 'string' && counts.date.length >= 8);
 
+  /* --- user-facing groups (STRATEGY.md, decision #8) --- */
+  const groupByCategory = defaults && defaults.GROUP_BY_CATEGORY;
+  checker.ok('GROUP_BY_CATEGORY exists', Boolean(groupByCategory));
+  checker.equals('sponsored maps to ads', groupByCategory && groupByCategory.sponsored, 'ads');
+  checker.equals('marketAds maps to ads', groupByCategory && groupByCategory.marketAds, 'ads');
+  checker.equals('searchingAds maps to ads', groupByCategory && groupByCategory.searchingAds, 'ads');
+  checker.equals('regular maps to regular', groupByCategory && groupByCategory.regular, 'regular');
+  checker.equals('suggested maps to suggested', groupByCategory && groupByCategory.suggested, 'suggested');
+  checker.equals('reels maps to media', groupByCategory && groupByCategory.reels, 'media');
+  checker.equals('stories maps to media', groupByCategory && groupByCategory.stories, 'media');
+  checker.equals('suggestedGroup maps to other', groupByCategory && groupByCategory.suggestedGroup, 'other');
+
+  const keysByGroup = defaults && defaults.SETTING_KEYS_BY_GROUP;
+  checker.ok('ads group batch-writes its three keys', Boolean(keysByGroup) && keysByGroup.ads.join(',') === 'foldSponsored,foldMarketAds,foldSearchingAds');
+  checker.ok('regular group has no fold keys', Boolean(keysByGroup) && Array.isArray(keysByGroup.regular) && keysByGroup.regular.length === 0);
+  checker.ok('every mapped key exists in SETTINGS', Boolean(keysByGroup) && Object.values(keysByGroup).every((keys) => keys.every((key) => key in settings)));
+
   // Idempotency: repeated execution does not throw
   let threw = false;
   try {

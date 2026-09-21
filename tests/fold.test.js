@@ -67,6 +67,18 @@ function run(c) {
     c.equals('HIDE_MODE is squash', t.fold.HIDE_MODE, 'squash');
   }
 
+  /* --- two-layer classification: category -> user-facing group --- */
+  {
+    const t = setup({});
+    c.equals('sponsored belongs to ads group', t.fold.groupOf('sponsored'), 'ads');
+    c.equals('marketplace ad belongs to ads group', t.fold.groupOf('marketAds'), 'ads');
+    c.equals('reels belongs to media group', t.fold.groupOf('reels'), 'media');
+    c.equals('stories belongs to media group', t.fold.groupOf('stories'), 'media');
+    c.equals('suggested group belongs to other group', t.fold.groupOf('suggestedGroup'), 'other');
+    c.equals('unknown category falls back to regular group', t.fold.groupOf('nope'), 'regular');
+    c.equals('group meta covers every group', ['ads', 'regular', 'suggested', 'media', 'other'].every((g) => Boolean(t.fold.GROUP_META[g])), true);
+  }
+
   /* --- regular payload: untouched + reported once --- */
   {
     const t = setup({});

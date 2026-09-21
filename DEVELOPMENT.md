@@ -39,7 +39,7 @@ fb-diet-feed/
 │   │   ├── bridge.js          # In-memory settings, postMessage router, expansion state
 │   │   └── fold.js            # FBDietFold React decorator component & placeholder UI
 │   ├── options/
-│   │   ├── options.html       # Full dashboard & category toggles
+│   │   ├── options.html       # Full dashboard & group toggles
 │   │   ├── options.css        # Dark glassmorphic styles
 │   │   └── options.js         # Live stats breakdown and configuration sync
 │   └── popup/
@@ -147,7 +147,7 @@ graph TD
 ### Shared Defaults Module (`src/shared/`)
 
 - **`defaults.js` (`globalThis.FB_DIET_DEFAULTS`)**: Single source of truth for configuration and stat schema.
-  - Exposes `FB_DIET_DEFAULTS.SETTINGS`, `FB_DIET_DEFAULTS.COUNTS`, and `VERSION`.
+  - Exposes `FB_DIET_DEFAULTS.SETTINGS`, `FB_DIET_DEFAULTS.COUNTS`, the user-facing group layer (`GROUP_BY_CATEGORY`, `SETTING_KEYS_BY_GROUP`, `GROUP_ORDER`; STRATEGY.md decision #8), and `VERSION`.
   - Loaded before all scripts via `manifest.json` (`content_scripts`), `importScripts` (`background.js`), and `<script>` tags (`popup.html`, `options.html`).
   - Eliminates configuration drift across contexts.
 
@@ -213,7 +213,7 @@ Loaded sequentially at `document_start` before Comet finishes loading:
   - API: `t(key, lang?)`, `detect()`, `getLang()`, `setLang(code)`, `normalize(code)`, `LOCALES`, `FALLBACK`.
   - `t()` resolves the requested language, then English, then returns the key itself, so an unknown key is
     visible instead of blank. Options/popup drive DOM text through `data-i18n` / `data-i18n-title` attributes.
-  - Feed placeholder badges stay hardcoded in `fold.js` (`CATEGORY_META.badgeText`) on purpose: the MAIN world
+  - Feed placeholder badges stay hardcoded in `fold.js` (`GROUP_META.badgeText`, one per user-facing group) on purpose: the MAIN world
     has no i18n module (`tests/i18n.test.js` asserts the badge keys were trimmed from the shared dictionary).
 
 ---
@@ -373,6 +373,6 @@ node tests/run.js
 
 1. Define the Relay path or prop attribute in `src/inject/classify.js`.
 2. Add the category mapping in `CATEGORY` and `SETTING_BY_CATEGORY`.
-3. Add badge metadata in `src/inject/fold.js` (`CATEGORY_META`).
+3. Map the category to its user-facing group in `GROUP_BY_CATEGORY` (`src/shared/defaults.js` and the local copy in `src/inject/fold.js`); badge metadata lives in `GROUP_META` (STRATEGY.md, decision #8).
 4. Add corresponding test fixture assertions in `tests/classify.test.js`.
 5. Run `npm test` to verify zero regression across existing rules.

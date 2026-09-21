@@ -40,9 +40,38 @@
     regular: 0
   };
 
+  // Two-layer classification (STRATEGY.md, decision #8): the classifier emits
+  // fine-grained categories; the UI groups them for settings, folded bars and stats.
+  // Storage stays per-category — groups are a pure presentation/operation layer.
+  const GROUP_ORDER = ['ads', 'regular', 'suggested', 'media', 'other'];
+
+  const GROUP_BY_CATEGORY = {
+    sponsored: 'ads',
+    marketAds: 'ads',
+    searchingAds: 'ads',
+    regular: 'regular',
+    suggested: 'suggested',
+    reels: 'media',
+    stories: 'media',
+    suggestedGroup: 'other'
+  };
+
+  // 'regular' has no keys on purpose: it is the no-match bucket and must never be
+  // foldable, so the group exists for stats only (STRATEGY.md, decision #8).
+  const SETTING_KEYS_BY_GROUP = {
+    ads: ['foldSponsored', 'foldMarketAds', 'foldSearchingAds'],
+    regular: [],
+    suggested: ['foldSuggested'],
+    media: ['foldStories', 'foldReels'],
+    other: ['foldSuggestedGroup']
+  };
+
   globalThis.FB_DIET_DEFAULTS = {
     SETTINGS: DEFAULT_SETTINGS,
     COUNTS: DEFAULT_COUNTS,
+    GROUP_ORDER: GROUP_ORDER,
+    GROUP_BY_CATEGORY: GROUP_BY_CATEGORY,
+    SETTING_KEYS_BY_GROUP: SETTING_KEYS_BY_GROUP,
     VERSION: 1,
     getTodayDateString: getTodayDateString
   };

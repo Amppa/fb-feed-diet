@@ -69,6 +69,18 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
 - **規則**：`ownTypename === 'DiscoverFeedUnit'` → stories，與 reels 相同只認**單元本身**的 typename（nested record 不算）。優先序排在 suggested 之後、reels 之前。
 - **已知風險**：`DiscoverFeedUnit` 名稱上可能涵蓋其他「探索型」插入面板；目前無反例，若日後發現誤折（probe 看 `reason: unitTypename:DiscoverFeedUnit`），再改用 position 或 Relay 欄位收緊。
 
+### 決策 #8 — 兩層分類架構：細粒度 category → 使用者群組（2026-09-21）
+- **動機**：category 多達 7 種，對使用者太細。設定頁、folded bar、統計改以 5 個「群組」呈現，分類器與 storage 完全不變。
+- **群組映射**（`defaults.js` `GROUP_BY_CATEGORY`；fold.js 自帶一份 MAIN-world 副本）：
+  - `ads`：sponsored + marketAds + searchingAds
+  - `regular`：regular（no-match；**永遠不可摺疊**，群組僅供統計，無設定開關）
+  - `suggested`：suggested
+  - `media`：reels + stories
+  - `other`：suggestedGroup
+- **運作方式**：群組是純「顯示與操作層」。Options 群組開關批次寫入映射的 per-category key（`SETTING_KEYS_BY_GROUP`）；「群組內全部開啟」才顯示為開。統計仍按 category 累計，顯示時加總。folded bar 顯示群組名；probe 氣泡與 Options 分析器同時顯示 type + group。
+- **命名（Phase A 暫定）**：`regular` 群組顯示為「一般貼文」。未來 Phase B 若用 probe 驗證出「朋友 vs 陌生人」「已追蹤 vs 未追蹤粉專」的可靠訊號，再把陌生人貼文從 regular 移到 suggested 群組，屆時 regular 群組更名「我認識的、追蹤的貼文」。所有關係欄位規則必須照 §5 安全流程驗證（決策 #1、#2 的教訓）。
+- **取捨**：使用者失去單一 category 的獨立開關（例如只想折 marketplace ad）；若日後有需要，可在群組下加進階子選項。
+
 ### 決策 #3 — Reels 只認「單元本身是 ShowcaseFeedUnit」
 - **已嘗試並否決**：(a) `showcase_story_type === 'SHOWCASE_SHORT_VIDEO'` 即判 reels（esuit 做法）；(b) typename 從 Relay record / nested record 回退讀取。
 - **結果**：(a) 朋友**轉貼** reel 的普通 Story 也帶此欄位 → 誤折（誤判 3 前身）；(b) 朋友轉貼的 reel **附件 record 本身**是 `ShowcaseFeedUnit`，經 `CometFeedStoryFBReelsAttachmentStyle.react` 送進分類器後被誤判（誤判 3）。

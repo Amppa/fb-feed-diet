@@ -7,7 +7,7 @@
  *     with display:none / 1x1 squash
  *   - expanded by the user -> the original tree is returned with a neutral re-fold bar
  *
- * Public API (window.FBDietFold): install(), FBDietFold, CATEGORY_META, HIDE_MODE, getStatus()
+ * Public API (window.FBDietFold): install(), FBDietFold, GROUP_META, GROUP_BY_CATEGORY, groupOf, HIDE_MODE, getStatus()
  */
 window.FBDietFold = (() => {
   'use strict';
@@ -40,36 +40,46 @@ window.FBDietFold = (() => {
     byModule: {}
   };
 
-  const CATEGORY_META = {
-    sponsored: {
-      badgeClass: 'fb-diet-badge-sponsored',
-      badgeText: 'Sponsored'
+  // Two-layer classification (STRATEGY.md, decision #8): categories are folded as
+  // before, but the bar shows the user-facing GROUP. Kept local (like classify.js
+  // keeps its own maps) so the MAIN-world module stays self-contained.
+  const GROUP_BY_CATEGORY = {
+    sponsored: 'ads',
+    marketAds: 'ads',
+    searchingAds: 'ads',
+    regular: 'regular',
+    suggested: 'suggested',
+    reels: 'media',
+    stories: 'media',
+    suggestedGroup: 'other'
+  };
+
+  const GROUP_META = {
+    ads: {
+      badgeClass: 'fb-diet-badge-ads',
+      badgeText: 'Ads'
+    },
+    regular: {
+      badgeClass: 'fb-diet-badge-regular',
+      badgeText: 'Regular'
     },
     suggested: {
       badgeClass: 'fb-diet-badge-suggested',
-      badgeText: 'Suggested post'
+      badgeText: 'Suggested'
     },
-    suggestedGroup: {
-      badgeClass: 'fb-diet-badge-group',
-      badgeText: 'Suggested group'
+    media: {
+      badgeClass: 'fb-diet-badge-media',
+      badgeText: 'Reels & Stories'
     },
-    reels: {
-      badgeClass: 'fb-diet-badge-reels',
-      badgeText: 'Reels'
-    },
-    stories: {
-      badgeClass: 'fb-diet-badge-stories',
-      badgeText: 'Stories'
-    },
-    marketAds: {
-      badgeClass: 'fb-diet-badge-market',
-      badgeText: 'Market ad'
-    },
-    searchingAds: {
-      badgeClass: 'fb-diet-badge-search',
-      badgeText: 'Search ad'
+    other: {
+      badgeClass: 'fb-diet-badge-other',
+      badgeText: 'Other'
     }
   };
+
+  function groupOf(category) {
+    return GROUP_BY_CATEGORY[category] || 'regular';
+  }
 
   function createEl(type, props, children) {
     const React = window.FBDietProxy ? window.FBDietProxy.getReact() : null;
@@ -82,7 +92,7 @@ window.FBDietFold = (() => {
    * The collapsed notice bar (entire strip is clickable).
    */
   function FBDietBar(props) {
-    const meta = CATEGORY_META[props.category] || CATEGORY_META.sponsored;
+    const meta = GROUP_META[groupOf(props.category)] || GROUP_META.other;
 
     const left = createEl('div', { className: 'fb-diet-placeholder-left' }, [
       createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText])
@@ -275,6 +285,12 @@ window.FBDietFold = (() => {
       typeRow.className = 'fb-diet-probe-popup-row';
       typeRow.textContent = '類型：' + category;
       popup.appendChild(typeRow);
+
+      // 群組：ads（第二階層的使用者分組，STRATEGY.md 決策 #8）
+      const groupRow = document.createElement('div');
+      groupRow.className = 'fb-diet-probe-popup-row';
+      groupRow.textContent = '群組：' + groupOf(category);
+      popup.appendChild(groupRow);
 
       // 判斷：sponsored_data.ad_id
       const judgeRow = document.createElement('div');
@@ -485,7 +501,7 @@ window.FBDietFold = (() => {
       };
 
       if (isExpanded) {
-        const meta = CATEGORY_META[category] || CATEGORY_META.sponsored;
+        const meta = GROUP_META[groupOf(category)] || GROUP_META.other;
         const refoldLeft = createEl('div', { className: 'fb-diet-placeholder-left' }, [
           createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText])
         ]);
@@ -705,7 +721,9 @@ window.FBDietFold = (() => {
 
   return {
     FEED_UNIT_MODULES,
-    CATEGORY_META,
+    GROUP_META,
+    GROUP_BY_CATEGORY,
+    groupOf,
     HIDE_MODE,
     FBDietFold,
     FBDietBar,
