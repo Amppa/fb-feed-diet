@@ -15,7 +15,7 @@ fb-diet-feed/
 ├── DEVELOPMENT.md             # Developer guide, architecture & debugging (this file)
 ├── AGENTS.md                  # Professional engineering discipline & AI contract
 ├── STRATEGY.md                # Feed classification strategy & decision log
-├── design/                    # Source design assets (e.g. Affinity fb-df.af)
+├── design/                    # Source design assets (e.g. Affinity fb-fd.af)
 ├── icons/                     # Extension asset icons (16, 32, 48, 128)
 ├── scripts/                   # Zero-dependency release packagers (NOT packaged)
 │   ├── package.js             # Node.js packaging script
