@@ -138,6 +138,7 @@ graph TD
 3. **Non-Destructive React Tree (1x1 Squash)**: Feed units are never removed or destroyed. `fold.js` wraps the original component and applies a `1x1` squash container with `overflow: hidden`, ensuring Facebook video players and IntersectionObserver monitors stay stable.
 4. **Dual Engine Modes (Proxy Mode vs DOM Mode)**: Users can toggle between high-speed MAIN world Proxy mode (default) and traditional ISOLATED world DOM mode in the Options page.
 5. **Resilient Lifecycle (`shutdown`)**: To eliminate `Extension context invalidated` errors when developers reload the extension, open tabs safely disconnect `MutationObserver` instances, clear pending timers, and silence storage flushes.
+6. **React 18 Safe Hydration Commit Gate**: To prevent `Minified React error #418` (Hydration Mismatch) in Facebook's streaming SSR / Selective Hydration architecture, all wrapped components (`FBDietFold`, `SideAdHidden`, `RightRailUnitWrapper`) return the unmodified server-rendered tree on initial render. Upon successful commit (before browser paint via `useLayoutEffect`), they transition seamlessly to the folded state, guaranteeing zero hydration errors, zero DOM destruction, and flicker-free visual performance.
 
 ---
 
@@ -184,7 +185,11 @@ Loaded sequentially at `document_start` before Comet finishes loading:
   - Accepts immediate settings push via `window.__fbDietSetSettings`.
 - **`fold.js` (`window.FBDietFold`)**:
   - Wraps target feed unit components using `React.createElement`.
-  - If a unit matches an active filter and is not expanded, renders an inline `FBDietFold` bar and sets the original element container to `display: none`.
+  - Enforces strict Rules of Hooks (unconditional top-level hooks: `useContext`, `useState`, `useEffect`, `useSafeLayoutEffect`).
+  - **Safe Hydration Commit Gate**: Returns the original `rendered` tree during initial SSR hydration pass, then transitions to folded UI via `useSafeLayoutEffect` immediately upon commit, eliminating React 18 `#418` hydration mismatch errors.
+  - If a unit matches an active filter and is not expanded, renders an inline `FBDietFold` bar and sets the original element container to squash mode (`1x1` container).
+  - Also guards sidebar ad units (`SideAdHidden` and `RightRailUnitWrapper`) with identical commit gates.
+  - Tracks diagnostic hydration statistics (`getStatus().hydration`).
   - Preserves Relay query subscriptions and React component identity.
 
 ### Isolated World Modules (`src/content/`)

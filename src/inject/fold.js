@@ -35,6 +35,11 @@ window.FBDietFold = (() => {
 
   const HIDE_MODE = 'squash';
 
+  const hydrationStats = {
+    count: 0,
+    byModule: {}
+  };
+
   const CATEGORY_META = {
     sponsored: {
       badgeClass: 'fb-diet-badge-sponsored',
@@ -267,22 +272,38 @@ window.FBDietFold = (() => {
   function FBDietFold(props) {
     const rendered = props.lastCmp;
     const React = window.FBDietProxy ? window.FBDietProxy.getReact() : null;
+    if (!React || !rendered) return rendered;
 
-    // Anti-nesting suppression: if this unit is already rendered inside an outer FB Diet fold wrapper,
-    // render it untouched to prevent duplicate stacked fold / re-fold bars (e.g. group suggestion carousels).
+    // Fixed order: all hooks unconditionally executed
     const FoldContext = getFoldContext(React);
     const isNested = FoldContext && typeof React.useContext === 'function' ? React.useContext(FoldContext) : false;
-    if (isNested) return rendered;
 
-    const [tick, setTick] = React && typeof React.useState === 'function' ? React.useState(0) : [0, function noop() {}];
+    const [tick, setTick] = typeof React.useState === 'function' ? React.useState(0) : [0, function noop() {}];
+    const [isHydrated, setIsHydrated] = typeof React.useState === 'function' ? React.useState(false) : [true, function noop() {}];
 
-    if (React && typeof React.useEffect === 'function') {
+    if (typeof React.useEffect === 'function') {
       React.useEffect(() => {
         const refresh = () => setTick((value) => value + 1);
         window.addEventListener('fb-diet:settings-changed', refresh);
         return () => window.removeEventListener('fb-diet:settings-changed', refresh);
       }, []);
     }
+
+    const useSafeLayoutEffect = React.useLayoutEffect || React.useEffect;
+    if (typeof useSafeLayoutEffect === 'function') {
+      useSafeLayoutEffect(() => {
+        setIsHydrated(true);
+        const mod = props.moduleName || 'unit';
+        hydrationStats.count += 1;
+        hydrationStats.byModule[mod] = (hydrationStats.byModule[mod] || 0) + 1;
+        const bridge = window.FBDietBridge;
+        if (bridge && bridge.isDebugEnabled && bridge.isDebugEnabled()) {
+          console.info('[FB Diet][Hydration] #' + hydrationStats.count + ' committed:', mod);
+        }
+      }, []);
+    }
+
+    if (isNested || !isHydrated) return rendered;
 
     try {
       if (!React || !rendered) return rendered;
@@ -405,8 +426,22 @@ window.FBDietFold = (() => {
   function SideAdHidden(props) {
     const rendered = props.lastCmp;
     const React = window.FBDietProxy ? window.FBDietProxy.getReact() : null;
+    if (!React || !rendered) return rendered;
+
+    const [isHydrated, setIsHydrated] = typeof React.useState === 'function' ? React.useState(false) : [true, function noop() {}];
+    const useSafeLayoutEffect = React.useLayoutEffect || React.useEffect;
+    if (typeof useSafeLayoutEffect === 'function') {
+      useSafeLayoutEffect(() => {
+        setIsHydrated(true);
+        hydrationStats.count += 1;
+        hydrationStats.byModule['SideAdHidden'] = (hydrationStats.byModule['SideAdHidden'] || 0) + 1;
+      }, []);
+    }
+
+    if (!isHydrated) return rendered;
+
     const bridge = window.FBDietBridge;
-    if (!bridge || !React || !rendered) return rendered;
+    if (!bridge) return rendered;
 
     const settings = bridge.getSettings();
     if (!settings.enabled || settings.foldSponsored === false) return rendered;
@@ -421,6 +456,18 @@ window.FBDietFold = (() => {
     const rendered = props.lastCmp;
     const React = window.FBDietProxy ? window.FBDietProxy.getReact() : null;
     if (!React || !rendered) return rendered;
+
+    const [isHydrated, setIsHydrated] = typeof React.useState === 'function' ? React.useState(false) : [true, function noop() {}];
+    const useSafeLayoutEffect = React.useLayoutEffect || React.useEffect;
+    if (typeof useSafeLayoutEffect === 'function') {
+      useSafeLayoutEffect(() => {
+        setIsHydrated(true);
+        hydrationStats.count += 1;
+        hydrationStats.byModule['RightRailUnitWrapper'] = (hydrationStats.byModule['RightRailUnitWrapper'] || 0) + 1;
+      }, []);
+    }
+
+    if (!isHydrated) return rendered;
 
     return createEl('div', { className: 'CometHomeRightRailUnit' }, [rendered]);
   }
@@ -507,6 +554,7 @@ window.FBDietFold = (() => {
     getStatus: () => ({
       hideMode: HIDE_MODE,
       modules: FEED_UNIT_MODULES,
+      hydration: hydrationStats,
       registered: window.FBDietProxy ? window.FBDietProxy.listRegistered() : null,
       settings: window.FBDietBridge ? window.FBDietBridge.getSettings() : null
     })
