@@ -356,6 +356,8 @@ window.FBDietMetadata = (() => {
         readFromRecords('story.url'),
         readFromRecords('story.wwwURL'),
         readFromRecords('story.permalink_url'),
+        readFromRecords('sponsored_data.about_this_ad_url'),
+        readFromRecords('comet_sections.header.story.sponsored_data.about_this_ad_url'),
         readFromRecords('comet_sections.content.story.permalink_url'),
         readFromRecords('comet_sections.content.story.wwwURL'),
         readFromRecords('comet_sections.feedback.story.url'),
@@ -364,7 +366,7 @@ window.FBDietMetadata = (() => {
         readFromRecords('shareable.url'),
         readProp(payload, 'story.url'),
         readProp(payload, 'story.wwwURL'),
-        readPath(ids, ['^wwwURL', '^permalink_url', '^url', '^story.url'])
+        readPath(ids, ['^wwwURL', '^permalink_url', '^url', '^story.url', '^sponsored_data.about_this_ad_url'])
       ]));
 
       if (!permalink && postId) {

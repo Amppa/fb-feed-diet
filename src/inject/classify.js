@@ -127,6 +127,7 @@ window.FBDietClassify = (() => {
         obj.call_to_action ||
         obj.story_header ||
         obj.sponsored_data ||
+        obj.th_dat_spo ||
         obj.is_sponsored !== undefined ||
         obj.viewer_forum_join_state !== undefined ||
         obj.viewer_join_state !== undefined
@@ -341,9 +342,11 @@ window.FBDietClassify = (() => {
     }
 
     // 1. Direct props
+    const spoObj = readProp(unit.record, 'th_dat_spo') || (unit.feedUnit && readProp(unit.feedUnit, 'th_dat_spo')) || (unit.nestedUnit && readProp(unit.nestedUnit, 'th_dat_spo'));
     evidence.adId =
       readCandidateProp('sponsored_data.ad_id') ||
       readCandidateProp('sponsored_data.client_token') ||
+      (spoObj ? 'th_dat_spo' : null) ||
       (readProp(unit.record, 'is_sponsored') === true || (unit.nestedUnit && readProp(unit.nestedUnit, 'is_sponsored') === true) ? 'is_sponsored' : null);
 
     evidence.subscribeStatus =
@@ -420,7 +423,10 @@ window.FBDietClassify = (() => {
    * be reported as an ad, and a unit is never classified twice.
    */
   function pickCategory(evidence, context) {
-    if (evidence.adId) return { category: CATEGORY.SPONSORED, reason: 'sponsored_data.ad_id' };
+    if (evidence.adId) {
+      const reason = evidence.adId === 'th_dat_spo' ? 'th_dat_spo' : (evidence.adId === 'is_sponsored' ? 'is_sponsored' : 'sponsored_data.ad_id');
+      return { category: CATEGORY.SPONSORED, reason };
+    }
 
     const typename = evidence.ownTypename || evidence.nestedTypename;
     if (typename && SUGGESTED_GROUP_TYPENAMES.indexOf(typename) !== -1) {

@@ -184,6 +184,13 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
   4. **過濾計數標準**：凡是畫面上有實質折疊（`title` 24px 或 `mini` 18px）均計入「Filtered（已過濾）」；預設展開（`off`）則不計。
   5. **色彩規範**：Regular 標籤維持綠色（`#10b981` / `#34d399`），Other 標籤維持藍色（`#3b82f6` / `#60a5fa`）。
 
+### 決策 #19 — `th_dat_spo` 贊助特徵辨識與 Probe 診斷優化（2026-09-22）
+- **背景**：Facebook 針對未即時寫入 Relay 快取或代碼混淆的贊助廣告，在 `feedUnit.th_dat_spo` 植入了混淆後的廣告特徵欄位（例如 `th_dat_spo: { brs_filter_setting: 90 }`），導致原先僅依賴 `sponsored_data.ad_id` 的分類器退化為 `no-match`（誤判為 regular）。
+- **改動**：
+  1. **廣告分類特徵擴充**：`classify.js` 加入 `th_dat_spo` 偵測（包含 `isRecordLike` 與 `evidence.adId` 判定），一旦存在即判定為 `sponsored`（`reason: 'th_dat_spo'`）。
+  2. **廣告網址解析增強**：`metadata.js` 在提取 permalink 時，擴充納入 `sponsored_data.about_this_ad_url` 與 DOM `a[href*="/ads/about/"]` 提取，讓贊助廣告也能精準抓到「關於此廣告」的目標網址。
+  3. **Probe 報告精簡**：若 `evidence.id === unitId`，略過重複的 `evidence.id` 欄位，節省 50% 剪貼簿體積；並在氣泡提示中新增「連結：...」列。
+
 ---
 
 ## 4. 已知誤判案例（症狀 → 根因 → 修正）

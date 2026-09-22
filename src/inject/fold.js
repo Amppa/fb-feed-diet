@@ -166,6 +166,15 @@ window.FBDietFold = (() => {
     return null;
   }
 
+  function extractAdUrlFromDom(container) {
+    if (!container || typeof container.querySelector !== 'function') return null;
+    try {
+      const adLink = container.querySelector('a[href*="/ads/about/"]');
+      if (adLink && adLink.href) return adLink.href;
+    } catch (e) {}
+    return null;
+  }
+
   function extractMediaFromDom(container, isMediaGroup) {
     if (!container || typeof container.querySelector !== 'function') return null;
     try {
@@ -211,14 +220,16 @@ window.FBDietFold = (() => {
         const foundActor = initialActor || extractAuthorFromDom(container);
         const foundMsg = initialMsg || extractMessageFromDom(container);
         const foundGroup = initialGroup || extractGroupFromDom(container);
+        const foundAdUrl = extractAdUrlFromDom(container);
         const isMediaGroup = props.category === 'reels' || props.category === 'stories';
         const foundMedia = (!foundMsg && extractMediaFromDom(container, isMediaGroup)) || '';
 
-        if (foundActor || foundMsg || foundGroup || foundMedia) {
+        if (foundActor || foundMsg || foundGroup || foundMedia || foundAdUrl) {
           const newData = {
             actorName: foundActor || '',
             snippetText: foundMsg || foundMedia || '',
-            groupName: foundGroup || ''
+            groupName: foundGroup || '',
+            adUrl: foundAdUrl || ''
           };
           if (unitId) titleBarCache.set(unitId, newData);
           setDomData(newData);
@@ -384,13 +395,18 @@ window.FBDietFold = (() => {
       report.entryCategory = props.entryCategory;
     }
 
+    let normalizedEvidence = classifyResult && classifyResult.evidence ? Object.assign({}, classifyResult.evidence) : null;
+    if (normalizedEvidence && normalizedEvidence.id && classifyResult && normalizedEvidence.id === classifyResult.unitId) {
+      delete normalizedEvidence.id;
+    }
+
     report.classify = classifyResult
       ? {
           category: classifyResult.category,
           unitId: classifyResult.unitId,
           unitTypename: classifyResult.unitTypename,
           reason: classifyResult.reason,
-          evidence: classifyResult.evidence,
+          evidence: normalizedEvidence,
           moduleName: classifyResult.moduleName
         }
       : null;
@@ -442,9 +458,9 @@ window.FBDietFold = (() => {
       // Optional module; a failure must never break the probe
     }
     const unitKey = classifyResult && (classifyResult.unitId || (classifyResult.evidence && classifyResult.evidence.id));
-    if ((!enrichment || !enrichment.actor || !enrichment.actor.name) && unitKey && titleBarCache.has(unitKey)) {
+    if (unitKey && titleBarCache.has(unitKey)) {
       const cached = titleBarCache.get(unitKey);
-      if (cached && (cached.actorName || cached.snippetText || cached.groupName)) {
+      if (cached && (cached.actorName || cached.snippetText || cached.groupName || cached.adUrl)) {
         if (!enrichment) enrichment = { actor: {}, group: {}, content: {}, media: null, viewer: null };
         if (!enrichment.actor) enrichment.actor = {};
         if (cached.actorName && !enrichment.actor.name) enrichment.actor.name = cached.actorName;
@@ -452,6 +468,7 @@ window.FBDietFold = (() => {
         if (cached.groupName && !enrichment.group.name) enrichment.group.name = cached.groupName;
         if (!enrichment.content) enrichment.content = {};
         if (cached.snippetText && !enrichment.content.message) enrichment.content.message = cached.snippetText;
+        if (cached.adUrl && !enrichment.content.permalink) enrichment.content.permalink = cached.adUrl;
       }
     }
     report.enrichment = enrichment;
@@ -601,6 +618,15 @@ window.FBDietFold = (() => {
       relRow.className = 'fb-diet-probe-popup-row';
       relRow.textContent = '關係：' + subStatus + ' / ' + joinState;
       popup.appendChild(relRow);
+
+      // 網址：文章連結或廣告連結
+      const postUrl = enrichment && enrichment.content && enrichment.content.permalink;
+      if (postUrl) {
+        const linkRow = document.createElement('div');
+        linkRow.className = 'fb-diet-probe-popup-row';
+        linkRow.textContent = '連結：' + (postUrl.length > 50 ? postUrl.slice(0, 50) + '…' : postUrl);
+        popup.appendChild(linkRow);
+      }
 
       // 標題：message 優先前 40 字，無則取 title，皆無為 NULL
       let titleSnippet = null;

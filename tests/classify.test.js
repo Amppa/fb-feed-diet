@@ -40,6 +40,12 @@ function run(c) {
   equals(c, 'evidence source is props', r.evidence.source, 'props');
   c.ok('relay not asked for the ad id when props answered', calls.every((x) => x.path !== P.SPONSORED_PATH));
 
+  /* --- th_dat_spo sponsored detection --- */
+  r = C.classifyFeedUnit({ feedUnit: feedUnitOf({ th_dat_spo: { brs_filter_setting: 90 } }) });
+  equals(c, 'th_dat_spo sponsored category', r.category, 'sponsored');
+  equals(c, 'th_dat_spo sponsored reason', r.reason, 'th_dat_spo');
+  equals(c, 'th_dat_spo evidence source is props', r.evidence.source, 'props');
+
   /* --- nested feed unit (children.0.props.children.props) --- */
   calls.mapValue = () => null;
   r = C.classifyFeedUnit({ children: [{ props: { children: { props: { feedUnit: feedUnitOf() } } } }] });
