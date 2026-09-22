@@ -204,9 +204,9 @@
     try {
       window.postMessage(
         { source: CONTENT_SOURCE, type: 'settings', payload: { settings: currentSettings } },
-        window.location.origin
+        '*'
       );
-      window.postMessage({ source: CONTENT_SOURCE, type: 'ping' }, window.location.origin);
+      window.postMessage({ source: CONTENT_SOURCE, type: 'ping' }, '*');
     } catch (e) {
       // postMessage should never fail, but never let it break the content script
     }
@@ -385,6 +385,25 @@
   })();
 
   // Listen for real-time toggle changes from Popup
+  function applyUpdatedSettings(newSettings) {
+    if (!newSettings || typeof newSettings !== 'object') return;
+    const oldEnabled = currentSettings.enabled;
+    currentSettings = { ...currentSettings, ...newSettings };
+
+    if (proxyActive) {
+      announceToMain();
+      return;
+    }
+
+    if (oldEnabled && !currentSettings.enabled) {
+      restoreAllElements();
+    } else if (currentSettings.enabled) {
+      restoreAllElements();
+      scanPage();
+    }
+  }
+
+  // Listen for real-time toggle changes from Popup or Options
   function registerStorageListener() {
     if (!isExtensionValid() || !chrome.storage?.onChanged) return;
 
@@ -396,26 +415,27 @@
         }
 
         if (area === 'local' && changes.settings) {
-          const oldEnabled = currentSettings.enabled;
-          currentSettings = { ...currentSettings, ...changes.settings.newValue };
-
-          if (proxyActive) {
-            // The MAIN world wrapper renders live, so pushing settings is all that is
-            // needed. No re-scan and no page reload.
-            announceToMain();
-            return;
-          }
-
-          // If master switch was toggled off, restore all folded items
-          if (oldEnabled && !currentSettings.enabled) {
-            restoreAllElements();
-          } else if (!oldEnabled && currentSettings.enabled) {
-            scanPage();
-          }
+          applyUpdatedSettings(changes.settings.newValue);
         }
       });
     } catch (e) {
       // Extension context invalidated while registering the listener
+    }
+  }
+
+  if (isExtensionValid() && chrome.runtime?.onMessage) {
+    try {
+      chrome.runtime.onMessage.addListener((message) => {
+        if (!isExtensionValid()) {
+          shutdown();
+          return;
+        }
+        if (message && message.type === 'SETTINGS_CHANGED') {
+          applyUpdatedSettings(message.settings);
+        }
+      });
+    } catch (e) {
+      // Extension context invalidated
     }
   }
 

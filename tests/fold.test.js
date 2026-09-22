@@ -82,6 +82,7 @@ function run(c) {
   /* --- regular payload: unfolded with regular header bar + reported once --- */
   {
     const t = setup({});
+    t.bridge.setSettings({ minimizedFoldMode: true });
     const result = t.render(payloadOf('u-regular'));
     c.ok('regular unit renders unfolded with header bar', result.type === t.React.Fragment && Array.isArray(result.props.children));
     const [headerBar, body] = result.props.children;
@@ -102,10 +103,19 @@ function run(c) {
     c.equals('folded regular has FBDietBar', foldedRegular.props.children[0].type, t.fold.FBDietBar);
   }
 
+  /* --- regular payload with default settings: 36px title bar when unfolded --- */
+  {
+    const t = setup({});
+    // minimizedFoldMode is false by default, alwaysShowFoldTitle is true by default
+    const result = t.render(payloadOf('u-regular-default'));
+    c.ok('regular default renders FBDietTitleBar (36px)', result.type === t.React.Fragment && result.props.children[0].type === t.fold.FBDietTitleBar);
+    c.equals('title bar isExpanded is true', result.props.children[0].props.isExpanded, true);
+  }
+
   /* --- category disabled renders unfolded with header bar + reports allowed --- */
   {
     const t = setup({ [SPONSORED_PATH]: 'ad-allowed' });
-    t.bridge.setSettings({ foldSponsored: false });
+    t.bridge.setSettings({ foldSponsored: false, minimizedFoldMode: true });
     const result = t.render(payloadOf('u-allowed'));
     c.ok('disabled category renders unfolded with header bar', result.type === t.React.Fragment && Array.isArray(result.props.children));
     const [headerBar] = result.props.children;
@@ -122,9 +132,10 @@ function run(c) {
     c.equals('blocked reported without any settings change', countMessages(t.win, 'blocked'), 1);
   }
 
-  /* --- folding + toggling + settings gating --- */
+  /* --- folding + toggling + settings gating (mini mode) --- */
   {
     const t = setup({ [SPONSORED_PATH]: 'ad-1' });
+    t.bridge.setSettings({ minimizedFoldMode: true });
 
     const folded = t.render(payloadOf('u1'));
     c.equals('folded render is a Fragment', folded.type, t.React.Fragment);
@@ -153,15 +164,24 @@ function run(c) {
     t.bridge.toggle('u1');
     c.equals('collapsing folds it again', t.render(payloadOf('u1')).type, t.React.Fragment);
 
-    t.bridge.setSettings({ enabled: false });
+    t.bridge.setSettings({ enabled: false, minimizedFoldMode: true });
     c.equals('settings change dispatches a refresh event', t.win.__events.filter((e) => e.type === 'fb-diet:settings-changed').length >= 1, true);
     c.ok('master off renders untouched', t.render(payloadOf('u1')).__source === true);
-    t.bridge.setSettings({ enabled: true });
+    t.bridge.setSettings({ enabled: true, minimizedFoldMode: true });
 
-    t.bridge.setSettings({ foldSponsored: false });
+    t.bridge.setSettings({ foldSponsored: false, minimizedFoldMode: true });
     const unfoldedOff = t.render(payloadOf('u1'));
     c.ok('category off renders unfolded with header bar', unfoldedOff.type === t.React.Fragment && unfoldedOff.props.children[0].props.className.indexOf('fb-diet-state-expanded') !== -1);
-    t.bridge.setSettings({ foldSponsored: true });
+
+    t.bridge.setSettings({ foldSponsored: false, minimizedFoldMode: true, alwaysShowFoldTitle: false });
+    const unfoldedClean = t.render(payloadOf('u1'));
+    c.ok('alwaysShowFoldTitle off renders native without bar', unfoldedClean.__source === true);
+
+    t.bridge.setSettings({ foldSponsored: false, minimizedFoldMode: false, alwaysShowFoldTitle: true });
+    const unfoldedTitleBar = t.render(payloadOf('u1'));
+    c.ok('alwaysShowFoldTitle on + mini off renders unfolded with title bar', unfoldedTitleBar.type === t.React.Fragment && unfoldedTitleBar.props.children[0].type === t.fold.FBDietTitleBar);
+
+    t.bridge.setSettings({ foldSponsored: true, minimizedFoldMode: true, alwaysShowFoldTitle: true });
     c.ok('category restored folds again', t.render(payloadOf('u1')).type === t.React.Fragment && t.render(payloadOf('u1')).props.children[0].type === t.fold.FBDietBar);
   }
 

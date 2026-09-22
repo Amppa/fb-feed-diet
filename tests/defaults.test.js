@@ -26,14 +26,16 @@ function run(checker) {
   checker.ok('SETTINGS object exists', Boolean(settings));
   checker.equals('settings.enabled is true', settings && settings.enabled, true);
   checker.equals('settings.mode is proxy', settings && settings.mode, 'proxy');
-  checker.equals('settings.foldSponsored is mini', settings && settings.foldSponsored, 'mini');
-  checker.equals('settings.foldSuggested is title', settings && settings.foldSuggested, 'title');
-  checker.equals('settings.foldSuggestedGroup is mini', settings && settings.foldSuggestedGroup, 'mini');
-  checker.equals('settings.foldMarketAds is mini', settings && settings.foldMarketAds, 'mini');
-  checker.equals('settings.foldSearchingAds is mini', settings && settings.foldSearchingAds, 'mini');
-  checker.equals('settings.foldStories is mini', settings && settings.foldStories, 'mini');
-  checker.equals('settings.foldReels is mini', settings && settings.foldReels, 'mini');
-  checker.equals('settings.foldRegular is off', settings && settings.foldRegular, 'off');
+  checker.equals('settings.foldSponsored is true', settings && settings.foldSponsored, true);
+  checker.equals('settings.foldSuggested is true', settings && settings.foldSuggested, true);
+  checker.equals('settings.foldSuggestedGroup is true', settings && settings.foldSuggestedGroup, true);
+  checker.equals('settings.foldMarketAds is true', settings && settings.foldMarketAds, true);
+  checker.equals('settings.foldSearchingAds is true', settings && settings.foldSearchingAds, true);
+  checker.equals('settings.foldStories is true', settings && settings.foldStories, true);
+  checker.equals('settings.foldReels is true', settings && settings.foldReels, true);
+  checker.equals('settings.foldRegular is false', settings && settings.foldRegular, false);
+  checker.equals('settings.minimizedFoldMode is false', settings && settings.minimizedFoldMode, false);
+  checker.equals('settings.alwaysShowFoldTitle is true', settings && settings.alwaysShowFoldTitle, true);
   checker.equals('settings.debugProbe is false', settings && settings.debugProbe, false);
 
   const counts = defaults && defaults.COUNTS;
@@ -64,11 +66,12 @@ function run(checker) {
 
   // normalizeFoldMode helper
   checker.ok('normalizeFoldMode exists', typeof defaults.normalizeFoldMode === 'function');
-  checker.equals('normalizeFoldMode true -> mini', defaults.normalizeFoldMode(true), 'mini');
+  checker.equals('normalizeFoldMode true + mini:false -> title', defaults.normalizeFoldMode(true, 'off', false), 'title');
+  checker.equals('normalizeFoldMode true + mini:true -> mini', defaults.normalizeFoldMode(true, 'off', true), 'mini');
   checker.equals('normalizeFoldMode false -> off', defaults.normalizeFoldMode(false), 'off');
-  checker.equals('normalizeFoldMode title -> title', defaults.normalizeFoldMode('title'), 'title');
-  checker.equals('normalizeFoldMode mini -> mini', defaults.normalizeFoldMode('mini'), 'mini');
   checker.equals('normalizeFoldMode off -> off', defaults.normalizeFoldMode('off'), 'off');
+  checker.equals('normalizeFoldMode title + mini:false -> title', defaults.normalizeFoldMode('title', 'off', false), 'title');
+  checker.equals('normalizeFoldMode title + mini:true -> mini', defaults.normalizeFoldMode('title', 'off', true), 'mini');
   checker.equals('normalizeFoldMode fallback', defaults.normalizeFoldMode('unknown', 'off'), 'off');
 
   // Idempotency: repeated execution does not throw

@@ -26,14 +26,16 @@ window.FBDietBridge = (() => {
   const DEFAULT_SETTINGS = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.SETTINGS) || {
     enabled: true,
     mode: 'proxy',
-    foldSponsored: 'mini',
-    foldSuggested: 'title',
-    foldSuggestedGroup: 'mini',
-    foldMarketAds: 'mini',
-    foldSearchingAds: 'mini',
-    foldStories: 'mini',
-    foldReels: 'mini',
-    foldRegular: 'off',
+    foldSponsored: true,
+    foldSuggested: true,
+    foldSuggestedGroup: true,
+    foldMarketAds: true,
+    foldSearchingAds: true,
+    foldStories: true,
+    foldReels: true,
+    foldRegular: false,
+    minimizedFoldMode: false,
+    alwaysShowFoldTitle: true,
     debugProbe: false
   };
 
@@ -113,13 +115,10 @@ window.FBDietBridge = (() => {
 
   function getUnitVisualState(unitId, defaultMode) {
     const isToggled = Boolean(unitId) && toggledSet.has(unitId);
-    if (defaultMode === 'title') {
-      return isToggled ? { isFolded: false, style: 'title' } : { isFolded: true, style: 'title' };
-    }
-    if (defaultMode === 'mini') {
-      return isToggled ? { isFolded: false, style: 'mini' } : { isFolded: true, style: 'mini' };
-    }
-    return isToggled ? { isFolded: true, style: 'mini' } : { isFolded: false, style: 'mini' };
+    const activeStyle = settings.minimizedFoldMode ? 'mini' : 'title';
+    const isDefaultFolded = defaultMode !== 'off';
+    const isFolded = isDefaultFolded ? !isToggled : isToggled;
+    return { isFolded, style: activeStyle };
   }
 
   function isUnitFolded(unitId, defaultFolded) {
@@ -156,8 +155,8 @@ window.FBDietBridge = (() => {
 
     const merged = Object.assign({}, settings);
     let changed = false;
-    for (const key of Object.keys(DEFAULT_SETTINGS)) {
-      if (key in next && merged[key] !== next[key]) {
+    for (const key of Object.keys(next)) {
+      if (merged[key] !== next[key]) {
         merged[key] = next[key];
         changed = true;
       }
@@ -175,9 +174,9 @@ window.FBDietBridge = (() => {
       debugLog('settings-applied', settings);
       post('settings-applied', { settings });
       // Existing feed units do not necessarily re-render when a storage value
-      // changes.  The fold wrapper subscribes to this event so master/category
+      // changes. The fold wrapper subscribes to this event so master/category
       // toggles apply immediately without requiring a page refresh.
-      window.dispatchEvent(new CustomEvent('fb-diet:settings-changed'));
+      window.dispatchEvent(new CustomEvent('fb-diet:settings-changed', { detail: settings }));
     }
     return settings;
   }

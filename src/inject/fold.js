@@ -822,12 +822,13 @@ window.FBDietFold = (() => {
       }
 
       const defaultMode = bridge.getFoldMode ? bridge.getFoldMode(category) : (bridge.isEnabled(category) ? 'mini' : 'off');
+      const activeStyle = settings.minimizedFoldMode ? 'mini' : 'title';
       const visual = bridge.getUnitVisualState
         ? bridge.getUnitVisualState(unitId, defaultMode)
-        : { isFolded: defaultMode !== 'off', style: defaultMode === 'title' ? 'title' : 'mini' };
+        : { isFolded: defaultMode !== 'off', style: activeStyle };
 
       const isFolded = visual.isFolded;
-      const foldStyle = visual.style;
+      const foldStyle = activeStyle;
 
       // Report counters: any folded unit counts toward blocked/filtered
       if (isFolded) {
@@ -874,6 +875,11 @@ window.FBDietFold = (() => {
           // Ignore
         }
       };
+
+      // When unfolded and alwaysShowFoldTitle is disabled, return native render cleanly without any bar
+      if (!isFolded && settings.alwaysShowFoldTitle === false) {
+        return addProbe(rendered, props, classifyResult, relayReads);
+      }
 
       // Case 1: Title Mode (24px snippet bar, permanent across expand and collapse)
       if (foldStyle === 'title') {

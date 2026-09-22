@@ -638,16 +638,19 @@ window.FBDietClassify = (() => {
     if (!settings || settings.enabled === false) return 'off';
     const key = SETTING_BY_CATEGORY[category];
     if (!key) return 'off';
-    const defaultVal = (typeof globalThis !== 'undefined' && globalThis.FB_DIET_DEFAULTS?.SETTINGS?.[key])
-      || (key === 'foldRegular' ? 'off' : (key === 'foldSuggested' ? 'title' : 'mini'));
+    const defaultVal = (typeof globalThis !== 'undefined' && globalThis.FB_DIET_DEFAULTS?.SETTINGS?.[key] !== undefined)
+      ? globalThis.FB_DIET_DEFAULTS.SETTINGS[key]
+      : (key !== 'foldRegular');
     const val = settings[key] !== undefined ? settings[key] : defaultVal;
+    const isMini = Boolean(settings.minimizedFoldMode);
     if (typeof globalThis !== 'undefined' && globalThis.FB_DIET_DEFAULTS && typeof globalThis.FB_DIET_DEFAULTS.normalizeFoldMode === 'function') {
-      return globalThis.FB_DIET_DEFAULTS.normalizeFoldMode(val, defaultVal);
+      return globalThis.FB_DIET_DEFAULTS.normalizeFoldMode(val, 'off', isMini);
     }
-    if (val === true) return 'mini';
-    if (val === false) return 'off';
-    if (val === 'title' || val === 'mini' || val === 'off') return val;
-    return defaultVal;
+    if (val === false || val === 'off') return 'off';
+    if (val === true || val === 'mini' || val === 'title') {
+      return isMini ? 'mini' : 'title';
+    }
+    return 'off';
   }
 
   function isCategoryEnabled(category, settings) {

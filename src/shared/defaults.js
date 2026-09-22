@@ -8,21 +8,24 @@
   const DEFAULT_SETTINGS = {
     enabled: true,
     mode: 'proxy',
-    foldSponsored: 'mini',
-    foldSuggested: 'title',
-    foldSuggestedGroup: 'mini',
-    foldMarketAds: 'mini',
-    foldSearchingAds: 'mini',
-    foldStories: 'mini',
-    foldReels: 'mini',
-    foldRegular: 'off',
+    foldSponsored: true,
+    foldSuggested: true,
+    foldSuggestedGroup: true,
+    foldMarketAds: true,
+    foldSearchingAds: true,
+    foldStories: true,
+    foldReels: true,
+    foldRegular: false,
+    minimizedFoldMode: false,
+    alwaysShowFoldTitle: true,
     debugProbe: false
   };
 
-  function normalizeFoldMode(value, fallback = 'off') {
-    if (value === true) return 'mini';
-    if (value === false) return 'off';
-    if (value === 'title' || value === 'mini' || value === 'off') return value;
+  function normalizeFoldMode(value, fallback = 'off', minimizedFoldMode = false) {
+    if (value === false || value === 'off') return 'off';
+    if (value === true || value === 'mini' || value === 'title') {
+      return minimizedFoldMode ? 'mini' : 'title';
+    }
     return fallback;
   }
 

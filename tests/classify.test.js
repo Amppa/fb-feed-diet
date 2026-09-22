@@ -353,8 +353,9 @@ function run(c) {
   equals(c, 'friend activity header stays regular', r.category, 'regular');
   equals(c, 'friend activity header reason is no-match', r.reason, 'no-match');
 
-  /* --- 3-tier fold mode checks --- */
-  equals(c, 'default settings sponsored mode is mini', C.getCategoryFoldMode('sponsored', {}), 'mini');
+  /* --- fold mode checks --- */
+  equals(c, 'default settings sponsored mode is title (36px default)', C.getCategoryFoldMode('sponsored', {}), 'title');
+  equals(c, 'minimized fold mode returns mini (18px)', C.getCategoryFoldMode('sponsored', { foldSponsored: true, minimizedFoldMode: true }), 'mini');
   equals(c, 'default settings suggested mode is title', C.getCategoryFoldMode('suggested', {}), 'title');
   equals(c, 'default settings regular mode is off', C.getCategoryFoldMode('regular', {}), 'off');
   equals(c, 'custom setting mode is honored', C.getCategoryFoldMode('regular', { foldRegular: 'title' }), 'title');

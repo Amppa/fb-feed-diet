@@ -19,6 +19,9 @@ const DEFAULT_SETTINGS = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFA
   foldSearchingAds: true,
   foldStories: true,
   foldReels: true,
+  foldRegular: false,
+  minimizedFoldMode: false,
+  alwaysShowFoldTitle: true,
   debugProbe: false
 };
 
@@ -75,9 +78,12 @@ chrome.runtime.onInstalled.addListener(async () => {
  * The content script also forwards settings over postMessage, which covers tabs where the
  * extension was reloaded and the service worker injection is not needed.
  */
-async function pushSettingsToFacebookTabs() {
-  const data = await chrome.storage.local.get('settings');
-  const settings = { ...DEFAULT_SETTINGS, ...(data.settings || {}) };
+async function pushSettingsToFacebookTabs(providedSettings) {
+  let settings = providedSettings;
+  if (!settings) {
+    const data = await chrome.storage.local.get('settings');
+    settings = { ...DEFAULT_SETTINGS, ...(data.settings || {}) };
+  }
 
   let tabs = [];
   try {
@@ -89,7 +95,7 @@ async function pushSettingsToFacebookTabs() {
   for (const tab of tabs) {
     if (!tab || typeof tab.id !== 'number') continue;
     try {
-      await chrome.scripting.executeScript({
+      chrome.scripting.executeScript({
         target: { tabId: tab.id },
         world: 'MAIN',
         func: (payload) => {
@@ -100,7 +106,9 @@ async function pushSettingsToFacebookTabs() {
           }
         },
         args: [settings]
-      });
+      }).catch(() => {});
+
+      chrome.tabs.sendMessage(tab.id, { type: 'SETTINGS_CHANGED', settings }).catch(() => {});
     } catch (e) {
       // Tab is on a chrome:// page, still loading, or the MAIN world script is not there yet
     }
@@ -109,11 +117,17 @@ async function pushSettingsToFacebookTabs() {
 
 // Keep every open Facebook tab in sync when a switch changes
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && changes.settings) pushSettingsToFacebookTabs();
+  if (area === 'local' && changes.settings) pushSettingsToFacebookTabs(changes.settings.newValue);
 });
 
 // Handle incoming messages from popup or content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'PUSH_SETTINGS') {
+    pushSettingsToFacebookTabs(message.settings);
+    sendResponse({ success: true });
+    return false;
+  }
+
   if (message.type === 'RESET_COUNTS') {
     const fresh = { ...DEFAULT_COUNTS, date: getTodayString() };
     chrome.storage.local.set({ counts: fresh }, () => {

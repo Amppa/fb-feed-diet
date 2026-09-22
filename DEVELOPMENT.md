@@ -184,6 +184,7 @@ Loaded sequentially at `document_start` before Comet finishes loading:
     Storage stays per-category with zero migration; Options group switches batch-write the mapped keys
     (`SETTING_KEYS_BY_GROUP`, "on" only when every mapped key is on). Folded bars and the stats breakdown
     display the group; probe popups show both layers (feed type + group).
+    The Options page also provides a Minimized Fold Mode checkbox to switch between the 36px title bar mode (default) and the 18px ultra-slim mode.
 - **`bridge.js` (`window.FBDietBridge`)**:
   - Owns in-page expand/collapse state (`expandedSet`).
   - Manages deduplication sets (`reportedBlockedSet`, `reportedRegularSet`) to prevent redundant storage writes.
@@ -350,9 +351,15 @@ title/snippet (40 chars max), and match reason:
 Use it to diagnose missed folds (`classify.category: null` — check `reason`) and wrong folds
 (`reason` maps back to the rule table in [STRATEGY.md](STRATEGY.md) §3).
 
+### Options Fold Appearance Settings
+
+The Options page includes a **Fold Appearance Settings** section containing:
+- **Always Show Fold Bar** (toggle, default true): When enabled, unfolded or expanded posts retain a top notice bar for identification and re-folding. When disabled, unfolded posts render completely natively without any injected header bar.
+- **Minimized Fold Bar** (toggle, default false): Switches fold bars between 36px and 18px. When enabled, folded posts and retained notice bars render as an 18px compact bar (`FBDietBar`) instead of the 36px title bar (`FBDietTitleBar`). Changes sync immediately to all open Facebook tabs.
+
 ### Options Debug Card (Feed Probe Buttons)
 
-The Options page has a **DEBUG** card below Feed Classifies. It hosts the **Show Feed Probe Buttons**
+The Options page has a **DEBUG** card below Fold Appearance Settings. It hosts the **Show Feed Probe Buttons**
 toggle: when enabled, each feed unit displays a 🔍 button on hover/focus to copy its diagnostic JSON
 and inspect the classification, enrichment details, and Relay reads directly via tooltip.
 (The previous in-page JSON analyzer textarea has been removed in favor of direct tooltip inspection.)

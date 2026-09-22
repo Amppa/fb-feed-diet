@@ -111,11 +111,10 @@
             <div class="feature-desc" data-i18n="groupRegularDesc">Posts from friends &amp; people you follow</div>
           </div>
         </div>
-        <div class="segmented-control" data-group="regular" role="group" aria-label="Regular posts fold mode">
-          <button type="button" class="segment-btn" data-mode="off" data-i18n="modeOff">展開</button>
-          <button type="button" class="segment-btn" data-mode="title" data-i18n="modeTitle">標題</button>
-          <button type="button" class="segment-btn" data-mode="mini" data-i18n="modeMini">迷你</button>
-        </div>
+        <label class="switch">
+          <input type="checkbox" id="groupRegular" aria-label="Regular posts">
+          <span class="slider round"></span>
+        </label>
       </div>
 
       <!-- 2. Suggested by Facebook group -->
@@ -130,11 +129,10 @@
             <div class="feature-desc" data-i18n="groupSuggestedDesc">Fold posts from people you don't follow</div>
           </div>
         </div>
-        <div class="segmented-control" data-group="suggested" role="group" aria-label="Suggested posts fold mode">
-          <button type="button" class="segment-btn" data-mode="off" data-i18n="modeOff">展開</button>
-          <button type="button" class="segment-btn" data-mode="title" data-i18n="modeTitle">標題</button>
-          <button type="button" class="segment-btn" data-mode="mini" data-i18n="modeMini">迷你</button>
-        </div>
+        <label class="switch">
+          <input type="checkbox" id="groupSuggested" aria-label="Suggested by Facebook">
+          <span class="slider round"></span>
+        </label>
       </div>
 
       <!-- 3. Reels & Stories group -->
@@ -149,11 +147,10 @@
             <div class="feature-desc" data-i18n="groupMediaDesc">Fold Reels & Stories carousels</div>
           </div>
         </div>
-        <div class="segmented-control" data-group="media" role="group" aria-label="Reels and Stories fold mode">
-          <button type="button" class="segment-btn" data-mode="off" data-i18n="modeOff">展開</button>
-          <button type="button" class="segment-btn" data-mode="title" data-i18n="modeTitle">標題</button>
-          <button type="button" class="segment-btn" data-mode="mini" data-i18n="modeMini">迷你</button>
-        </div>
+        <label class="switch">
+          <input type="checkbox" id="groupMedia" aria-label="Reels and Stories">
+          <span class="slider round"></span>
+        </label>
       </div>
 
       <!-- 4. Ads group (sponsored + Marketplace + search ads) -->
@@ -168,11 +165,10 @@
             <div class="feature-desc" data-i18n="groupAdsDesc">Fold sponsored posts, Marketplace & search ads</div>
           </div>
         </div>
-        <div class="segmented-control" data-group="ads" role="group" aria-label="Ads fold mode">
-          <button type="button" class="segment-btn" data-mode="off" data-i18n="modeOff">展開</button>
-          <button type="button" class="segment-btn" data-mode="title" data-i18n="modeTitle">標題</button>
-          <button type="button" class="segment-btn" data-mode="mini" data-i18n="modeMini">迷你</button>
-        </div>
+        <label class="switch">
+          <input type="checkbox" id="groupAds" aria-label="Ads">
+          <span class="slider round"></span>
+        </label>
       </div>
 
       <!-- 5. Other group (suggested groups) -->
@@ -187,11 +183,46 @@
             <div class="feature-desc" data-i18n="groupOtherDesc">Fold suggested groups to join, etc.</div>
           </div>
         </div>
-        <div class="segmented-control" data-group="other" role="group" aria-label="Other fold mode">
-          <button type="button" class="segment-btn" data-mode="off" data-i18n="modeOff">展開</button>
-          <button type="button" class="segment-btn" data-mode="title" data-i18n="modeTitle">標題</button>
-          <button type="button" class="segment-btn" data-mode="mini" data-i18n="modeMini">迷你</button>
+        <label class="switch">
+          <input type="checkbox" id="groupOther" aria-label="Other">
+          <span class="slider round"></span>
+        </label>
+      </div>
+
+    </div>
+
+    <!-- Fold Appearance Settings -->
+    <div class="section-label section-gap" data-i18n="sectionFoldAppearance">Fold Appearance Settings</div>
+    <div class="features-list" id="appearanceList">
+
+      <!-- 1. Always show fold bar -->
+      <div class="feature-item">
+        <div class="feature-meta">
+          <span class="feature-icon">📌</span>
+          <div>
+            <div class="feature-title" data-i18n="featAlwaysShowTitleTitle">Always Show Fold Bar</div>
+            <div class="feature-desc" data-i18n="featAlwaysShowTitleDesc">Keep a top bar when posts are unfolded for identification and quick re-folding</div>
+          </div>
         </div>
+        <label class="switch">
+          <input type="checkbox" id="alwaysShowFoldTitle" aria-label="Always Show Fold Bar">
+          <span class="slider round"></span>
+        </label>
+      </div>
+
+      <!-- 2. Minimized fold bar (18px vs 36px) -->
+      <div class="feature-item">
+        <div class="feature-meta">
+          <span class="feature-icon">📏</span>
+          <div>
+            <div class="feature-title" data-i18n="featMinimizedFoldTitle">Minimized Fold Bar</div>
+            <div class="feature-desc" data-i18n="featMinimizedFoldDesc">Use compact 18px bar instead of 36px title bar (switches 36/18pixel)</div>
+          </div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="minimizedFoldMode" aria-label="Minimized Fold Bar">
+          <span class="slider round"></span>
+        </label>
       </div>
 
     </div>

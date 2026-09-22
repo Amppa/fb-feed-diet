@@ -208,6 +208,33 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
   4. **提示氣泡直連 `url`**：氣泡中的 `Link:` 直接讀取 `report.url.post || report.url.ad`。
   5. **版本升級**：專案全面升版至 `1.4.2`。
 
+### 決策 #22 — 貼文分類回歸 Toggle 開關，新增 Minimized fold mode Checkbox（2026-09-22）
+- **背景**：原三段式分段控制按鈕（`[ 展開 | 標題 | 迷你 ]`）使各分類的設定過於複雜且佔用過多空間。使用者決定將貼文分類改回直替的 Switch Toggle 開關（OFF = unfold 預設展開，ON = fold 摺疊）。
+- **規則與外觀設計**：
+  1. **預設 36pixel 標題模式**：各分類開啟 fold 時，預設採用 36px 標題列（`FBDietTitleBar`，單行標記、群組、作者與內文摘要）。
+  2. **Minimized fold mode Checkbox**：在 Feed Classifies 卡片下方新增 `[checkbox] Minimized fold mode`。勾選時全域切換為 18px 迷你佔位列（`mini`），未勾選則為 36px 模式。
+  3. **資料重設與相容**：若偵測到舊版字串設定（`'mini'` / `'title'` / `'off'`），在 Options 頁面載入時直接重設回乾淨的布林預設值。
+
+### 決策 #23 — 獨立「摺疊外觀設定」區塊，納入 Minimized Mode 與 Always Show Fold Title 開關（2026-09-22）
+- **背景**：為了視覺層次與設定邏輯清晰，將外觀控制項從貼文分類抽離至獨立的「摺疊外觀設定」（Fold Appearance Settings）區塊。
+- **規則與行為**：
+  1. **外觀開關規格化**：`minimizedFoldMode` 由原本底部的核取方塊改為標準 Switch Toggle 開關（預設 `false`）。
+  2. **新增 `alwaysShowFoldTitle` 開關**：標準 Switch Toggle 開關（預設 `true`）。
+     - 開啟時（預設）：未摺疊或被手動展開的貼文，頂端常駐保留橫條供辨識與隨時再次摺疊（若 `minimizedFoldMode` 開啟則為 18px 迷你條，關閉則為 36px 標題列）。
+     - 關閉時：未摺疊或被手動展開的貼文，頂端完全不顯示任何橫條，呈現純淨的原生 Facebook 貼文。
+
+### 決策 #24 — 摺疊外觀選項順序調整（Always Show 先，Minimized 後）與 Facebook 即時同步推播（2026-09-22）
+- **背景**：使用者要求將外觀選項調整為邏輯先後的順序，先由 Always Show Fold Bar 決定是否常駐顯示，再由 Minimized Fold Bar 切換 36/18pixel 高度；同時確保在 Options 設定頁切換時，Facebook 分頁無需重新整理（F5）即可 0 延遲同步更新外觀。
+- **規則與架構**：
+  1. **UI 順序與命名統一**：
+     - 第 1 項：`Always Show Fold Bar`（常駐顯示摺疊列，預設 ON）。
+     - 第 2 項：`Minimized Fold Bar`（極簡摺疊列，切換 36/18pixel，預設 OFF）。
+  2. **即時同步與推播**：
+     - Options 在儲存變更時主動向 background 發送 `PUSH_SETTINGS` 廣播。
+     - Background 雙向通知 Facebook 分頁：直接在 MAIN world 調用 `window.__fbDietSetSettings`，並向 Content Script 發送 `SETTINGS_CHANGED`。
+     - `bridge.js` 擴充所有設定鍵值變化監測，只要任何外觀或分類開關被切換，即時 dispatch `fb-diet:settings-changed`，通知當前可見的 feed units 重新計算外觀，達成無刷新即時同步。
+  3. **效能安全**：Facebook 採用 Virtual Scrolling，當前留在 DOM 樹的單元僅約 10~20 則，React 狀態切換與 1x1 squash 容器在單一繪圖幀內即可完成，不會引發 Layout Thrashing。
+
 ---
 
 ## 4. 已知誤判案例（症狀 → 根因 → 修正）
