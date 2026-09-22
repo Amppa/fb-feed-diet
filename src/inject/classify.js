@@ -628,16 +628,30 @@ window.FBDietClassify = (() => {
     }
   }
 
-  function isCategoryEnabled(category, settings) {
-    if (!settings || settings.enabled === false) return false;
+  function getCategoryFoldMode(category, settings) {
+    if (!settings || settings.enabled === false) return 'off';
     const key = SETTING_BY_CATEGORY[category];
-    if (!key) return false;
-    return settings[key] !== false;
+    if (!key) return 'off';
+    const defaultVal = (typeof globalThis !== 'undefined' && globalThis.FB_DIET_DEFAULTS?.SETTINGS?.[key])
+      || (key === 'foldRegular' ? 'off' : (key === 'foldSuggested' ? 'title' : 'mini'));
+    const val = settings[key] !== undefined ? settings[key] : defaultVal;
+    if (typeof globalThis !== 'undefined' && globalThis.FB_DIET_DEFAULTS && typeof globalThis.FB_DIET_DEFAULTS.normalizeFoldMode === 'function') {
+      return globalThis.FB_DIET_DEFAULTS.normalizeFoldMode(val, defaultVal);
+    }
+    if (val === true) return 'mini';
+    if (val === false) return 'off';
+    if (val === 'title' || val === 'mini' || val === 'off') return val;
+    return defaultVal;
+  }
+
+  function isCategoryEnabled(category, settings) {
+    return getCategoryFoldMode(category, settings) !== 'off';
   }
 
   return {
     CATEGORY,
     SETTING_BY_CATEGORY,
+    getCategoryFoldMode,
     SUGGESTED_GROUP_TYPENAMES,
     STORIES_TYPENAMES,
     RELAY_PATHS: {

@@ -487,9 +487,62 @@ body {
 .reset-btn,
 .probe-run-btn,
 .lang-segment,
-.mode-option {
+.mode-option,
+.segmented-control,
+.segment-btn {
   user-select: none;
 }
+
+/* Segmented Control (3-tier mode: off / title / mini) */
+.segmented-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.segment-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+}
+
+.segment-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.segment-btn:focus-visible {
+  outline: 2px solid var(--active-color);
+  outline-offset: 1px;
+}
+
+.segment-btn.is-active {
+  background: var(--accent-gradient);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 1px 6px var(--accent-glow);
+}
+
+.segment-btn[data-mode="off"].is-active {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+  box-shadow: none;
+}
+
 
 /* Switch Toggle Styling */
 .switch {

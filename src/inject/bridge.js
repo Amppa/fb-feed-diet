@@ -26,14 +26,14 @@ window.FBDietBridge = (() => {
   const DEFAULT_SETTINGS = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.SETTINGS) || {
     enabled: true,
     mode: 'proxy',
-    foldSponsored: true,
-    foldSuggested: true,
-    foldSuggestedGroup: true,
-    foldMarketAds: true,
-    foldSearchingAds: true,
-    foldStories: true,
-    foldReels: true,
-    foldRegular: false,
+    foldSponsored: 'mini',
+    foldSuggested: 'title',
+    foldSuggestedGroup: 'mini',
+    foldMarketAds: 'mini',
+    foldSearchingAds: 'mini',
+    foldStories: 'mini',
+    foldReels: 'mini',
+    foldRegular: 'off',
     debugProbe: false
   };
 
@@ -83,10 +83,30 @@ window.FBDietBridge = (() => {
     return true;
   }
 
+  function getFoldMode(category) {
+    if (!category) return 'off';
+    const classify = window.FBDietClassify;
+    if (classify && typeof classify.getCategoryFoldMode === 'function') {
+      return classify.getCategoryFoldMode(category, settings);
+    }
+    return isEnabled(category) ? 'mini' : 'off';
+  }
+
+  function getUnitVisualState(unitId, defaultMode) {
+    const isToggled = Boolean(unitId) && toggledSet.has(unitId);
+    if (defaultMode === 'title') {
+      return isToggled ? { isFolded: false, style: 'title' } : { isFolded: true, style: 'title' };
+    }
+    if (defaultMode === 'mini') {
+      return isToggled ? { isFolded: false, style: 'mini' } : { isFolded: true, style: 'mini' };
+    }
+    return isToggled ? { isFolded: true, style: 'mini' } : { isFolded: false, style: 'mini' };
+  }
+
   function isUnitFolded(unitId, defaultFolded) {
     if (!unitId) return Boolean(defaultFolded);
-    const isToggled = toggledSet.has(unitId);
-    return isToggled ? !defaultFolded : Boolean(defaultFolded);
+    const defaultMode = defaultFolded ? 'mini' : 'off';
+    return getUnitVisualState(unitId, defaultMode).isFolded;
   }
 
   function isExpanded(unitId, defaultFolded = true) {
@@ -279,6 +299,8 @@ window.FBDietBridge = (() => {
     getSettings,
     setSettings,
     isEnabled,
+    getFoldMode,
+    getUnitVisualState,
     isExpanded,
     isUnitFolded,
     toggle,

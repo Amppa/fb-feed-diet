@@ -111,6 +111,186 @@ window.FBDietFold = (() => {
     );
   }
 
+  const titleBarCache = new Map();
+
+  function extractAuthorFromDom(container) {
+    if (!container || typeof container.querySelectorAll !== 'function') return null;
+    try {
+      const headings = container.querySelectorAll('h2, h3, h4, h5, [role="heading"]');
+      for (const h of headings) {
+        const link = h.querySelector('a[role="link"], a[href]');
+        const text = (link || h).textContent.trim();
+        if (text && text.length > 1 && text.length < 80) return text;
+      }
+      const strongLink = container.querySelector('a[role="link"] strong, strong a[role="link"]');
+      if (strongLink) {
+        const text = strongLink.textContent.trim();
+        if (text && text.length > 1 && text.length < 80) return text;
+      }
+      const headerLink = container.querySelector('header a[role="link"], [data-ad-comet-preview="header"] a');
+      if (headerLink) {
+        const text = headerLink.textContent.trim();
+        if (text && text.length > 1 && text.length < 80) return text;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function extractMessageFromDom(container) {
+    if (!container || typeof container.querySelector !== 'function') return null;
+    try {
+      const msgEl = container.querySelector('[data-ad-preview="message"], [data-ad-comet-preview="message"], [data-testid="post_message"]');
+      if (msgEl) {
+        const text = msgEl.textContent.trim();
+        if (text) return text.split('\n')[0].trim();
+      }
+      const dirEls = container.querySelectorAll('div[dir="auto"]');
+      for (const el of dirEls) {
+        if (el.closest && el.closest('h2, h3, h4, h5, [role="heading"], header')) continue;
+        const text = el.textContent.trim();
+        if (text && text.length > 2) {
+          return text.split('\n')[0].trim();
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function extractGroupFromDom(container) {
+    if (!container || typeof container.querySelector !== 'function') return null;
+    try {
+      const groupLink = container.querySelector('a[href*="/groups/"]');
+      if (groupLink) {
+        const text = groupLink.textContent.trim();
+        if (text && text.length > 1 && text.length < 80) return text;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function extractMediaFromDom(container) {
+    if (!container || typeof container.querySelector !== 'function') return null;
+    try {
+      if (container.querySelector('video, [data-video-id]')) return '🎬 [影片]';
+      const imgs = container.querySelectorAll('img[src*="fbcdn"]');
+      if (imgs.length > 1) return '📷 [多張相片]';
+      if (imgs.length === 1) return '📷 [相片]';
+    } catch (e) {}
+    return null;
+  }
+
+  /**
+   * Title mode bar (24px single line snippet, permanent across expand/collapse).
+   */
+  function FBDietTitleBar(props) {
+    const meta = GROUP_META[groupOf(props.category)] || GROUP_META.other;
+    const isExpanded = Boolean(props.isExpanded);
+
+    const React = window.FBDietProxy ? window.FBDietProxy.getReact() : null;
+    const barRef = React && typeof React.useRef === 'function' ? React.useRef(null) : { current: null };
+
+    const unitId = props.unitId;
+    const cached = unitId ? titleBarCache.get(unitId) : null;
+    const [domData, setDomData] = (React && typeof React.useState === 'function')
+      ? React.useState(cached || null)
+      : [cached || null, () => {}];
+
+    const enrichment = props.enrichment || null;
+    const initialActor = (enrichment && enrichment.actor && enrichment.actor.name) || (domData && domData.actorName) || '';
+    const initialMsg = (enrichment && enrichment.content && (enrichment.content.message || enrichment.content.title)) || (domData && domData.snippetText) || '';
+    const initialGroup = (enrichment && enrichment.group && enrichment.group.name) || (domData && domData.groupName) || '';
+
+    if (React && typeof React.useEffect === 'function') {
+      React.useEffect(() => {
+        if (initialActor && initialMsg) return;
+        const el = barRef && barRef.current;
+        if (!el) return;
+        const container = el.nextElementSibling || (el.parentElement ? el.parentElement.querySelector('.fb-diet-fold-hidden, .fb-diet-expand-body') : null);
+        if (!container) return;
+
+        const foundActor = initialActor || extractAuthorFromDom(container);
+        const foundMsg = initialMsg || extractMessageFromDom(container);
+        const foundGroup = initialGroup || extractGroupFromDom(container);
+        const foundMedia = (!foundMsg && extractMediaFromDom(container)) || '';
+
+        if (foundActor || foundMsg || foundGroup || foundMedia) {
+          const newData = {
+            actorName: foundActor || '',
+            snippetText: foundMsg || foundMedia || '',
+            groupName: foundGroup || ''
+          };
+          if (unitId) titleBarCache.set(unitId, newData);
+          setDomData(newData);
+        }
+      }, [initialActor, initialMsg, initialGroup, unitId]);
+    }
+
+    const effectiveActor = (domData && domData.actorName) || initialActor;
+    const effectiveMsg = (domData && domData.snippetText) || initialMsg;
+    const effectiveGroup = (domData && domData.groupName) || initialGroup;
+
+    const badge = createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText]);
+    const contentKids = [badge];
+
+    // Group name (with max-width: 140px in css)
+    if (effectiveGroup) {
+      contentKids.push(
+        createEl('span', { className: 'fb-diet-title-group', title: effectiveGroup }, ['[' + effectiveGroup + ']'])
+      );
+    }
+
+    // Author string & reshare detection
+    let authorText = '';
+    if (effectiveActor) {
+      authorText = effectiveActor + ':';
+    } else if (props.category === 'stories') {
+      authorText = '限時動態:';
+    } else if (props.category === 'reels') {
+      authorText = '連續短片:';
+    } else if (props.category === 'suggestedGroup') {
+      authorText = '推薦社團:';
+    }
+
+    if (authorText) {
+      contentKids.push(
+        createEl('span', { className: 'fb-diet-title-author', title: authorText }, [authorText])
+      );
+    }
+
+    // Message snippet / title / media fallback
+    let snippetText = effectiveMsg;
+    if (!snippetText) {
+      const media = enrichment && enrichment.media;
+      if (media && media.hasVideo) {
+        snippetText = '🎬 [影片]';
+      } else if (media && (media.count > 0 || media.isMultiImage)) {
+        snippetText = media.isMultiImage ? '📷 [多張相片]' : '📷 [相片]';
+      } else if (enrichment && enrichment.content && enrichment.content.callToAction) {
+        snippetText = '👉 [' + enrichment.content.callToAction + ']';
+      }
+    }
+
+    if (snippetText) {
+      contentKids.push(
+        createEl('span', { className: 'fb-diet-title-snippet', title: snippetText }, [snippetText])
+      );
+    }
+
+    const contentBox = createEl('div', { className: 'fb-diet-title-content' }, contentKids);
+    const symbol = createEl('span', { className: 'fb-diet-toggle-symbol' }, [isExpanded ? '[-]' : '[+]']);
+
+    return createEl(
+      'div',
+      {
+        ref: barRef,
+        className: 'fb-diet-titlebar' + (isExpanded ? ' fb-diet-state-expanded' : ''),
+        title: isExpanded ? 'Re-fold' : 'Show post',
+        onClick: props.onToggle
+      },
+      [contentBox, symbol]
+    );
+  }
+
   let FBDietContext = null;
   function getFoldContext(React) {
     if (!FBDietContext && React && typeof React.createContext === 'function') {
@@ -259,6 +439,19 @@ window.FBDietFold = (() => {
       }
     } catch (e) {
       // Optional module; a failure must never break the probe
+    }
+    const unitKey = classifyResult && (classifyResult.unitId || (classifyResult.evidence && classifyResult.evidence.id));
+    if ((!enrichment || !enrichment.actor || !enrichment.actor.name) && unitKey && titleBarCache.has(unitKey)) {
+      const cached = titleBarCache.get(unitKey);
+      if (cached && (cached.actorName || cached.snippetText || cached.groupName)) {
+        if (!enrichment) enrichment = { actor: {}, group: {}, content: {}, media: null, viewer: null };
+        if (!enrichment.actor) enrichment.actor = {};
+        if (cached.actorName && !enrichment.actor.name) enrichment.actor.name = cached.actorName;
+        if (!enrichment.group) enrichment.group = {};
+        if (cached.groupName && !enrichment.group.name) enrichment.group.name = cached.groupName;
+        if (!enrichment.content) enrichment.content = {};
+        if (cached.snippetText && !enrichment.content.message) enrichment.content.message = cached.snippetText;
+      }
     }
     report.enrichment = enrichment;
 
@@ -599,11 +792,16 @@ window.FBDietFold = (() => {
         unitId = mod + '_' + type;
       }
 
-      const defaultFolded = Boolean(bridge.isEnabled(category));
-      const isFolded = bridge.isUnitFolded ? bridge.isUnitFolded(unitId, defaultFolded) : defaultFolded;
+      const defaultMode = bridge.getFoldMode ? bridge.getFoldMode(category) : (bridge.isEnabled(category) ? 'mini' : 'off');
+      const visual = bridge.getUnitVisualState
+        ? bridge.getUnitVisualState(unitId, defaultMode)
+        : { isFolded: defaultMode !== 'off', style: defaultMode === 'title' ? 'title' : 'mini' };
 
-      // Report counters
-      if (defaultFolded) {
+      const isFolded = visual.isFolded;
+      const foldStyle = visual.style;
+
+      // Report counters: any folded unit counts toward blocked/filtered
+      if (isFolded) {
         bridge.reportBlocked({
           category,
           unitId,
@@ -648,6 +846,50 @@ window.FBDietFold = (() => {
         }
       };
 
+      // Case 1: Title Mode (24px snippet bar, permanent across expand and collapse)
+      if (foldStyle === 'title') {
+        const enrichment = window.FBDietMetadata ? window.FBDietMetadata.collect(classifyResult, props) : null;
+        const titleBar = createEl(
+          FBDietTitleBar,
+          {
+            category,
+            unitId,
+            isExpanded: !isFolded,
+            enrichment,
+            onToggle
+          },
+          []
+        );
+
+        if (!isFolded) {
+          // Unfolded with permanent 24px title bar on top
+          const expandedBody = createEl('div', { className: 'fb-diet-expand-body' }, [rendered]);
+          const content = [titleBar, expandedBody];
+          const Fragment = React.Fragment || null;
+          const output = FoldContext && FoldContext.Provider
+            ? createEl(FoldContext.Provider, { value: true }, content)
+            : (Fragment ? createEl(Fragment, null, content) : content);
+          return addProbe(output, props, classifyResult, relayReads);
+        }
+
+        // Folded in 24px title mode
+        const hidden = createEl(
+          'div',
+          {
+            className: 'fb-diet-fold-hidden fb-diet-foldsquash',
+            'aria-hidden': 'true'
+          },
+          [rendered]
+        );
+        const foldContent = [titleBar, hidden];
+        const Fragment = React.Fragment || null;
+        const output = FoldContext && FoldContext.Provider
+          ? createEl(FoldContext.Provider, { value: true }, foldContent)
+          : (Fragment ? createEl(Fragment, null, foldContent) : foldContent);
+        return addProbe(output, props, classifyResult, relayReads);
+      }
+
+      // Case 2: Mini Mode (18px Notice Bar)
       if (!isFolded) {
         const meta = GROUP_META[groupOf(category)] || GROUP_META.other;
         const refoldLeft = createEl('div', { className: 'fb-diet-placeholder-left' }, [
@@ -664,12 +906,7 @@ window.FBDietFold = (() => {
           [refoldLeft, refoldSymbol]
         );
 
-        // The unfolded tree goes inside its own wrapper so the CSS can draw
-        // the shared group frame around the bar + post (sibling selector).
-        // Wrapping in a plain div (instead of tagging the FB element) works no
-        // matter whether Facebook's element is a host node, Fragment or array.
         const expandedBody = createEl('div', { className: 'fb-diet-expand-body' }, [rendered]);
-
         const content = [refoldBar, expandedBody];
         const Fragment = React.Fragment || null;
         const output = FoldContext && FoldContext.Provider
@@ -875,6 +1112,7 @@ window.FBDietFold = (() => {
     HIDE_MODE,
     FBDietFold,
     FBDietBar,
+    FBDietTitleBar,
     buildUnitProbeReport,
     install,
     getStatus: () => ({

@@ -172,6 +172,18 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
   3. **雙向即時切換**：`bridge.js` 實作 `isUnitFolded(unitId, defaultFolded)`，使用者點擊任何貼文的 Header（`[-]` 或 `[+]`）皆能即時切換該 unit 的折疊／展開狀態。
   4. **快取上限調升**：`bridge.js` 狀態快取擴充至 800 筆，保障長篇滑動時使用者手動操作不被虛擬滾動遺忘。
 
+### 決策 #18 — 三段式收折模式（off / title / mini）與常駐標題列（2026-09-22）
+- **背景**：原雙態開關（ON/OFF）只能在「18px Notice Bar 收折」與「展開」之間切換。使用者希望升級為三段模式：
+  1. `off`（展開模式）：預設展開，帶 18px Header Bar `[-]`，可手動收折為 18px 迷你列。
+  2. `title`（標題模式）：高度 24px，呈現 `[Tag]` `[社團名 max-width: 140px]` `作者:` `第一行字/媒體提示` `[+]`；點擊展開時，24px 標題列文字常駐頂部（符號變 `[-]`），零位移再次點擊即可收折。
+  3. `mini`（迷你收折模式）：原本的 18px Notice Bar `[+]`，點擊展開為 18px `[-]`。
+- **改動**：
+  1. **設定值演進**：`foldSponsored`、`foldSuggested` 等各類設定值改為三態字串（`'off'` | `'title'` | `'mini'`），透過 `normalizeFoldMode` 完美向下相容舊版布林值。
+  2. **元件擴充**：`fold.js` 新增 `FBDietTitleBar`（24px），並由 `bridge.js` 的 `getFoldMode` 與 `getUnitVisualState` 驅動對稱式展開／收合狀態路由。
+  3. **Options 介面**：改用各分類獨立的三段 Segmented Control 按鈕組（`[ 展開 | 標題 | 迷你 ]`）。
+  4. **過濾計數標準**：凡是畫面上有實質折疊（`title` 24px 或 `mini` 18px）均計入「Filtered（已過濾）」；預設展開（`off`）則不計。
+  5. **色彩規範**：Regular 標籤維持綠色（`#10b981` / `#34d399`），Other 標籤維持藍色（`#3b82f6` / `#60a5fa`）。
+
 ---
 
 ## 4. 已知誤判案例（症狀 → 根因 → 修正）

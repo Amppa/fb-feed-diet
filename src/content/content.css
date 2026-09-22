@@ -127,6 +127,87 @@
 }
 
 /* ------------------------------------------------------------------ *
+ * Title mode placeholder bar (36px single line snippet)
+ * ------------------------------------------------------------------ */
+.fb-diet-titlebar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  padding: 4px 12px !important;
+  background-color: var(--secondary-button-background, #f0f2f5) !important;
+  border: none !important;
+  border-radius: 0 !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+  font-size: 13px !important;
+  line-height: 24px !important;
+  color: var(--primary-text, #050505) !important;
+  box-sizing: border-box !important;
+  user-select: none !important;
+  cursor: pointer !important;
+  overflow: hidden !important;
+}
+
+.fb-diet-titlebar:hover {
+  background-color: var(--hover-overlay, rgba(0, 0, 0, 0.06)) !important;
+}
+
+.fb-diet-titlebar.fb-diet-state-expanded {
+  margin: 0 !important;
+  border-top-left-radius: 8px !important;
+  border-top-right-radius: 8px !important;
+}
+
+.fb-diet-titlebar.fb-diet-state-expanded:hover {
+  background-color: var(--hover-overlay, rgba(0, 0, 0, 0.08)) !important;
+  filter: brightness(0.96) !important;
+}
+
+.fb-diet-title-content {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  margin-right: 8px !important;
+}
+
+.fb-diet-title-group {
+  display: inline-block !important;
+  max-width: 140px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  font-weight: 600 !important;
+  color: var(--secondary-text, #65676b) !important;
+  flex-shrink: 0 !important;
+}
+
+.fb-diet-title-author {
+  font-weight: 700 !important;
+  color: var(--primary-text, #050505) !important;
+  flex-shrink: 0 !important;
+  max-width: 140px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.fb-diet-title-snippet {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  color: var(--secondary-text, #65676b) !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+/* ------------------------------------------------------------------ *
  * Proxy folding (MAIN world React wrapper)
  * ------------------------------------------------------------------ */
 
@@ -198,6 +279,12 @@
   --fb-diet-strip-h: 18px;
 }
 
+.fb-diet-titlebar.fb-diet-state-expanded ~ .fb-diet-expand-body {
+  position: relative !important;
+  border: none !important;
+  --fb-diet-strip-h: 36px;
+}
+
 /* One rectangular box draws the whole frame (bar + post), all corners
    rounded 8px, matching the bar's strip height above the wrapper. */
 .fb-diet-placeholder.fb-diet-state-expanded ~ .fb-diet-expand-body::after {
@@ -213,10 +300,25 @@
   border-radius: 8px !important;
 }
 
+.fb-diet-titlebar.fb-diet-state-expanded ~ .fb-diet-expand-body::after {
+  content: '' !important;
+  position: absolute !important;
+  pointer-events: none !important;
+  z-index: 1 !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: calc(-1 * var(--fb-diet-strip-h, 36px)) !important;
+  bottom: 0 !important;
+  border: 2px solid var(--fb-diet-group-border, var(--divider, rgba(0, 0, 0, 0.12))) !important;
+  border-radius: 8px !important;
+}
+
 /* Dark-theme fallback when Facebook does not provide --divider on this scope. */
 @media (prefers-color-scheme: dark) {
-  .fb-diet-placeholder.fb-diet-state-expanded ~ .fb-diet-expand-body {
+  .fb-diet-placeholder.fb-diet-state-expanded ~ .fb-diet-expand-body,
+  .fb-diet-titlebar.fb-diet-state-expanded ~ .fb-diet-expand-body {
     --fb-diet-group-border: rgba(255, 255, 255, 0.16);
   }
 }
+
 

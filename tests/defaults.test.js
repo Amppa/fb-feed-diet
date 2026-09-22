@@ -26,13 +26,14 @@ function run(checker) {
   checker.ok('SETTINGS object exists', Boolean(settings));
   checker.equals('settings.enabled is true', settings && settings.enabled, true);
   checker.equals('settings.mode is proxy', settings && settings.mode, 'proxy');
-  checker.equals('settings.foldSponsored is true', settings && settings.foldSponsored, true);
-  checker.equals('settings.foldSuggested is true', settings && settings.foldSuggested, true);
-  checker.equals('settings.foldSuggestedGroup is true', settings && settings.foldSuggestedGroup, true);
-  checker.equals('settings.foldMarketAds is true', settings && settings.foldMarketAds, true);
-  checker.equals('settings.foldSearchingAds is true', settings && settings.foldSearchingAds, true);
-  checker.equals('settings.foldStories is true', settings && settings.foldStories, true);
-  checker.equals('settings.foldReels is true', settings && settings.foldReels, true);
+  checker.equals('settings.foldSponsored is mini', settings && settings.foldSponsored, 'mini');
+  checker.equals('settings.foldSuggested is title', settings && settings.foldSuggested, 'title');
+  checker.equals('settings.foldSuggestedGroup is mini', settings && settings.foldSuggestedGroup, 'mini');
+  checker.equals('settings.foldMarketAds is mini', settings && settings.foldMarketAds, 'mini');
+  checker.equals('settings.foldSearchingAds is mini', settings && settings.foldSearchingAds, 'mini');
+  checker.equals('settings.foldStories is mini', settings && settings.foldStories, 'mini');
+  checker.equals('settings.foldReels is mini', settings && settings.foldReels, 'mini');
+  checker.equals('settings.foldRegular is off', settings && settings.foldRegular, 'off');
   checker.equals('settings.debugProbe is false', settings && settings.debugProbe, false);
 
   const counts = defaults && defaults.COUNTS;
@@ -58,8 +59,17 @@ function run(checker) {
 
   const keysByGroup = defaults && defaults.SETTING_KEYS_BY_GROUP;
   checker.ok('ads group batch-writes its three keys', Boolean(keysByGroup) && keysByGroup.ads.join(',') === 'foldSponsored,foldMarketAds,foldSearchingAds');
-  checker.ok('regular group has no fold keys', Boolean(keysByGroup) && Array.isArray(keysByGroup.regular) && keysByGroup.regular.length === 0);
+  checker.ok('regular group writes foldRegular', Boolean(keysByGroup) && keysByGroup.regular.join(',') === 'foldRegular');
   checker.ok('every mapped key exists in SETTINGS', Boolean(keysByGroup) && Object.values(keysByGroup).every((keys) => keys.every((key) => key in settings)));
+
+  // normalizeFoldMode helper
+  checker.ok('normalizeFoldMode exists', typeof defaults.normalizeFoldMode === 'function');
+  checker.equals('normalizeFoldMode true -> mini', defaults.normalizeFoldMode(true), 'mini');
+  checker.equals('normalizeFoldMode false -> off', defaults.normalizeFoldMode(false), 'off');
+  checker.equals('normalizeFoldMode title -> title', defaults.normalizeFoldMode('title'), 'title');
+  checker.equals('normalizeFoldMode mini -> mini', defaults.normalizeFoldMode('mini'), 'mini');
+  checker.equals('normalizeFoldMode off -> off', defaults.normalizeFoldMode('off'), 'off');
+  checker.equals('normalizeFoldMode fallback', defaults.normalizeFoldMode('unknown', 'off'), 'off');
 
   // Idempotency: repeated execution does not throw
   let threw = false;

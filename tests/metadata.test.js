@@ -229,6 +229,44 @@ function run(c) {
     c.equals('peeled message extracted', e.content.message, '日語單字解析！');
     c.equals('peeled title extracted', e.content.title, '為你推薦');
   }
+
+  /* --- edge.node inside children props (GraphQL connection) --- */
+  {
+    const win = createWindow();
+    loadInject(win, 'metadata.js');
+    const payload = {
+      feedUnit: {
+        __typename: 'Story',
+        post_id: '1553038613294417',
+        __id: 'UzpfSUZTOjE6...'
+      },
+      children: {
+        props: {
+          edge: {
+            node: {
+              __typename: 'Story',
+              comet_sections: {
+                header: {
+                  story: {
+                    actors: [{ name: '新竹榮譽國民之家' }]
+                  }
+                },
+                content: {
+                  story: {
+                    message: { text: '#月團圓趣味闖關' }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    };
+    const e = win.FBDietMetadata.collect(classifyResultOf(['UzpfSUZTOjE6...']), { payload });
+    c.ok('edge.node enrichment collected', Boolean(e));
+    c.equals('edge.node actor name extracted', e && e.actor && e.actor.name, '新竹榮譽國民之家');
+    c.equals('edge.node message text extracted', e && e.content && e.content.message, '#月團圓趣味闖關');
+  }
 }
 
 module.exports = { run };

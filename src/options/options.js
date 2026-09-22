@@ -15,48 +15,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   const langSegments = document.querySelectorAll('.lang-segment');
 
   const SHARED_DEFAULTS = globalThis.FB_DIET_DEFAULTS?.SETTINGS || {};
-  const DEFAULTS = {
-    foldSponsored: SHARED_DEFAULTS.foldSponsored !== false,
-    foldSuggested: SHARED_DEFAULTS.foldSuggested !== false,
-    foldSuggestedGroup: SHARED_DEFAULTS.foldSuggestedGroup !== false,
-    foldStories: SHARED_DEFAULTS.foldStories !== false,
-    foldReels: SHARED_DEFAULTS.foldReels !== false,
-    foldRegular: SHARED_DEFAULTS.foldRegular !== false,
-    foldMarketAds: SHARED_DEFAULTS.foldMarketAds !== false,
-    foldSearchingAds: SHARED_DEFAULTS.foldSearchingAds !== false,
-    debugProbe: Boolean(SHARED_DEFAULTS.debugProbe)
-  };
-
-  const switches = {};
-  document.querySelectorAll('#featuresList input[type="checkbox"], #debugCard input[type="checkbox"]').forEach(input => {
-    if (input.id) switches[input.id] = input;
+  const normalizeFoldMode = globalThis.FB_DIET_DEFAULTS?.normalizeFoldMode || ((v, fb = 'off') => {
+    if (v === true) return 'mini';
+    if (v === false) return 'off';
+    if (v === 'title' || v === 'mini' || v === 'off') return v;
+    return fb;
   });
 
-  // Options exposes one switch per user-facing group (STRATEGY.md, decision #8).
-  // Storage stays per-category: a group switch batch-writes its mapped keys.
   const DEFAULTS_MAP = globalThis.FB_DIET_DEFAULTS || {};
   const SETTING_KEYS_BY_GROUP = DEFAULTS_MAP.SETTING_KEYS_BY_GROUP || {};
   const GROUP_BY_CATEGORY = DEFAULTS_MAP.GROUP_BY_CATEGORY || {};
 
-  const GROUP_BY_SWITCH = {
-    groupRegular: 'regular',
-    groupAds: 'ads',
-    groupSuggested: 'suggested',
-    groupMedia: 'media',
-    groupOther: 'other'
-  };
-  const SWITCH_BY_GROUP = {
-    regular: 'groupRegular',
-    ads: 'groupAds',
-    suggested: 'groupSuggested',
-    media: 'groupMedia',
-    other: 'groupOther'
-  };
+  let currentSettings = {};
 
-  // A group reads "on" only when every mapped category key is on.
-  function isGroupOn(settings, group) {
+  function getGroupFoldMode(settings, group) {
     const keys = SETTING_KEYS_BY_GROUP[group] || [];
-    return keys.length > 0 && keys.every((key) => settings[key] !== false);
+    if (keys.length === 0) return 'off';
+    const firstKey = keys[0];
+    const defaultVal = SHARED_DEFAULTS[firstKey] || 'off';
+    const rawVal = settings[firstKey] !== undefined ? settings[firstKey] : defaultVal;
+    return normalizeFoldMode(rawVal, defaultVal);
+  }
+
+  function updateSegmentedControlUI(group, mode) {
+    const container = document.querySelector(`.segmented-control[data-group="${group}"]`);
+    if (!container) return;
+    container.querySelectorAll('.segment-btn').forEach(btn => {
+      btn.classList.toggle('is-active', btn.dataset.mode === mode);
+    });
   }
 
   const counters = {
@@ -73,8 +59,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isMasterActive = masterToggle ? masterToggle.checked : true;
     for (const [group, el] of Object.entries(counters)) {
       if (!el || group === 'total' || group === 'filtered') continue;
-      const switchId = SWITCH_BY_GROUP[group];
-      const isFolded = isMasterActive && switchId && switches[switchId] ? switches[switchId].checked : false;
+      const mode = getGroupFoldMode(currentSettings, group);
+      const isFolded = isMasterActive && mode !== 'off';
       el.classList.toggle('active-folded', Boolean(isFolded));
     }
   }
@@ -145,19 +131,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.storage.local.set({ settings: { ...settings, lang } });
   }
 
-  // Initialize master switch, mode & feature switches
-  updateMasterUI(settings.enabled !== false);
-  updateModeUI(settings.mode || 'proxy');
+  currentSettings = { ...SHARED_DEFAULTS, ...settings };
 
-  for (const [key, checkbox] of Object.entries(switches)) {
-    if (!checkbox) continue;
-    const group = GROUP_BY_SWITCH[key];
-    if (group) {
-      checkbox.checked = isGroupOn(settings, group);
-    } else {
-      const defaultValue = DEFAULTS[key] ?? true;
-      checkbox.checked = settings[key] !== undefined ? settings[key] : defaultValue;
-    }
+  // Initialize master switch, mode & feature segmented controls
+  updateMasterUI(currentSettings.enabled !== false);
+  updateModeUI(currentSettings.mode || 'proxy');
+
+  const groups = ['regular', 'ads', 'suggested', 'media', 'other'];
+  groups.forEach(group => {
+    const mode = getGroupFoldMode(currentSettings, group);
+    updateSegmentedControlUI(group, mode);
+  });
+
+  const debugProbe = document.getElementById('debugProbe');
+  if (debugProbe) {
+    debugProbe.checked = Boolean(currentSettings.debugProbe);
   }
 
   // Initialize counts
@@ -193,6 +181,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       updateMasterUI(active);
       const { settings: current } = await chrome.storage.local.get('settings');
       const updated = { ...current, enabled: active };
+      currentSettings = updated;
       await chrome.storage.local.set({ settings: updated });
     });
   }
@@ -201,6 +190,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function handleModeSelect(selectedMode) {
     const { settings: current } = await chrome.storage.local.get('settings');
     const updated = { ...current, mode: selectedMode };
+    currentSettings = updated;
     await chrome.storage.local.set({ settings: updated });
   }
 
@@ -215,23 +205,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Handle Sub-switches changes
-  for (const [key, checkbox] of Object.entries(switches)) {
-    if (!checkbox) continue;
-    checkbox.addEventListener('change', async () => {
+  // Handle Segmented controls changes
+  document.querySelectorAll('.segmented-control[data-group]').forEach(container => {
+    const group = container.dataset.group;
+    container.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.segment-btn');
+      if (!btn || !btn.dataset.mode) return;
+      const mode = btn.dataset.mode;
+      updateSegmentedControlUI(group, mode);
       const { settings: current } = await chrome.storage.local.get('settings');
       const updated = { ...current };
-      const group = GROUP_BY_SWITCH[key];
-      if (group) {
-        // A group switch batch-writes every mapped per-category key.
-        for (const settingKey of SETTING_KEYS_BY_GROUP[group] || []) {
-          updated[settingKey] = checkbox.checked;
-        }
-      } else {
-        updated[key] = checkbox.checked;
+      for (const key of SETTING_KEYS_BY_GROUP[group] || []) {
+        updated[key] = mode;
       }
+      currentSettings = updated;
       await chrome.storage.local.set({ settings: updated });
       updateHighlighting();
+    });
+  });
+
+  // Handle debug probe toggle
+  if (debugProbe) {
+    debugProbe.addEventListener('change', async () => {
+      const { settings: current } = await chrome.storage.local.get('settings');
+      const updated = { ...current, debugProbe: debugProbe.checked };
+      currentSettings = updated;
+      await chrome.storage.local.set({ settings: updated });
     });
   }
 

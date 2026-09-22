@@ -140,7 +140,7 @@ window.FBDietMetadata = (() => {
   function extractCandidateRecords(roots) {
     const candidates = [];
     const visited = new Set();
-    const MAX_DEPTH = 10;
+    const MAX_DEPTH = 20;
 
     function isRecordLike(obj) {
       if (!obj || typeof obj !== 'object') return false;
@@ -148,6 +148,9 @@ window.FBDietMetadata = (() => {
         obj.comet_sections ||
         (Array.isArray(obj.actors) && obj.actors.length > 0) ||
         obj.actor ||
+        obj.author ||
+        obj.headline ||
+        obj.title ||
         obj.action_links ||
         obj.call_to_action ||
         obj.story_header ||
@@ -155,6 +158,7 @@ window.FBDietMetadata = (() => {
         obj.is_sponsored !== undefined ||
         obj.viewer_forum_join_state !== undefined ||
         obj.message ||
+        obj.post_id ||
         obj.permalink_url ||
         obj.url
       );
@@ -168,24 +172,20 @@ window.FBDietMetadata = (() => {
       if (isRecordLike(node)) {
         candidates.push(node);
       }
-      if (node.story && typeof node.story === 'object' && !visited.has(node.story)) {
-        if (isRecordLike(node.story)) candidates.push(node.story);
-        scan(node.story, depth + 1);
+      if (node.story && typeof node.story === 'object') scan(node.story, depth + 1);
+      if (node.feedUnit && typeof node.feedUnit === 'object') scan(node.feedUnit, depth + 1);
+      if (node.unit && typeof node.unit === 'object') scan(node.unit, depth + 1);
+      if (node.edge && typeof node.edge === 'object') {
+        scan(node.edge, depth + 1);
+        if (node.edge.node && typeof node.edge.node === 'object') scan(node.edge.node, depth + 1);
       }
-      if (node.feedUnit && typeof node.feedUnit === 'object' && !visited.has(node.feedUnit)) {
-        if (isRecordLike(node.feedUnit)) candidates.push(node.feedUnit);
-        scan(node.feedUnit, depth + 1);
+      if (node.feedEdge && typeof node.feedEdge === 'object') {
+        scan(node.feedEdge, depth + 1);
+        if (node.feedEdge.node && typeof node.feedEdge.node === 'object') scan(node.feedEdge.node, depth + 1);
       }
-      if (node.unit && typeof node.unit === 'object' && !visited.has(node.unit)) {
-        if (isRecordLike(node.unit)) candidates.push(node.unit);
-        scan(node.unit, depth + 1);
-      }
-      if (node.edge && node.edge.node && typeof node.edge.node === 'object') {
-        scan(node.edge.node, depth + 1);
-      }
-      if (node.feedEdge && node.feedEdge.node && typeof node.feedEdge.node === 'object') {
-        scan(node.feedEdge.node, depth + 1);
-      }
+      if (node.node && typeof node.node === 'object') scan(node.node, depth + 1);
+      if (node.header && typeof node.header === 'object') scan(node.header, depth + 1);
+      if (node.content && typeof node.content === 'object') scan(node.content, depth + 1);
 
       if (node.props && typeof node.props === 'object') {
         scan(node.props, depth + 1);
@@ -195,7 +195,7 @@ window.FBDietMetadata = (() => {
       }
       if (node.children) {
         if (Array.isArray(node.children)) {
-          for (let i = 0; i < Math.min(node.children.length, 10); i++) {
+          for (let i = 0; i < Math.min(node.children.length, 12); i++) {
             scan(node.children[i], depth + 1);
           }
         } else {
@@ -220,7 +220,14 @@ window.FBDietMetadata = (() => {
       const payload = props && props.payload;
       const lastCmp = props && props.lastCmp;
       const feedUnit = payload && payload.feedUnit;
+      const childrenProps = payload && payload.children && typeof payload.children === 'object'
+        ? (payload.children.props || (Array.isArray(payload.children) && payload.children[0] ? payload.children[0].props : null))
+        : null;
+
       const primaryRecord =
+        (childrenProps && childrenProps.edge && childrenProps.edge.node) ||
+        (childrenProps && childrenProps.edge) ||
+        (childrenProps && (childrenProps.feedUnit || childrenProps.unit || childrenProps.story)) ||
         (payload && (payload.feedUnit || payload.unit || payload.story)) ||
         (payload && payload.edge && payload.edge.node) ||
         (payload && payload.feedEdge && payload.feedEdge.node) ||
@@ -228,7 +235,7 @@ window.FBDietMetadata = (() => {
         payload ||
         null;
 
-      const candidateRecords = extractCandidateRecords([payload, lastCmp]);
+      const candidateRecords = extractCandidateRecords([payload, lastCmp, childrenProps, primaryRecord]);
       const records = [primaryRecord, ...candidateRecords].filter(Boolean);
 
       function readFromRecords(path) {
@@ -243,14 +250,26 @@ window.FBDietMetadata = (() => {
       const actorObj =
         readFromRecords('actors.0') ||
         readFromRecords('actor') ||
+        readFromRecords('author') ||
         readFromRecords('comet_sections.header.story.actors.0') ||
         readFromRecords('comet_sections.content.story.actors.0') ||
+        readFromRecords('edge.node.comet_sections.header.story.actors.0') ||
+        readFromRecords('node.comet_sections.header.story.actors.0') ||
         readFromRecords('story.actors.0') ||
         null;
 
       const actorName = clean(firstNonEmpty([
         readProp(actorObj, 'name'),
+        readProp(actorObj, 'text'),
         readFromRecords('actors.0.name'),
+        readFromRecords('actor.name'),
+        readFromRecords('author.name'),
+        readFromRecords('headline.text'),
+        readFromRecords('comet_sections.header.story.actors.0.name'),
+        readFromRecords('comet_sections.header.story.title.text'),
+        readFromRecords('edge.node.comet_sections.header.story.actors.0.name'),
+        readFromRecords('node.comet_sections.header.story.actors.0.name'),
+        readFromRecords('story.actors.0.name'),
         readPath(ids, ['^^actors[0].name', 'actors[0].name'])
       ]));
       const actorType = clean(firstNonEmpty([
@@ -305,7 +324,14 @@ window.FBDietMetadata = (() => {
       ]));
       const group = {
         id: groupId,
-        name: clean(firstNonEmpty([readProp(toObj, 'name'), readPath(ids, ['^to.name'])])),
+        name: clean(firstNonEmpty([
+          readProp(toObj, 'name'),
+          readFromRecords('to.name'),
+          readFromRecords('comet_sections.header.story.to.name'),
+          readFromRecords('edge.node.comet_sections.header.story.to.name'),
+          readFromRecords('node.comet_sections.header.story.to.name'),
+          readPath(ids, ['^to.name'])
+        ])),
         joinState: clean(firstNonEmpty([readProp(toObj, 'viewer_forum_join_state'), readPath(ids, ['^to.viewer_forum_join_state'])])),
         permalink: groupPermalink
       };
@@ -399,6 +425,10 @@ window.FBDietMetadata = (() => {
           readFromRecords('message.text'),
           readFromRecords('story.message.text'),
           readFromRecords('comet_sections.content.story.message.text'),
+          readFromRecords('edge.node.comet_sections.content.story.message.text'),
+          readFromRecords('node.comet_sections.content.story.message.text'),
+          typeof readFromRecords('message') === 'string' ? readFromRecords('message') : null,
+          typeof readFromRecords('text') === 'string' ? readFromRecords('text') : null,
           readPath(ids, ['^message.text'])
         ])),
         title,

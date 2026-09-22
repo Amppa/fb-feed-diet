@@ -8,16 +8,23 @@
   const DEFAULT_SETTINGS = {
     enabled: true,
     mode: 'proxy',
-    foldSponsored: true,
-    foldSuggested: true,
-    foldSuggestedGroup: true,
-    foldMarketAds: true,
-    foldSearchingAds: true,
-    foldStories: true,
-    foldReels: true,
-    foldRegular: false,
+    foldSponsored: 'mini',
+    foldSuggested: 'title',
+    foldSuggestedGroup: 'mini',
+    foldMarketAds: 'mini',
+    foldSearchingAds: 'mini',
+    foldStories: 'mini',
+    foldReels: 'mini',
+    foldRegular: 'off',
     debugProbe: false
   };
+
+  function normalizeFoldMode(value, fallback = 'off') {
+    if (value === true) return 'mini';
+    if (value === false) return 'off';
+    if (value === 'title' || value === 'mini' || value === 'off') return value;
+    return fallback;
+  }
 
   function getTodayDateString(d) {
     const now = d || new Date();
@@ -67,14 +74,14 @@
     media: ['foldStories', 'foldReels'],
     other: ['foldSuggestedGroup']
   };
-
-  globalThis.FB_DIET_DEFAULTS = {
+  globalThis.FB_DIET_DEFAULTS = {
     SETTINGS: DEFAULT_SETTINGS,
     COUNTS: DEFAULT_COUNTS,
     GROUP_ORDER: GROUP_ORDER,
     GROUP_BY_CATEGORY: GROUP_BY_CATEGORY,
     SETTING_KEYS_BY_GROUP: SETTING_KEYS_BY_GROUP,
     VERSION: 1,
-    getTodayDateString: getTodayDateString
+    getTodayDateString: getTodayDateString,
+    normalizeFoldMode: normalizeFoldMode
   };
 })();

@@ -9,14 +9,14 @@
   const DEFAULT_SETTINGS = DEFAULTS.SETTINGS || {
     enabled: true,
     mode: 'proxy',
-    foldSponsored: true,
-    foldSuggested: true,
-    foldSuggestedGroup: true,
-    foldMarketAds: true,
-    foldSearchingAds: true,
-    foldStories: true,
-    foldReels: true,
-    foldRegular: false,
+    foldSponsored: 'mini',
+    foldSuggested: 'title',
+    foldSuggestedGroup: 'mini',
+    foldMarketAds: 'mini',
+    foldSearchingAds: 'mini',
+    foldStories: 'mini',
+    foldReels: 'mini',
+    foldRegular: 'off',
     debugProbe: false
   };
   const DEFAULT_COUNTS = DEFAULTS.COUNTS || {

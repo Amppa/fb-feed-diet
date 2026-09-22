@@ -252,7 +252,7 @@ function run(c) {
   a = C.classifyProbeReport(relayOnlyReport);
   c.ok('relay-only report ok', a.ok === true);
   equals(c, 'captured verdict preserved', a.captured.category, 'suggested');
-  equals(c, 're-run degrades to no-match', a.current.category, null);
+  equals(c, 're-run degrades to no-match', a.current.category, 'regular');
   equals(c, 'relay snapshot flagged', a.relayAvailable, true);
 
   // Direct fields in the snapshot still resolve (no link hop needed).
@@ -344,8 +344,15 @@ function run(c) {
       }
     }
   });
-  equals(c, 'friend activity header stays regular', r.category, null);
+  equals(c, 'friend activity header stays regular', r.category, 'regular');
   equals(c, 'friend activity header reason is no-match', r.reason, 'no-match');
+
+  /* --- 3-tier fold mode checks --- */
+  equals(c, 'default settings sponsored mode is mini', C.getCategoryFoldMode('sponsored', {}), 'mini');
+  equals(c, 'default settings suggested mode is title', C.getCategoryFoldMode('suggested', {}), 'title');
+  equals(c, 'default settings regular mode is off', C.getCategoryFoldMode('regular', {}), 'off');
+  equals(c, 'custom setting mode is honored', C.getCategoryFoldMode('regular', { foldRegular: 'title' }), 'title');
+  equals(c, 'disabled master switch forces off', C.getCategoryFoldMode('sponsored', { enabled: false }), 'off');
 
   // 5. Nested Context Provider tree unwrapping: follow button
   r = C.classifyFeedUnit({

@@ -244,6 +244,37 @@ function run(c) {
     c.equals('entryCategory present when provided', reportWithEntry.entryCategory, 'marketAds');
   }
 
+  /* --- 3-tier fold mode: title mode (24px persistent header bar) --- */
+  {
+    const t = setup({ [SPONSORED_PATH]: 'ad-title' });
+    t.bridge.setSettings({ foldSponsored: 'title' });
+
+    // Collapsed title state: renders FBDietTitleBar with [+]
+    const folded = t.render(payloadOf('u-title'));
+    c.ok('title mode render is a Fragment', folded.type === t.React.Fragment);
+    const [titleBar, body] = folded.props.children;
+    c.equals('title bar is FBDietTitleBar', titleBar.type, t.fold.FBDietTitleBar);
+    c.ok('title bar is collapsed', titleBar.props.isExpanded === false);
+    c.ok('body is hidden container', body.props.className.indexOf('fb-diet-fold-hidden') !== -1);
+    const titleBarRender = titleBar.type(titleBar.props);
+    c.ok('title bar rendered div has fb-diet-titlebar', titleBarRender.props.className.indexOf('fb-diet-titlebar') !== -1);
+
+    // Toggle expand: title bar stays mounted, isExpanded becomes true ([-]), body revealed
+    titleBar.props.onToggle();
+    const expanded = t.render(payloadOf('u-title'));
+    const [expandedTitleBar, expandedBody] = expanded.props.children;
+    c.equals('expanded title bar stays FBDietTitleBar', expandedTitleBar.type, t.fold.FBDietTitleBar);
+    c.ok('expanded title bar isExpanded is true', expandedTitleBar.props.isExpanded === true);
+    const expandedTitleRender = expandedTitleBar.type(expandedTitleBar.props);
+    c.ok('expanded title bar has expanded state class', expandedTitleRender.props.className.indexOf('fb-diet-state-expanded') !== -1);
+    c.ok('expanded body is visible container', expandedBody.props.className.indexOf('fb-diet-expand-body') !== -1);
+
+    // Toggle collapse: folds back to 24px!
+    expandedTitleBar.props.onToggle();
+    const reFolded = t.render(payloadOf('u-title'));
+    c.ok('re-folded title bar is collapsed again', reFolded.props.children[0].props.isExpanded === false);
+  }
+
   /* --- hostile payload never crashes the feed --- */
   {
     const t = setup({});
