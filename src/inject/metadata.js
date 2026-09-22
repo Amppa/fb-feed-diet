@@ -133,6 +133,83 @@ window.FBDietMetadata = (() => {
     return media;
   }
 
+  /**
+   * Recursively traverses a React element or prop tree to extract candidate Story/Unit records.
+   * Traverses through Context.Providers, Fragment wrappers, and rendered element trees.
+   */
+  function extractCandidateRecords(roots) {
+    const candidates = [];
+    const visited = new Set();
+    const MAX_DEPTH = 10;
+
+    function isRecordLike(obj) {
+      if (!obj || typeof obj !== 'object') return false;
+      return Boolean(
+        obj.comet_sections ||
+        (Array.isArray(obj.actors) && obj.actors.length > 0) ||
+        obj.actor ||
+        obj.action_links ||
+        obj.call_to_action ||
+        obj.story_header ||
+        obj.sponsored_data ||
+        obj.is_sponsored !== undefined ||
+        obj.viewer_forum_join_state !== undefined ||
+        obj.message ||
+        obj.permalink_url ||
+        obj.url
+      );
+    }
+
+    function scan(node, depth) {
+      if (!node || depth > MAX_DEPTH || typeof node !== 'object') return;
+      if (visited.has(node)) return;
+      visited.add(node);
+
+      if (isRecordLike(node)) {
+        candidates.push(node);
+      }
+      if (node.story && typeof node.story === 'object' && !visited.has(node.story)) {
+        if (isRecordLike(node.story)) candidates.push(node.story);
+        scan(node.story, depth + 1);
+      }
+      if (node.feedUnit && typeof node.feedUnit === 'object' && !visited.has(node.feedUnit)) {
+        if (isRecordLike(node.feedUnit)) candidates.push(node.feedUnit);
+        scan(node.feedUnit, depth + 1);
+      }
+      if (node.unit && typeof node.unit === 'object' && !visited.has(node.unit)) {
+        if (isRecordLike(node.unit)) candidates.push(node.unit);
+        scan(node.unit, depth + 1);
+      }
+      if (node.edge && node.edge.node && typeof node.edge.node === 'object') {
+        scan(node.edge.node, depth + 1);
+      }
+      if (node.feedEdge && node.feedEdge.node && typeof node.feedEdge.node === 'object') {
+        scan(node.feedEdge.node, depth + 1);
+      }
+
+      if (node.props && typeof node.props === 'object') {
+        scan(node.props, depth + 1);
+      }
+      if (node.value && typeof node.value === 'object') {
+        scan(node.value, depth + 1);
+      }
+      if (node.children) {
+        if (Array.isArray(node.children)) {
+          for (let i = 0; i < Math.min(node.children.length, 10); i++) {
+            scan(node.children[i], depth + 1);
+          }
+        } else {
+          scan(node.children, depth + 1);
+        }
+      }
+    }
+
+    for (const root of roots) {
+      if (root) scan(root, 0);
+    }
+    return candidates;
+  }
+
   function collect(classifyResult, props) {
     try {
       const relay = relayApi();
@@ -141,8 +218,9 @@ window.FBDietMetadata = (() => {
         (classifyResult && classifyResult.unitId ? [classifyResult.unitId] : null);
 
       const payload = props && props.payload;
+      const lastCmp = props && props.lastCmp;
       const feedUnit = payload && payload.feedUnit;
-      const record =
+      const primaryRecord =
         (payload && (payload.feedUnit || payload.unit || payload.story)) ||
         (payload && payload.edge && payload.edge.node) ||
         (payload && payload.feedEdge && payload.feedEdge.node) ||
@@ -150,38 +228,49 @@ window.FBDietMetadata = (() => {
         payload ||
         null;
 
-      // 1. Actor: props first, then Relay store
+      const candidateRecords = extractCandidateRecords([payload, lastCmp]);
+      const records = [primaryRecord, ...candidateRecords].filter(Boolean);
+
+      function readFromRecords(path) {
+        for (const rec of records) {
+          const val = readProp(rec, path);
+          if (val !== null && val !== undefined && val !== '') return val;
+        }
+        return null;
+      }
+
+      // 1. Actor: props/records first, then Relay store
       const actorObj =
-        readProp(record, 'actors.0') ||
-        readProp(record, 'actor') ||
-        readProp(record, 'comet_sections.header.story.actors.0') ||
-        readProp(record, 'comet_sections.content.story.actors.0') ||
-        readProp(record, 'story.actors.0') ||
+        readFromRecords('actors.0') ||
+        readFromRecords('actor') ||
+        readFromRecords('comet_sections.header.story.actors.0') ||
+        readFromRecords('comet_sections.content.story.actors.0') ||
+        readFromRecords('story.actors.0') ||
         null;
 
       const actorName = clean(firstNonEmpty([
         readProp(actorObj, 'name'),
-        readProp(record, 'actors.0.name'),
+        readFromRecords('actors.0.name'),
         readPath(ids, ['^^actors[0].name', 'actors[0].name'])
       ]));
       const actorType = clean(firstNonEmpty([
         readProp(actorObj, '__typename'),
-        readProp(record, 'actors.0.__typename'),
+        readFromRecords('actors.0.__typename'),
         readPath(ids, ['^^actors[0].__typename', 'actors[0].__typename'])
       ]));
       const actorSub = clean(firstNonEmpty([
         readProp(actorObj, 'subscribe_status'),
-        readProp(record, 'actors.0.subscribe_status'),
+        readFromRecords('actors.0.subscribe_status'),
         readPath(ids, ['^^actors[0].subscribe_status', 'actors[0].subscribe_status'])
       ]));
       const actorUrl = cleanUrl(firstNonEmpty([
         readProp(actorObj, 'url'),
-        readProp(record, 'actors.0.url'),
+        readFromRecords('actors.0.url'),
         readPath(ids, ['^^actors[0].url', 'actors[0].url'])
       ]));
       const rawId = clean(firstNonEmpty([
         readProp(actorObj, 'id'),
-        readProp(record, 'actors.0.id'),
+        readFromRecords('actors.0.id'),
         readPath(ids, ['^^actors[0].id', 'actors[0].id'])
       ]));
       const username = clean(firstNonEmpty([
@@ -205,8 +294,8 @@ window.FBDietMetadata = (() => {
         actor.numericId = rawId;
       }
 
-      // 2. Group: props first, then Relay store
-      const toObj = readProp(record, 'to') || null;
+      // 2. Group: props/records first, then Relay store
+      const toObj = readFromRecords('to') || readFromRecords('comet_sections.header.story.to') || null;
       const groupId = clean(firstNonEmpty([readProp(toObj, 'id'), readPath(ids, ['^to.id'])]));
       const groupPermalink = cleanUrl(firstNonEmpty([
         readProp(toObj, 'wwwURL'),
@@ -221,31 +310,32 @@ window.FBDietMetadata = (() => {
         permalink: groupPermalink
       };
 
-      // 3. Post ID & Permalink: props first, then Relay, then compose fallback
+      // 3. Post ID & Permalink: props/records first, then Relay, then compose fallback
       const postId = clean(firstNonEmpty([
         readProp(feedUnit, 'post_id'),
         readProp(feedUnit, 'clip_id'),
         readProp(feedUnit, 'story.post_id'),
         readProp(feedUnit, 'mf_story_key'),
-        readProp(record, 'post_id'),
-        readProp(record, 'clip_id'),
-        readProp(record, 'story.post_id'),
-        readProp(record, 'mf_story_key'),
+        readFromRecords('post_id'),
+        readFromRecords('clip_id'),
+        readFromRecords('story.post_id'),
+        readFromRecords('mf_story_key'),
         readProp(payload, 'post_id')
       ]));
 
       let permalink = cleanUrl(firstNonEmpty([
-        readProp(record, 'wwwURL'),
-        readProp(record, 'permalink_url'),
-        readProp(record, 'url'),
-        readProp(record, 'story.url'),
-        readProp(record, 'story.wwwURL'),
-        readProp(record, 'story.permalink_url'),
-        readProp(record, 'comet_sections.content.story.wwwURL'),
-        readProp(record, 'comet_sections.feedback.story.url'),
-        readProp(record, 'comet_sections.content.story.url'),
-        readProp(record, 'feedback_context.feedback_target_with_context.url'),
-        readProp(record, 'shareable.url'),
+        readFromRecords('wwwURL'),
+        readFromRecords('permalink_url'),
+        readFromRecords('url'),
+        readFromRecords('story.url'),
+        readFromRecords('story.wwwURL'),
+        readFromRecords('story.permalink_url'),
+        readFromRecords('comet_sections.content.story.permalink_url'),
+        readFromRecords('comet_sections.content.story.wwwURL'),
+        readFromRecords('comet_sections.feedback.story.url'),
+        readFromRecords('comet_sections.content.story.url'),
+        readFromRecords('feedback_context.feedback_target_with_context.url'),
+        readFromRecords('shareable.url'),
         readProp(payload, 'story.url'),
         readProp(payload, 'story.wwwURL'),
         readPath(ids, ['^wwwURL', '^permalink_url', '^url', '^story.url'])
@@ -258,7 +348,11 @@ window.FBDietMetadata = (() => {
         }
       }
 
-      let title = clean(evidence && evidence.storyTitle);
+      let title = clean(firstNonEmpty([
+        readFromRecords('comet_sections.header.story.title.text'),
+        readFromRecords('story_header.title.text'),
+        evidence && evidence.storyTitle
+      ]));
       if (!title && relay && ids && ids.length) {
         const locations = ['homepage_stream', 'groups_tab', 'feed'];
         for (const loc of locations) {
@@ -273,36 +367,38 @@ window.FBDietMetadata = (() => {
       }
 
       const rawCreatedTime = clean(firstNonEmpty([
-        readProp(record, 'created_time'),
-        readProp(record, 'creation_time'),
-        readProp(record, 'story.created_time'),
-        readProp(record, 'publish_time'),
+        readFromRecords('created_time'),
+        readFromRecords('creation_time'),
+        readFromRecords('story.created_time'),
+        readFromRecords('publish_time'),
         readPath(ids, ['^created_time'])
       ]));
 
       const callToAction = clean(firstNonEmpty([
-        readProp(record, 'call_to_action.type'),
+        readFromRecords('call_to_action.type'),
+        readFromRecords('action_links.0.title'),
+        readFromRecords('action_links.0.text'),
         readPath(ids, ['^call_to_action.type', '^action_links[0].title', '^action_links[0].text'])
       ]));
 
       const feedContext = clean(firstNonEmpty([
-        readProp(record, 'feed_context.text'),
-        readProp(record, 'context_layout.text'),
+        readFromRecords('feed_context.text'),
+        readFromRecords('context_layout.text'),
         readPath(ids, ['^feed_context.text', '^context_layout.text', '^story_header.title.text'])
       ]));
 
       const isReshare = Boolean(
-        readProp(record, 'attached_story') ||
-        readProp(record, 'reshared_story') ||
+        readFromRecords('attached_story') ||
+        readFromRecords('reshared_story') ||
         readPath(ids, ['^attached_story', '^reshared_story'])
       );
 
       const content = {
         permalink,
         message: clean(firstNonEmpty([
-          readProp(record, 'message.text'),
-          readProp(record, 'story.message.text'),
-          readProp(record, 'comet_sections.content.story.message.text'),
+          readFromRecords('message.text'),
+          readFromRecords('story.message.text'),
+          readFromRecords('comet_sections.content.story.message.text'),
           readPath(ids, ['^message.text'])
         ])),
         title,
@@ -313,7 +409,7 @@ window.FBDietMetadata = (() => {
         isReshare
       };
 
-      const recordAttachments = readProp(record, 'attachments');
+      const recordAttachments = readFromRecords('attachments') || readFromRecords('all_subattachments');
       const relayRecord = relay && typeof relay.describe === 'function' && ids && ids.length ? relay.describe(ids[0]) : null;
       const media = collectMedia(relayRecord || (recordAttachments ? { attachments: recordAttachments } : null));
 

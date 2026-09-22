@@ -365,6 +365,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       probeResult.appendChild(row);
     }
 
+    if (report && report.relayStatus) {
+      const row = makeProbeEl('div', 'probe-row');
+      row.appendChild(makeProbeEl('span', 'probe-row-label', tt('probeRelayStatus')));
+      const statText = (report.relayStatus.isReady ? 'Ready' : 'Not ready') + ' (sources: ' + report.relayStatus.sourceCount + ')';
+      row.appendChild(makeProbeEl('span', 'probe-module', statText));
+      probeResult.appendChild(row);
+    }
+
     // Enrichment collapsible card
     if (report && report.enrichment && typeof report.enrichment === 'object') {
       const enrich = report.enrichment;
@@ -496,6 +504,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         keysBox.appendChild(makeProbeEl('span', 'probe-key-tag', k));
       }
       details.appendChild(keysBox);
+      probeResult.appendChild(details);
+    }
+
+    // Diagnostic Signals collapsible card
+    if (report && Array.isArray(report.signals) && report.signals.length) {
+      const details = document.createElement('details');
+      details.className = 'probe-section';
+      details.open = true;
+      const summary = document.createElement('summary');
+      summary.className = 'probe-section-title';
+      summary.textContent = '🎯 ' + tt('probeSignalsTitle') + ' (' + report.signals.length + ')';
+      details.appendChild(summary);
+
+      const list = makeProbeEl('div', 'probe-section-body probe-relay-list');
+      for (const item of report.signals) {
+        const row = makeProbeEl('div', 'probe-relay-row');
+        row.appendChild(makeProbeEl('span', 'probe-relay-path', item.path));
+        row.appendChild(makeProbeEl('span', 'probe-relay-arrow', ' → '));
+        row.appendChild(makeProbeEl('span', 'probe-relay-val', String(item.value)));
+        list.appendChild(row);
+      }
+      details.appendChild(list);
       probeResult.appendChild(details);
     }
   }

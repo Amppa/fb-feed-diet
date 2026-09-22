@@ -170,6 +170,65 @@ function run(c) {
     c.equals('content message extracted', e.content.message, '日語單字天天學！');
     c.equals('createdTime raw timestamp preserved', e.content.createdTime, 1726978432);
   }
+
+  /* --- nested Context Provider unwrapping in metadata --- */
+  {
+    const win = createWindow();
+    loadInject(win, 'metadata.js');
+    const fullPostUrl = 'https://www.facebook.com/happylearningJapanese/posts/pfbid0sNZD1f9wqoPLEs85Eq2rwi3DhFYseBe98usBEZr2xr2u6FrtefXgwWRWmfd6CqKkl';
+    const payload = {
+      feedUnit: {
+        __typename: 'Story',
+        id: 'u-provider-peel',
+        __fragments: {}
+      },
+      children: {
+        props: {
+          value: { ctx: 'provider1' },
+          children: {
+            props: {
+              value: { ctx: 'provider2' },
+              children: {
+                props: {
+                  story: {
+                    id: 's-deep-story',
+                    comet_sections: {
+                      header: {
+                        story: {
+                          actors: [
+                            {
+                              __typename: 'Page',
+                              id: '100064245789',
+                              name: 'Sunny Lin',
+                              url: 'https://www.facebook.com/happylearningJapanese'
+                            }
+                          ],
+                          title: { text: '為你推薦' }
+                        }
+                      },
+                      content: {
+                        story: {
+                          message: { text: '日語單字解析！' },
+                          permalink_url: fullPostUrl
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    };
+    const e = win.FBDietMetadata.collect(classifyResultOf(['u-provider-peel']), { payload });
+    c.ok('peeled enrichment collected from nested provider', Boolean(e));
+    c.equals('peeled actor username extracted', e.actor.username, 'happylearningJapanese');
+    c.equals('peeled actor name extracted', e.actor.name, 'Sunny Lin');
+    c.equals('peeled permalink extracted', e.content.permalink, fullPostUrl);
+    c.equals('peeled message extracted', e.content.message, '日語單字解析！');
+    c.equals('peeled title extracted', e.content.title, '為你推薦');
+  }
 }
 
 module.exports = { run };

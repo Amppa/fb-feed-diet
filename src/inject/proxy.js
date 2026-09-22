@@ -163,9 +163,11 @@ window.FBDietProxy = (() => {
     for (let i = 0; i < args.length; i += 1) {
       const candidate = args[i];
       if (!candidate || typeof candidate !== 'object') continue;
-      if (candidate.exports && typeof candidate.exports === 'object') return candidate.exports;
+      if (candidate.exports && (typeof candidate.exports === 'object' || typeof candidate.exports === 'function')) {
+        return candidate.exports;
+      }
     }
-    if (args[6] && typeof args[6] === 'object') return args[6];
+    if (args[6] && (typeof args[6] === 'object' || typeof args[6] === 'function')) return args[6];
     return null;
   }
 

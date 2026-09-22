@@ -132,6 +132,24 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
   - 標題行：`message` 優先顯示前 40 字；無 message 則取 `content.title` 前 40 字；皆無顯示 `NULL`。
   - 社團名行：有值才顯示單獨一行。
 
+### 決策 #14 — Action Links 與為你推薦標題信號（2026-09-22，probe 實證）
+- **症狀**：首頁滾動時，帶有「[追蹤]」、「[加入]」或「為你推薦」的建議動態被判定為 `regular`（reason: `no-match`，relayReads 全為 null）。
+- **根因**：
+  1. Relay Store 在純滾動瀏覽首頁時因未觸發 mutation，`RelayRecordSourceProxy` 尚未快照（`isReady() === false`），Relay 讀取路徑全數落空。
+  2. Comet 架構下，未追蹤作者的「[追蹤]」按鈕、未加入社團的「[加入]」按鈕通常位於 `action_links` 或 `comet_sections.header.story`；而「為你推薦」則直接呈現在 `comet_sections.header.story.title.text`。
+- **規則**：
+  1. `action_links` 含有 `SUBSCRIBE` / `FOLLOW` / `text: '追蹤'` → `suggested`（reason: `action_links:subscribe`）。
+  2. `action_links` 含有 `JOIN_GROUP` / `text: '加入'` → `suggested`（reason: `action_links:join_group`）。
+  3. Header 或 Feed Context 含有「為你推薦」/「Suggested for you」且**不含**朋友互動詞彙（如「留言」、「回應」）→ `suggested`（reason: `header:...`）。
+### 決策 #15 — React 樹 Context Provider 解包與候選記錄萃取（2026-09-22，probe 實證）
+- **症狀**：Comet 架構下，`CometFeedUnitErrorBoundary.react` 傳入的 `payload.feedUnit` 僅有 Relay fragment pointer，真正的貼文資料包在多層 Context Provider（`childrenKeys: ["value", "children"]`）與渲染樹 `lastCmp` 內部。原先代碼讀到第一層 Provider 即停止，導致 `action_links`（追蹤/加入）、`title`（為你推薦）、`actors`（作者姓名與帳號）與貼文網址全數為 `null`，貼文退化為 `regular`（`no-match`）。
+- **根因**：Relay 在純滾動瀏覽時不實例化 `RelayRecordSourceProxy`，而 React 元件樹透過多層 Context Provider 傳遞資料，必須遞迴解包（Unpeeling）才能拿到完整的 `story` 物件。
+- **解法**：
+  1. `classify.js` 與 `metadata.js` 實作 `extractCandidateRecords`，遞迴深度遍歷 `payload`、`payload.children` 與 `lastCmp`，穿透 Context Provider 提取所有含有 `comet_sections`、`actors`、`action_links` 等標記的候選記錄。
+  2. `classify.js` 對所有候選記錄進行 `detectActionSignal`、`detectRecommendationHeader` 與 `gatherEvidence` 判定。
+  3. `metadata.js` 從候選記錄中萃取作者帳號（`username`）、姓名、貼文完整網址（`permalink_url`）與文字摘要。
+  4. `fold.js` 將 `props.lastCmp` 傳入分類器，並增強 `findDiagnosticSignals` 遍歷能力。
+
 ---
 
 ## 4. 已知誤判案例（症狀 → 根因 → 修正）

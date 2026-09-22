@@ -281,6 +281,156 @@ function run(c) {
     /* must never happen */
   }
   c.ok('hostile report does not throw', Boolean(probeHostile));
+
+  /* --- Action links and recommendation header signals --- */
+  calls.mapValue = () => null; // reset live reader so mock ads do not interfere
+
+  // 1. Follow action button
+  r = C.classifyFeedUnit({
+    feedUnit: {
+      __typename: 'Story',
+      id: 'u-follow',
+      action_links: [{ action_type: 'SUBSCRIBE', text: '追蹤' }]
+    }
+  });
+  equals(c, 'follow action classified as suggested', r.category, 'suggested');
+  equals(c, 'follow action reason', r.reason, 'action_links:subscribe');
+
+  // 2. Join group action button
+  r = C.classifyFeedUnit({
+    feedUnit: {
+      __typename: 'Story',
+      id: 'u-join',
+      comet_sections: {
+        header: {
+          story: {
+            action_links: [{ action_type: 'JOIN_GROUP', text: '加入' }]
+          }
+        }
+      }
+    }
+  });
+  equals(c, 'join group action classified as suggested', r.category, 'suggested');
+  equals(c, 'join group action reason', r.reason, 'action_links:join_group');
+
+  // 3. Recommendation header (為你推薦)
+  r = C.classifyFeedUnit({
+    feedUnit: {
+      __typename: 'Story',
+      id: 'u-rec-tw',
+      comet_sections: {
+        header: {
+          story: {
+            title: { text: '為你推薦' }
+          }
+        }
+      }
+    }
+  });
+  equals(c, 'recommendation header classified as suggested', r.category, 'suggested');
+  equals(c, 'recommendation header reason', r.reason, 'header:為你推薦');
+
+  // 4. Friend interaction header must not be misclassified as suggested
+  r = C.classifyFeedUnit({
+    feedUnit: {
+      __typename: 'Story',
+      id: 'u-friend-comment',
+      comet_sections: {
+        header: {
+          story: {
+            title: { text: 'Sunny Lin 最近留言回應。' }
+          }
+        }
+      }
+    }
+  });
+  equals(c, 'friend activity header stays regular', r.category, null);
+  equals(c, 'friend activity header reason is no-match', r.reason, 'no-match');
+
+  // 5. Nested Context Provider tree unwrapping: follow button
+  r = C.classifyFeedUnit({
+    feedUnit: { __typename: 'Story', id: 'u-nested-ctx', __fragments: {} },
+    children: {
+      props: {
+        value: { contextId: 1 },
+        children: {
+          props: {
+            value: { contextId: 2 },
+            children: {
+              props: {
+                story: {
+                  id: 's-nested-follow',
+                  comet_sections: {
+                    header: {
+                      story: {
+                        action_links: [{ action_type: 'SUBSCRIBE', text: '追蹤' }]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+  equals(c, 'nested context provider follow action folded', r.category, 'suggested');
+  equals(c, 'nested context provider follow reason', r.reason, 'action_links:subscribe');
+
+  // 6. Nested Context Provider tree unwrapping: recommendation header
+  r = C.classifyFeedUnit({
+    feedUnit: { __typename: 'Story', id: 'u-nested-rec', __fragments: {} },
+    children: {
+      props: {
+        value: { contextId: 1 },
+        children: {
+          props: {
+            story: {
+              id: 's-nested-rec',
+              comet_sections: {
+                header: {
+                  story: {
+                    title: { text: '為你推薦' }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+  equals(c, 'nested context provider rec header folded', r.category, 'suggested');
+  equals(c, 'nested context provider rec reason', r.reason, 'header:為你推薦');
+
+  // 7. Rendered lastCmp element tree unwrapping
+  r = C.classifyFeedUnit(
+    { feedUnit: { __typename: 'Story', id: 'u-lastcmp', __fragments: {} } },
+    {
+      moduleName: 'CometFeedUnitErrorBoundary.react',
+      lastCmp: {
+        props: {
+          children: {
+            props: {
+              story: {
+                id: 's-lastcmp',
+                comet_sections: {
+                  header: {
+                    story: {
+                      action_links: [{ action_type: 'JOIN_GROUP', text: '加入' }]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  );
+  equals(c, 'lastCmp join group action folded', r.category, 'suggested');
+  equals(c, 'lastCmp join group reason', r.reason, 'action_links:join_group');
 }
 
 function equals(c, label, actual, expected) {

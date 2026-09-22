@@ -206,7 +206,26 @@ function run(c) {
     c.equals('payload.feedUnit post_id preserved', reportWithoutEntry.payload.feedUnit.post_id, 'p123');
     c.equals('payload.feedUnit __id removed', reportWithoutEntry.payload.feedUnit.__id, undefined);
     c.equals('payload.feedUnit __typename removed', reportWithoutEntry.payload.feedUnit.__typename, undefined);
+    c.ok('payloadKeys captured', Array.isArray(reportWithoutEntry.payload.payloadKeys));
+    c.ok('feedUnitKeys captured', Array.isArray(reportWithoutEntry.payload.feedUnitKeys));
     c.ok('version present', Boolean(reportWithoutEntry.version));
+
+    const reportWithSignals = t.fold.buildUnitProbeReport({
+      payload: {
+        feedUnit: {
+          comet_sections: {
+            header: {
+              story: {
+                title: { text: '為你推薦' }
+              }
+            }
+          }
+        }
+      }
+    }, classifyRes, []).report;
+    c.ok('diagnostic signals extracted', Array.isArray(reportWithSignals.signals) && reportWithSignals.signals.length > 0);
+    c.equals('signal path matches', reportWithSignals.signals[0].path, 'feedUnit.comet_sections.header.story.title.text');
+    c.equals('signal value matches', reportWithSignals.signals[0].value, '為你推薦');
 
     const reportWithEntry = t.fold.buildUnitProbeReport({ entryCategory: 'marketAds', payload: { feedUnit: {} } }, classifyRes, []).report;
     c.equals('entryCategory present when provided', reportWithEntry.entryCategory, 'marketAds');

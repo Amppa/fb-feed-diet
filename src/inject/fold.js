@@ -136,6 +136,55 @@ window.FBDietFold = (() => {
 
   const PROBE_MAX_CHARS = 30000;
 
+  function findDiagnosticSignals(payload, lastCmp) {
+    if ((!payload || typeof payload !== 'object') && (!lastCmp || typeof lastCmp !== 'object')) return null;
+    const matches = [];
+    const visited = new Set();
+    const keywords = ['追蹤', '加入', '推薦', 'SUBSCRIBE', 'JOIN', 'FOLLOW', 'SUGGEST'];
+
+    function walk(current, path, depth) {
+      if (depth > 14 || current === null || current === undefined) return;
+      if (typeof current === 'string') {
+        const upper = current.toUpperCase();
+        for (const kw of keywords) {
+          if (upper.indexOf(kw.toUpperCase()) !== -1) {
+            matches.push({ path, value: current.length > 80 ? current.slice(0, 80) + '…' : current });
+            break;
+          }
+        }
+        return;
+      }
+      if (typeof current !== 'object') return;
+      if (visited.has(current)) return;
+      visited.add(current);
+
+      if (Array.isArray(current)) {
+        for (let i = 0; i < Math.min(current.length, 10); i++) {
+          walk(current[i], path ? path + '.' + i : String(i), depth + 1);
+        }
+      } else {
+        const keys = Object.keys(current);
+        for (const key of keys) {
+          if (
+            key.startsWith('_') ||
+            key.startsWith('__react') ||
+            key === 'type' ||
+            key === '$$typeof' ||
+            key === 'SourceCmp' ||
+            key === 'lastCmp'
+          ) continue;
+          walk(current[key], path ? path + '.' + key : key, depth + 1);
+        }
+      }
+    }
+
+    try {
+      if (payload) walk(payload, '', 0);
+      if (lastCmp) walk(lastCmp, 'render', 0);
+    } catch (e) {}
+    return matches.length ? matches : null;
+  }
+
   function buildUnitProbeReport(props, classifyResult, relayReads) {
     const feedUnit = props.payload && props.payload.feedUnit;
     const bridge = window.FBDietBridge;
@@ -166,11 +215,40 @@ window.FBDietFold = (() => {
       : null;
 
     const postId = (feedUnit && (feedUnit.post_id || feedUnit.clip_id || (feedUnit.story && feedUnit.story.post_id) || feedUnit.mf_story_key)) || null;
+    const payloadKeys = props.payload && typeof props.payload === 'object' ? Object.keys(props.payload) : null;
+    const feedUnitKeys = feedUnit && typeof feedUnit === 'object' ? Object.keys(feedUnit) : null;
+    const childrenProps = props.payload && props.payload.children && typeof props.payload.children === 'object'
+      ? (props.payload.children.props || (Array.isArray(props.payload.children) && props.payload.children[0] ? props.payload.children[0].props : null))
+      : null;
+    const childrenKeys = childrenProps && typeof childrenProps === 'object' ? Object.keys(childrenProps) : null;
+
     report.payload = {
       feedUnit: {
-        post_id: postId
-      }
+        post_id: postId,
+        debug_info: feedUnit && typeof feedUnit.debug_info === 'string' ? (feedUnit.debug_info.length > 200 ? feedUnit.debug_info.slice(0, 200) + '…' : feedUnit.debug_info) : null,
+        th_dat_spo: feedUnit && feedUnit.th_dat_spo !== undefined ? feedUnit.th_dat_spo : null
+      },
+      payloadKeys: payloadKeys && payloadKeys.length ? payloadKeys : null,
+      feedUnitKeys: feedUnitKeys && feedUnitKeys.length ? feedUnitKeys : null,
+      childrenKeys: childrenKeys && childrenKeys.length ? childrenKeys : null
     };
+
+    // Relay store capture health
+    let relayStatus = null;
+    try {
+      const relay = window.FBDietRelay;
+      if (relay) {
+        relayStatus = {
+          isReady: typeof relay.isReady === 'function' ? relay.isReady() : false,
+          sourceCount: typeof relay.getSourceCount === 'function' ? relay.getSourceCount() : 0,
+          lastError: typeof relay.getLastError === 'function' ? relay.getLastError() : null
+        };
+      }
+    } catch (e) {}
+    report.relayStatus = relayStatus;
+
+    // Diagnostic signals found in props: follow/join action buttons or suggested headers
+    report.signals = findDiagnosticSignals(props.payload, props.lastCmp);
 
     // Structured context: author / group / content / media / viewer (metadata.js).
     let enrichment = null;
@@ -499,7 +577,7 @@ window.FBDietFold = (() => {
 
         // The module name is part of the classification context: the Reels attachment
         // style wrapper, for example, must never fold as Reels (see STRATEGY.md).
-        const result = classify.classifyFeedUnit(props.payload, { moduleName: props.moduleName || null });
+        const result = classify.classifyFeedUnit(props.payload, { moduleName: props.moduleName || null, lastCmp: props.lastCmp });
         classifyResult = result;
         // The read log belongs to this unit's classification: capture it right
         // away so later renders cannot pollute the probe report.

@@ -106,19 +106,105 @@ window.FBDietClassify = (() => {
   }
 
   /**
+   * Recursively traverses a React element or prop tree to extract candidate Story/Unit records.
+   * Traverses through Context.Providers, Fragment wrappers, and rendered element trees.
+   * Safe against circular structures and bounded by MAX_DEPTH.
+   */
+  function extractCandidateRecords(roots) {
+    const candidates = [];
+    const visited = new Set();
+    const MAX_DEPTH = 10;
+
+    function isRecordLike(obj) {
+      if (!obj || typeof obj !== 'object') return false;
+      return Boolean(
+        obj.comet_sections ||
+        (Array.isArray(obj.actors) && obj.actors.length > 0) ||
+        obj.actor ||
+        obj.action_links ||
+        obj.call_to_action ||
+        obj.story_header ||
+        obj.sponsored_data ||
+        obj.is_sponsored !== undefined ||
+        obj.viewer_forum_join_state !== undefined ||
+        obj.viewer_join_state !== undefined
+      );
+    }
+
+    function scan(node, depth) {
+      if (!node || depth > MAX_DEPTH || typeof node !== 'object') return;
+      if (visited.has(node)) return;
+      visited.add(node);
+
+      if (isRecordLike(node)) {
+        candidates.push(node);
+      }
+      if (node.story && typeof node.story === 'object' && !visited.has(node.story)) {
+        if (isRecordLike(node.story)) candidates.push(node.story);
+        scan(node.story, depth + 1);
+      }
+      if (node.feedUnit && typeof node.feedUnit === 'object' && !visited.has(node.feedUnit)) {
+        if (isRecordLike(node.feedUnit)) candidates.push(node.feedUnit);
+        scan(node.feedUnit, depth + 1);
+      }
+      if (node.unit && typeof node.unit === 'object' && !visited.has(node.unit)) {
+        if (isRecordLike(node.unit)) candidates.push(node.unit);
+        scan(node.unit, depth + 1);
+      }
+      if (node.edge && node.edge.node && typeof node.edge.node === 'object') {
+        scan(node.edge.node, depth + 1);
+      }
+      if (node.feedEdge && node.feedEdge.node && typeof node.feedEdge.node === 'object') {
+        scan(node.feedEdge.node, depth + 1);
+      }
+
+      if (node.props && typeof node.props === 'object') {
+        scan(node.props, depth + 1);
+      }
+      if (node.value && typeof node.value === 'object') {
+        scan(node.value, depth + 1);
+      }
+      if (node.children) {
+        if (Array.isArray(node.children)) {
+          for (let i = 0; i < Math.min(node.children.length, 10); i++) {
+            scan(node.children[i], depth + 1);
+          }
+        } else {
+          scan(node.children, depth + 1);
+        }
+      }
+    }
+
+    for (const root of roots) {
+      if (root) scan(root, 0);
+    }
+    return candidates;
+  }
+
+  /**
    * Extracts everything the classifier may need from a feed unit's props.
    * Handles various React element hierarchies (children as object or array, nested props, edges).
    */
-  function collectUnit(payload) {
+  function collectUnit(payload, context) {
+    const lastCmp = context && context.lastCmp ? context.lastCmp : null;
+    const candidateRecords = extractCandidateRecords([payload, lastCmp]);
+
     const feedUnit = readProp(payload, 'feedUnit') || readProp(payload, 'unit') || null;
-    const nestedUnit =
+    const nestedUnit = candidateRecords.length > 0 ? candidateRecords[0] : (
+      readProp(payload, 'children.props.story') ||
+      readProp(payload, 'children.props.unit') ||
+      readProp(payload, 'children.props.feedUnit') ||
+      readProp(payload, 'children.0.props.story') ||
+      readProp(payload, 'children.0.props.unit') ||
+      readProp(payload, 'children.0.props.feedUnit') ||
       readProp(payload, 'children.0.props.children.props.feedUnit') ||
       readProp(payload, 'children.props.children.props.feedUnit') ||
-      readProp(payload, 'children.props.feedUnit') ||
-      readProp(payload, 'children.0.props.feedUnit') ||
+      readProp(payload, 'children.props') ||
+      readProp(payload, 'children.0.props') ||
       readProp(payload, 'edge.node') ||
       readProp(payload, 'feedEdge.node') ||
-      null;
+      null
+    );
     const record = feedUnit || nestedUnit || null;
 
     const ids = [];
@@ -130,6 +216,12 @@ window.FBDietClassify = (() => {
       readProp(payload, '__id'),
       readProp(payload, 'id')
     ];
+    for (const rec of candidateRecords) {
+      if (rec) {
+        candidates.push(readProp(rec, '__id'));
+        candidates.push(readProp(rec, 'id'));
+      }
+    }
     for (const candidate of candidates) {
       if (typeof candidate === 'string' && candidate && ids.indexOf(candidate) === -1) ids.push(candidate);
     }
@@ -147,6 +239,7 @@ window.FBDietClassify = (() => {
       feedUnit,
       nestedUnit,
       record,
+      records: candidateRecords,
       ids,
       // Reporting / debug value; prefers the unit's own typename and only falls back to
       // the nested attachment record for diagnostics.
@@ -159,6 +252,59 @@ window.FBDietClassify = (() => {
    * Classification
    * ------------------------------------------------------------------ */
 
+  function detectActionSignal(record) {
+    if (!record || typeof record !== 'object') return null;
+    const links = [
+      readProp(record, 'action_links'),
+      readProp(record, 'story.action_links'),
+      readProp(record, 'comet_sections.header.story.action_links'),
+      readProp(record, 'call_to_action')
+    ];
+    for (const raw of links) {
+      if (!raw) continue;
+      const list = Array.isArray(raw) ? raw : [raw];
+      for (const item of list) {
+        if (!item || typeof item !== 'object') continue;
+        const actionType = String(item.action_type || item.type || '').toUpperCase();
+        const text = String(item.text || item.title || '');
+        if (actionType === 'SUBSCRIBE' || actionType === 'FOLLOW' || text === '追蹤' || text === 'Follow') {
+          return 'subscribe';
+        }
+        if (actionType === 'JOIN_GROUP' || actionType === 'JOIN' || text === '加入' || text === 'Join') {
+          return 'join_group';
+        }
+      }
+    }
+    return null;
+  }
+
+  function detectRecommendationHeader(record) {
+    if (!record || typeof record !== 'object') return null;
+    const candidates = [
+      readProp(record, 'comet_sections.header.story.title.text'),
+      readProp(record, 'story_header.title.text'),
+      readProp(record, 'feed_context.text'),
+      readProp(record, 'context_layout.text')
+    ];
+    for (const cand of candidates) {
+      if (typeof cand === 'string' && cand) {
+        const trimmed = cand.trim();
+        if (
+          trimmed === '為你推薦' ||
+          trimmed === 'Suggested for you' ||
+          trimmed.indexOf('為你推薦') !== -1 ||
+          trimmed.indexOf('Suggested for you') !== -1 ||
+          trimmed.indexOf('推薦你加入') !== -1
+        ) {
+          if (trimmed.indexOf('留言') === -1 && trimmed.indexOf('回應') === -1 && trimmed.indexOf('commented') === -1) {
+            return trimmed;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
   /**
    * Reads one piece of evidence from the props first and from the Relay store second.
    * Direct props are free, so they are always tried before touching the store.
@@ -170,21 +316,68 @@ window.FBDietClassify = (() => {
       adId: null,
       subscribeStatus: null,
       joinState: null,
+      actionSignal: null,
+      recHeader: null,
       source: 'none',
       id: unit.ids && unit.ids.length ? unit.ids[0] : null,
       idCount: unit.ids ? unit.ids.length : 0
     };
 
+    function readCandidateProp(path) {
+      const direct = toStringOrNull(readProp(unit.record, path)) ||
+        (unit.nestedUnit ? toStringOrNull(readProp(unit.nestedUnit, path)) : null) ||
+        (unit.feedUnit ? toStringOrNull(readProp(unit.feedUnit, path)) : null);
+      if (direct) return direct;
+
+      if (unit.records && unit.records.length) {
+        for (const rec of unit.records) {
+          const val = toStringOrNull(readProp(rec, path));
+          if (val) return val;
+        }
+      }
+      return null;
+    }
+
     // 1. Direct props
     evidence.adId =
-      toStringOrNull(readProp(unit.record, 'sponsored_data.ad_id')) ||
-      toStringOrNull(readProp(unit.record, 'sponsored_data.client_token')) ||
-      (readProp(unit.record, 'is_sponsored') === true ? 'is_sponsored' : null);
+      readCandidateProp('sponsored_data.ad_id') ||
+      readCandidateProp('sponsored_data.client_token') ||
+      (readProp(unit.record, 'is_sponsored') === true || (unit.nestedUnit && readProp(unit.nestedUnit, 'is_sponsored') === true) ? 'is_sponsored' : null);
+
     evidence.subscribeStatus =
-      toStringOrNull(readProp(unit.record, 'actors.0.subscribe_status')) ||
-      toStringOrNull(readProp(unit.record, 'actor.subscribe_status'));
-    evidence.joinState = toStringOrNull(readProp(unit.record, 'to.viewer_forum_join_state'));
-    if (evidence.adId || evidence.subscribeStatus || evidence.joinState) {
+      readCandidateProp('actors.0.subscribe_status') ||
+      readCandidateProp('actor.subscribe_status') ||
+      readCandidateProp('story.actors.0.subscribe_status') ||
+      readCandidateProp('comet_sections.header.story.actors.0.subscribe_status') ||
+      readCandidateProp('comet_sections.content.story.actors.0.subscribe_status');
+
+    evidence.joinState =
+      readCandidateProp('to.viewer_forum_join_state') ||
+      readCandidateProp('story.to.viewer_forum_join_state') ||
+      readCandidateProp('comet_sections.header.story.to.viewer_forum_join_state') ||
+      readCandidateProp('to.viewer_join_state') ||
+      readCandidateProp('story.to.viewer_join_state');
+
+    let actionSig = detectActionSignal(unit.record) || (unit.nestedUnit ? detectActionSignal(unit.nestedUnit) : null);
+    let recHdr = detectRecommendationHeader(unit.record) || (unit.nestedUnit ? detectRecommendationHeader(unit.nestedUnit) : null);
+
+    if (!actionSig && unit.records && unit.records.length) {
+      for (const rec of unit.records) {
+        actionSig = detectActionSignal(rec);
+        if (actionSig) break;
+      }
+    }
+    if (!recHdr && unit.records && unit.records.length) {
+      for (const rec of unit.records) {
+        recHdr = detectRecommendationHeader(rec);
+        if (recHdr) break;
+      }
+    }
+
+    evidence.actionSignal = actionSig;
+    evidence.recHeader = recHdr;
+
+    if (evidence.adId || evidence.subscribeStatus || evidence.joinState || evidence.actionSignal || evidence.recHeader) {
       evidence.source = 'props';
     }
 
@@ -241,6 +434,17 @@ window.FBDietClassify = (() => {
     if (evidence.subscribeStatus && SUGGESTED_SUBSCRIBE_STATES.indexOf(evidence.subscribeStatus) !== -1) {
       return { category: CATEGORY.SUGGESTED, reason: 'actors[0].subscribe_status' };
     }
+    // Action links: follow/subscribe buttons or join group buttons
+    if (evidence.actionSignal === 'subscribe') {
+      return { category: CATEGORY.SUGGESTED, reason: 'action_links:subscribe' };
+    }
+    if (evidence.actionSignal === 'join_group') {
+      return { category: CATEGORY.SUGGESTED, reason: 'action_links:join_group' };
+    }
+    // Explicit suggestion header: "為你推薦" / "Suggested for you"
+    if (evidence.recHeader) {
+      return { category: CATEGORY.SUGGESTED, reason: 'header:' + evidence.recHeader };
+    }
     // NOTE: there is deliberately NO story_header rule (STRATEGY.md, decision #6).
 
     // The mid-feed Stories row is a DiscoverFeedUnit delivered through the generic
@@ -294,7 +498,7 @@ window.FBDietClassify = (() => {
     try {
       if (!payload || typeof payload !== 'object') return result;
 
-      const unit = collectUnit(payload);
+      const unit = collectUnit(payload, context);
       result.unitTypename = unit.unitTypename;
       result.unitId = unit.ids.length ? unit.ids[0] : null;
 
