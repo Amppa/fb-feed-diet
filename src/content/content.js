@@ -575,27 +575,23 @@
       <div class="fb-diet-placeholder-left">
         <span class="fb-diet-badge ${config.badgeClass}">${config.badgeText}</span>
       </div>
-      <span class="fb-diet-toggle-symbol">[+]</span>
     `;
 
     let isExpanded = false;
 
     bar.addEventListener('click', () => {
       isExpanded = !isExpanded;
-      const symbol = bar.querySelector('.fb-diet-toggle-symbol');
       const badge = bar.querySelector('.fb-diet-badge');
 
       if (isExpanded) {
         originalElement.classList.add('fb-diet-is-expanded');
         bar.classList.add('fb-diet-state-expanded');
         bar.title = 'Re-fold';
-        if (symbol) symbol.textContent = '[-]';
         if (badge) badge.textContent = config.badgeText;
       } else {
         originalElement.classList.remove('fb-diet-is-expanded');
         bar.classList.remove('fb-diet-state-expanded');
         bar.title = 'Show post';
-        if (symbol) symbol.textContent = '[+]';
         if (badge) badge.textContent = config.badgeText;
       }
     });

@@ -98,8 +98,6 @@ window.FBDietFold = (() => {
       createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText])
     ]);
 
-    const symbol = createEl('span', { className: 'fb-diet-toggle-symbol' }, ['[+]']);
-
     return createEl(
       'div',
       {
@@ -107,7 +105,7 @@ window.FBDietFold = (() => {
         title: 'Show post',
         onClick: props.onToggle
       },
-      [left, symbol]
+      [left]
     );
   }
 
@@ -168,13 +166,15 @@ window.FBDietFold = (() => {
     return null;
   }
 
-  function extractMediaFromDom(container) {
+  function extractMediaFromDom(container, isMediaGroup) {
     if (!container || typeof container.querySelector !== 'function') return null;
     try {
       if (container.querySelector('video, [data-video-id]')) return '🎬 [影片]';
-      const imgs = container.querySelectorAll('img[src*="fbcdn"]');
-      if (imgs.length > 1) return '📷 [多張相片]';
-      if (imgs.length === 1) return '📷 [相片]';
+      if (!isMediaGroup) {
+        const imgs = container.querySelectorAll('img[src*="fbcdn"]');
+        if (imgs.length > 1) return '📷 [多張相片]';
+        if (imgs.length === 1) return '📷 [相片]';
+      }
     } catch (e) {}
     return null;
   }
@@ -211,7 +211,8 @@ window.FBDietFold = (() => {
         const foundActor = initialActor || extractAuthorFromDom(container);
         const foundMsg = initialMsg || extractMessageFromDom(container);
         const foundGroup = initialGroup || extractGroupFromDom(container);
-        const foundMedia = (!foundMsg && extractMediaFromDom(container)) || '';
+        const isMediaGroup = props.category === 'reels' || props.category === 'stories';
+        const foundMedia = (!foundMsg && extractMediaFromDom(container, isMediaGroup)) || '';
 
         if (foundActor || foundMsg || foundGroup || foundMedia) {
           const newData = {
@@ -222,7 +223,7 @@ window.FBDietFold = (() => {
           if (unitId) titleBarCache.set(unitId, newData);
           setDomData(newData);
         }
-      }, [initialActor, initialMsg, initialGroup, unitId]);
+      }, [initialActor, initialMsg, initialGroup, unitId, props.category]);
     }
 
     const effectiveActor = (domData && domData.actorName) || initialActor;
@@ -244,9 +245,9 @@ window.FBDietFold = (() => {
     if (effectiveActor) {
       authorText = effectiveActor + ':';
     } else if (props.category === 'stories') {
-      authorText = '限時動態:';
+      authorText = '限時動態';
     } else if (props.category === 'reels') {
-      authorText = '連續短片:';
+      authorText = '連續短片';
     } else if (props.category === 'suggestedGroup') {
       authorText = '推薦社團:';
     }
@@ -261,9 +262,10 @@ window.FBDietFold = (() => {
     let snippetText = effectiveMsg;
     if (!snippetText) {
       const media = enrichment && enrichment.media;
+      const isMediaCategory = props.category === 'reels' || props.category === 'stories';
       if (media && media.hasVideo) {
         snippetText = '🎬 [影片]';
-      } else if (media && (media.count > 0 || media.isMultiImage)) {
+      } else if (!isMediaCategory && media && (media.count > 0 || media.isMultiImage)) {
         snippetText = media.isMultiImage ? '📷 [多張相片]' : '📷 [相片]';
       } else if (enrichment && enrichment.content && enrichment.content.callToAction) {
         snippetText = '👉 [' + enrichment.content.callToAction + ']';
@@ -277,7 +279,6 @@ window.FBDietFold = (() => {
     }
 
     const contentBox = createEl('div', { className: 'fb-diet-title-content' }, contentKids);
-    const symbol = createEl('span', { className: 'fb-diet-toggle-symbol' }, [isExpanded ? '[-]' : '[+]']);
 
     return createEl(
       'div',
@@ -287,7 +288,7 @@ window.FBDietFold = (() => {
         title: isExpanded ? 'Re-fold' : 'Show post',
         onClick: props.onToggle
       },
-      [contentBox, symbol]
+      [contentBox]
     );
   }
 
@@ -895,7 +896,6 @@ window.FBDietFold = (() => {
         const refoldLeft = createEl('div', { className: 'fb-diet-placeholder-left' }, [
           createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText])
         ]);
-        const refoldSymbol = createEl('span', { className: 'fb-diet-toggle-symbol' }, ['[-]']);
         const refoldBar = createEl(
           'div',
           {
@@ -903,7 +903,7 @@ window.FBDietFold = (() => {
             title: 'Re-fold',
             onClick: onToggle
           },
-          [refoldLeft, refoldSymbol]
+          [refoldLeft]
         );
 
         const expandedBody = createEl('div', { className: 'fb-diet-expand-body' }, [rendered]);
