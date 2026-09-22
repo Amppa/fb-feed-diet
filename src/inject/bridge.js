@@ -37,11 +37,30 @@ window.FBDietBridge = (() => {
     debugProbe: false
   };
 
+  const STORAGE_CACHE_KEY = 'fb_diet_settings_cache';
+
+  function loadCachedSettings() {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const raw = window.localStorage.getItem(STORAGE_CACHE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            return Object.assign({}, DEFAULT_SETTINGS, parsed);
+          }
+        }
+      }
+    } catch (e) {
+      // Storage unavailable or disabled: fall through to defaults
+    }
+    return Object.assign({}, DEFAULT_SETTINGS);
+  }
+
   const MAX_EXPANDED = 800;
   const MAX_REPORTS = 200;
   const MAX_REGULAR = 150;
 
-  let settings = Object.assign({}, DEFAULT_SETTINGS);
+  let settings = loadCachedSettings();
   let lastError = null;
   let debugEnabled = /[?&]fb_diet_debug=1(?:&|$)/.test(window.location.search);
 
@@ -146,6 +165,13 @@ window.FBDietBridge = (() => {
 
     settings = merged;
     if (changed) {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(settings));
+        }
+      } catch (e) {
+        // Ignore quota/private mode errors
+      }
       debugLog('settings-applied', settings);
       post('settings-applied', { settings });
       // Existing feed units do not necessarily re-render when a storage value
