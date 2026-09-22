@@ -630,97 +630,46 @@ window.FBDietFold = (() => {
       }
       if (!evidenceText) evidenceText = 'none';
 
-      // 類型：sponsored
-      const typeRow = document.createElement('div');
-      typeRow.className = 'fb-diet-probe-popup-row';
-      typeRow.textContent = '類型：' + category;
-      popup.appendChild(typeRow);
+      const userFacingGroup = groupOf(category);
+      const groupMeta = GROUP_META[userFacingGroup] || GROUP_META.other;
 
-      // 群組：ads（第二階層的使用者分組，STRATEGY.md 決策 #8）
-      const groupRow = document.createElement('div');
-      groupRow.className = 'fb-diet-probe-popup-row';
-      groupRow.textContent = '群組：' + groupOf(category);
-      popup.appendChild(groupRow);
+      // Category: Ads (sponsored)
+      const catRow = document.createElement('div');
+      catRow.className = 'fb-diet-probe-popup-row';
+      catRow.textContent = 'Category: ' + groupMeta.badgeText + ' (' + category + ')';
+      popup.appendChild(catRow);
 
-      // 作者：Sunny Lin (@happylearningJapanese)（Page）
+      // Signal: th_dat_spo
+      const signalRow = document.createElement('div');
+      signalRow.className = 'fb-diet-probe-popup-row';
+      signalRow.textContent = 'Signal: ' + reason;
+      popup.appendChild(signalRow);
+
+      // Source: props (CometFeedUnitErrorBoundary.react)
+      const sourceRow = document.createElement('div');
+      sourceRow.className = 'fb-diet-probe-popup-row';
+      sourceRow.textContent = 'Source: ' + evidenceText;
+      popup.appendChild(sourceRow);
+
+      // Link: article or ad URL (if found)
       const enrichment = enrich || null;
-      const actorName = enrichment && enrichment.actor && enrichment.actor.name;
-      const actorType = enrichment && enrichment.actor && enrichment.actor.typename;
-      const actorId = enrichment && enrichment.actor && (enrichment.actor.username || enrichment.actor.id);
-      if (actorName || actorType || actorId) {
-        const actorRow = document.createElement('div');
-        actorRow.className = 'fb-diet-probe-popup-row';
-        actorRow.textContent = '作者：' + (actorName || actorId || '?') + (actorId && actorName && actorId !== actorName ? ' (@' + actorId + ')' : '') + (actorType ? '（' + actorType + '）' : '');
-        popup.appendChild(actorRow);
-      }
-
-      // 社團：某社團（單一行，有值才顯示）
-      const groupName = enrichment && enrichment.group && enrichment.group.name;
-      if (groupName) {
-        const groupNameRow = document.createElement('div');
-        groupNameRow.className = 'fb-diet-probe-popup-row';
-        groupNameRow.textContent = '社團：' + groupName;
-        popup.appendChild(groupNameRow);
-      }
-
-      // 關係：CAN_SUBSCRIBE / CAN_JOIN（無值顯示 NULL）
-      const subStatus = (enrichment && enrichment.actor && enrichment.actor.subscribeStatus) ||
-        (evidence && evidence.subscribeStatus) ||
-        'NULL';
-      const joinState = (enrichment && enrichment.group && enrichment.group.joinState) ||
-        (evidence && evidence.joinState) ||
-        'NULL';
-      const relRow = document.createElement('div');
-      relRow.className = 'fb-diet-probe-popup-row';
-      relRow.textContent = '關係：' + subStatus + ' / ' + joinState;
-      popup.appendChild(relRow);
-
-      // 網址：文章連結或廣告連結
       const postUrl = enrichment && enrichment.content && enrichment.content.permalink;
       if (postUrl) {
         const linkRow = document.createElement('div');
         linkRow.className = 'fb-diet-probe-popup-row';
-        linkRow.textContent = '連結：' + (postUrl.length > 50 ? postUrl.slice(0, 50) + '…' : postUrl);
+        linkRow.textContent = 'Link: ' + (postUrl.length > 50 ? postUrl.slice(0, 50) + '…' : postUrl);
         popup.appendChild(linkRow);
       }
 
-      // 標題：message 優先前 40 字，無則取 title，皆無為 NULL
-      let titleSnippet = null;
-      const msg = enrichment && enrichment.content && enrichment.content.message;
-      const storyTitle = enrichment && enrichment.content && enrichment.content.title;
-      if (msg && typeof msg === 'string' && msg.trim()) {
-        titleSnippet = msg.trim().slice(0, 40);
-      } else if (storyTitle && typeof storyTitle === 'string' && storyTitle.trim()) {
-        titleSnippet = storyTitle.trim().slice(0, 40);
-      } else {
-        titleSnippet = 'NULL';
-      }
-      const titleRow = document.createElement('div');
-      titleRow.className = 'fb-diet-probe-popup-row';
-      titleRow.textContent = '標題：' + titleSnippet;
-      popup.appendChild(titleRow);
-
-      // 判斷：sponsored_data.ad_id
-      const judgeRow = document.createElement('div');
-      judgeRow.className = 'fb-diet-probe-popup-row';
-      judgeRow.textContent = '判斷：' + reason;
-      popup.appendChild(judgeRow);
-
-      // 依據：props (CometFeedUnitErrorBoundary.react)
-      const basisRow = document.createElement('div');
-      basisRow.className = 'fb-diet-probe-popup-row';
-      basisRow.textContent = '依據：' + evidenceText;
-      popup.appendChild(basisRow);
-
-      // 空行
+      // Spacer
       const spacer = document.createElement('div');
       spacer.className = 'fb-diet-probe-popup-spacer';
       popup.appendChild(spacer);
 
-      // 已複製json到剪貼簿
+      // Copied notice
       const copiedRow = document.createElement('div');
       copiedRow.className = 'fb-diet-probe-popup-row';
-      copiedRow.textContent = '已複製json到剪貼簿';
+      copiedRow.textContent = '已複製診斷 JSON 到剪貼簿 (Copied)';
       popup.appendChild(copiedRow);
 
       holder.appendChild(popup);
