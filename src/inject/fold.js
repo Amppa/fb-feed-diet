@@ -175,6 +175,41 @@ window.FBDietFold = (() => {
     return null;
   }
 
+  function extractPostUrlFromDom(container) {
+    if (!container || typeof container.querySelectorAll !== 'function') return null;
+    try {
+      const links = container.querySelectorAll('a[role="link"], a[href]');
+      for (const a of links) {
+        const href = a.href || a.getAttribute('href') || '';
+        if (
+          href.indexOf('/posts/') !== -1 ||
+          href.indexOf('permalink.php') !== -1 ||
+          href.indexOf('/videos/') !== -1 ||
+          href.indexOf('/photos/') !== -1 ||
+          href.indexOf('story_fbid=') !== -1
+        ) {
+          return href.startsWith('/') ? 'https://www.facebook.com' + href : href;
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function extractFullDomSnapshot(container, isMediaGroup) {
+    if (!container || typeof container.querySelector !== 'function') return null;
+    try {
+      const actor = extractAuthorFromDom(container);
+      const snippet = extractMessageFromDom(container);
+      const group = extractGroupFromDom(container);
+      const postUrl = extractPostUrlFromDom(container);
+      const adUrl = extractAdUrlFromDom(container);
+      const media = extractMediaFromDom(container, isMediaGroup);
+      return { actor, snippet, group, postUrl, adUrl, media };
+    } catch (e) {
+      return null;
+    }
+  }
+
   function extractMediaFromDom(container, isMediaGroup) {
     if (!container || typeof container.querySelector !== 'function') return null;
     try {
@@ -377,16 +412,45 @@ window.FBDietFold = (() => {
     return matches.length ? matches : null;
   }
 
-  function buildUnitProbeReport(props, classifyResult, relayReads) {
+  function buildUnitProbeReport(props, classifyResult, relayReads, container, renderedAt) {
     const feedUnit = props.payload && props.payload.feedUnit;
-    const bridge = window.FBDietBridge;
-    const settings = bridge && typeof bridge.getSettings === 'function' ? bridge.getSettings() : null;
+    const nowIso = new Date().toISOString();
+    const renderIso = renderedAt || nowIso;
+
+    const unitKey = classifyResult && (classifyResult.unitId || (classifyResult.evidence && classifyResult.evidence.id));
+    const cached = unitKey ? titleBarCache.get(unitKey) : null;
+    const isMediaGroup = classifyResult && (classifyResult.category === 'reels' || classifyResult.category === 'stories');
+    const domLive = container ? extractFullDomSnapshot(container, isMediaGroup) : null;
+
+    // Structured context from Props / Relay store (initial)
+    let initialEnrichment = null;
+    try {
+      const metadata = window.FBDietMetadata;
+      if (metadata && typeof metadata.collect === 'function') {
+        initialEnrichment = metadata.collect(classifyResult, props);
+      }
+    } catch (e) {}
+
+    // URLs: extract postUrl & adUrl
+    const adUrl = (domLive && domLive.adUrl) || (cached && cached.adUrl) || (initialEnrichment && initialEnrichment.content && initialEnrichment.content.permalink && initialEnrichment.content.permalink.indexOf('/ads/') !== -1 ? initialEnrichment.content.permalink : null);
+    let postUrl = (domLive && domLive.postUrl) || (cached && cached.postUrl) || (initialEnrichment && initialEnrichment.content && initialEnrichment.content.permalink && initialEnrichment.content.permalink.indexOf('/ads/') === -1 ? initialEnrichment.content.permalink : null);
+
+    const postId = (feedUnit && (feedUnit.post_id || feedUnit.clip_id || (feedUnit.story && feedUnit.story.post_id) || feedUnit.mf_story_key)) || null;
+    const authorHandle = (initialEnrichment && initialEnrichment.actor && (initialEnrichment.actor.username || initialEnrichment.actor.id)) || null;
+    if (!postUrl && postId && authorHandle) {
+      postUrl = 'https://www.facebook.com/' + authorHandle + '/posts/' + postId;
+    }
 
     const report = {
-      at: new Date().toISOString(),
-      version: typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest ? chrome.runtime.getManifest().version : '1.4.0',
-      href: typeof window !== 'undefined' && window.location ? window.location.href : null,
-      lang: typeof navigator !== 'undefined' && navigator.language ? navigator.language : null,
+      version: '1.4.1',
+      at: {
+        rendered: renderIso,
+        probed: nowIso
+      },
+      url: {
+        post: postUrl || null,
+        ad: adUrl || null
+      },
       moduleName: props.moduleName || null,
       position: props.payload && typeof props.payload.position === 'number' ? props.payload.position : null
     };
@@ -411,7 +475,40 @@ window.FBDietFold = (() => {
         }
       : null;
 
-    const postId = (feedUnit && (feedUnit.post_id || feedUnit.clip_id || (feedUnit.story && feedUnit.story.post_id) || feedUnit.mf_story_key)) || null;
+    // Dual-track: (1) initial Props/Relay data, (2) live DOM rendered state
+    report.initial = {
+      enrichment: initialEnrichment,
+      relayStatus: null
+    };
+    try {
+      const relay = window.FBDietRelay;
+      if (relay) {
+        report.initial.relayStatus = {
+          isReady: typeof relay.isReady === 'function' ? relay.isReady() : false,
+          sourceCount: typeof relay.getSourceCount === 'function' ? relay.getSourceCount() : 0,
+          lastError: typeof relay.getLastError === 'function' ? relay.getLastError() : null
+        };
+      }
+    } catch (e) {}
+
+    report.dom = {
+      actor: (domLive && domLive.actor) || (cached && cached.actorName) || null,
+      snippet: (domLive && domLive.snippet) || (cached && cached.snippetText) || null,
+      group: (domLive && domLive.group) || (cached && cached.groupName) || null,
+      postUrl: postUrl || null,
+      adUrl: adUrl || null,
+      media: (domLive && domLive.media) || null
+    };
+
+    // Keep top-level enrichment populated for backward-compatibility with popup & options
+    const mergedEnrichment = initialEnrichment || { actor: {}, group: {}, content: {}, media: null, viewer: null };
+    if (!mergedEnrichment.actor) mergedEnrichment.actor = {};
+    if (!mergedEnrichment.actor.name && report.dom.actor) mergedEnrichment.actor.name = report.dom.actor;
+    if (!mergedEnrichment.content) mergedEnrichment.content = {};
+    if (!mergedEnrichment.content.message && report.dom.snippet) mergedEnrichment.content.message = report.dom.snippet;
+    if (!mergedEnrichment.content.permalink && (adUrl || postUrl)) mergedEnrichment.content.permalink = adUrl || postUrl;
+    report.enrichment = mergedEnrichment;
+
     const payloadKeys = props.payload && typeof props.payload === 'object' ? Object.keys(props.payload) : null;
     const feedUnitKeys = feedUnit && typeof feedUnit === 'object' ? Object.keys(feedUnit) : null;
     const childrenProps = props.payload && props.payload.children && typeof props.payload.children === 'object'
@@ -430,59 +527,18 @@ window.FBDietFold = (() => {
       childrenKeys: childrenKeys && childrenKeys.length ? childrenKeys : null
     };
 
-    // Relay store capture health
-    let relayStatus = null;
-    try {
-      const relay = window.FBDietRelay;
-      if (relay) {
-        relayStatus = {
-          isReady: typeof relay.isReady === 'function' ? relay.isReady() : false,
-          sourceCount: typeof relay.getSourceCount === 'function' ? relay.getSourceCount() : 0,
-          lastError: typeof relay.getLastError === 'function' ? relay.getLastError() : null
-        };
-      }
-    } catch (e) {}
-    report.relayStatus = relayStatus;
-
-    // Diagnostic signals found in props: follow/join action buttons or suggested headers
+    // Diagnostic signals found in props
     report.signals = findDiagnosticSignals(props.payload, props.lastCmp);
 
-    // Structured context: author / group / content / media / viewer (metadata.js).
-    let enrichment = null;
-    try {
-      const metadata = window.FBDietMetadata;
-      if (metadata && typeof metadata.collect === 'function') {
-        enrichment = metadata.collect(classifyResult, props);
-      }
-    } catch (e) {
-      // Optional module; a failure must never break the probe
-    }
-    const unitKey = classifyResult && (classifyResult.unitId || (classifyResult.evidence && classifyResult.evidence.id));
-    if (unitKey && titleBarCache.has(unitKey)) {
-      const cached = titleBarCache.get(unitKey);
-      if (cached && (cached.actorName || cached.snippetText || cached.groupName || cached.adUrl)) {
-        if (!enrichment) enrichment = { actor: {}, group: {}, content: {}, media: null, viewer: null };
-        if (!enrichment.actor) enrichment.actor = {};
-        if (cached.actorName && !enrichment.actor.name) enrichment.actor.name = cached.actorName;
-        if (!enrichment.group) enrichment.group = {};
-        if (cached.groupName && !enrichment.group.name) enrichment.group.name = cached.groupName;
-        if (!enrichment.content) enrichment.content = {};
-        if (cached.snippetText && !enrichment.content.message) enrichment.content.message = cached.snippetText;
-        if (cached.adUrl && !enrichment.content.permalink) enrichment.content.permalink = cached.adUrl;
-      }
-    }
-    report.enrichment = enrichment;
-
-    // The exact Relay paths the classifier tried for THIS unit, with the values.
+    // The exact Relay paths the classifier tried for THIS unit
     report.relayReads = Array.isArray(relayReads) && relayReads.length ? relayReads : null;
 
-    // Top-level keys of the Relay record for this unit (essential for discovering new fields on FB updates)
+    // Top-level keys of the Relay record
     let recordKeys = null;
     try {
       const relay = window.FBDietRelay;
-      const unitId = classifyResult && (classifyResult.unitId || (classifyResult.evidence && classifyResult.evidence.id));
-      if (relay && typeof relay.describe === 'function' && unitId) {
-        const record = relay.describe(unitId);
+      if (relay && typeof relay.describe === 'function' && unitKey) {
+        const record = relay.describe(unitKey);
         if (record && typeof record === 'object') {
           recordKeys = Object.keys(record);
         }
@@ -497,7 +553,7 @@ window.FBDietFold = (() => {
       text = '{"error":"probe serialization failed: ' + String(e && e.message ? e.message : e) + '"}';
     }
     if (text.length > PROBE_MAX_CHARS) text = text.slice(0, PROBE_MAX_CHARS) + '\n…[truncated]';
-    return { text, enrichment, report };
+    return { text, enrichment: mergedEnrichment, report };
   }
 
   function promptFallbackCopy(payload) {
@@ -695,8 +751,7 @@ window.FBDietFold = (() => {
       const isProbeOn = bridge.isDebugEnabled() || (settings && settings.debugProbe === true);
       if (!isProbeOn) return element;
 
-      const probe = buildUnitProbeReport(props, classifyResult, relayReads);
-      const reportText = probe.text;
+      const renderedAt = new Date().toISOString();
       const onProbeClick = (event) => {
         try {
           if (event) {
@@ -706,6 +761,18 @@ window.FBDietFold = (() => {
         } catch (e) {
           // Facebook's own handlers must keep working
         }
+
+        const btn = event && (event.currentTarget || event.target);
+        const holder = btn && typeof btn.closest === 'function'
+          ? btn.closest('.fb-diet-probe-holder')
+          : (btn ? btn.parentElement : null);
+        const container = holder
+          ? (holder.querySelector('.fb-diet-fold-hidden, .fb-diet-expand-body') || holder)
+          : null;
+
+        const liveProbe = buildUnitProbeReport(props, classifyResult, relayReads, container, renderedAt);
+        const reportText = liveProbe.text;
+
         try {
           console.info('[FB Diet][Probe]', JSON.parse(reportText));
         } catch (e) {
@@ -714,11 +781,7 @@ window.FBDietFold = (() => {
         copyProbeReport(reportText);
 
         try {
-          const btn = event && (event.currentTarget || event.target);
-          const holder = btn && typeof btn.closest === 'function'
-            ? btn.closest('.fb-diet-probe-holder')
-            : (btn ? btn.parentElement : null);
-          if (holder) showProbePopup(holder, classifyResult, props, probe.enrichment);
+          if (holder) showProbePopup(holder, classifyResult, props, liveProbe.enrichment);
         } catch (e) {
           // Non-fatal
         }

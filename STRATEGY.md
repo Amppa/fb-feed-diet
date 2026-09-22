@@ -191,6 +191,14 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
   2. **廣告網址解析增強**：`metadata.js` 在提取 permalink 時，擴充納入 `sponsored_data.about_this_ad_url` 與 DOM `a[href*="/ads/about/"]` 提取，讓贊助廣告也能精準抓到「關於此廣告」的目標網址。
   3. **Probe 報告精簡**：若 `evidence.id === unitId`，略過重複的 `evidence.id` 欄位，節省 50% 剪貼簿體積；並在氣泡提示中新增「連結：...」列。
 
+### 決策 #20 — Probe v3 雙軌報告架構與版本 1.4.1 升級（2026-09-22）
+- **背景**：原先 Probe 報告是在 React 初次 Render 時（第 0 毫秒）即序列化凍結，導致使用者點擊 🔍 按鈕時 `enrichment` 永遠為 `null`，且 `href: "https://www.facebook.com/"` 無鑑別度、時間戳記無法區分點擊時機。
+- **改動**：
+  1. **雙軌對比報告（Probe v3）**：點擊 🔍 按鈕當下動態產生報告，包含 `initial`（初次 GraphQL/Props/Relay 判定資料）與 `dom`（現場即時提取之作者、內文前 120 字、社團、專屬文章連結與廣告連結）。
+  2. **網址獨立結構**：以 `url: { post, ad }` 取代無意義的首頁網址，精準帶出貼文時間戳記連結或 `/ads/about/` 廣告連結。
+  3. **雙時間戳記**：`at` 區分為 `rendered`（React 初次渲染時間）與 `probed`（使用者點擊診斷按鈕時間）。
+  4. **版本升級**：專案全面升版至 `1.4.1`。
+
 ---
 
 ## 4. 已知誤判案例（症狀 → 根因 → 修正）
