@@ -599,7 +599,33 @@ window.FBDietFold = (() => {
         unitId = mod + '_' + type;
       }
 
-      if (!bridge.isEnabled(category)) {
+      const defaultFolded = Boolean(bridge.isEnabled(category));
+      const isFolded = bridge.isUnitFolded ? bridge.isUnitFolded(unitId, defaultFolded) : defaultFolded;
+
+      // Report counters
+      if (defaultFolded) {
+        bridge.reportBlocked({
+          category,
+          unitId,
+          reason,
+          unitTypename:
+            unitTypename ||
+            (props.payload && typeof props.payload.unitTypename === 'string' ? props.payload.unitTypename : null),
+          moduleName: props.moduleName || null
+        });
+      } else if (category === 'regular') {
+        if (typeof bridge.reportRegular === 'function') {
+          bridge.reportRegular(classifyResult || {
+            category,
+            unitId,
+            reason,
+            unitTypename:
+              unitTypename ||
+              (props.payload && typeof props.payload.unitTypename === 'string' ? props.payload.unitTypename : null),
+            moduleName: props.moduleName || null
+          });
+        }
+      } else {
         if (typeof bridge.reportAllowed === 'function') {
           bridge.reportAllowed({
             category,
@@ -611,22 +637,7 @@ window.FBDietFold = (() => {
             moduleName: props.moduleName || null
           });
         }
-        return addProbe(rendered, props, classifyResult, relayReads);
       }
-
-      // unitTypename / moduleName ride along so the diagnostic log shows which
-      // component produced the fold decision.
-      bridge.reportBlocked({
-        category,
-        unitId,
-        reason,
-        unitTypename:
-          unitTypename ||
-          (props.payload && typeof props.payload.unitTypename === 'string' ? props.payload.unitTypename : null),
-        moduleName: props.moduleName || null
-      });
-
-      const isExpanded = bridge.isExpanded(unitId);
 
       const onToggle = () => {
         try {
@@ -637,7 +648,7 @@ window.FBDietFold = (() => {
         }
       };
 
-      if (isExpanded) {
+      if (!isFolded) {
         const meta = GROUP_META[groupOf(category)] || GROUP_META.other;
         const refoldLeft = createEl('div', { className: 'fb-diet-placeholder-left' }, [
           createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText])

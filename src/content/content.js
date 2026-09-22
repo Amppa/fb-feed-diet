@@ -16,6 +16,7 @@
     foldSearchingAds: true,
     foldStories: true,
     foldReels: true,
+    foldRegular: false,
     debugProbe: false
   };
   const DEFAULT_COUNTS = DEFAULTS.COUNTS || {

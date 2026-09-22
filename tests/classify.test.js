@@ -71,29 +71,29 @@ function run(c) {
   // (STRATEGY.md, misclassifications 1 & 2).
   calls.mapValue = (path) => (path === P.SUBSCRIBE_PATH ? 'NOT_SUBSCRIBED' : null);
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
-  equals(c, 'NOT_SUBSCRIBED actor is not suggested', r.category, null);
+  equals(c, 'NOT_SUBSCRIBED actor is regular, not suggested', r.category, 'regular');
   calls.mapValue = (path) => (path === P.SUBSCRIBE_PATH ? 'CAN_FOLLOW' : null);
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
-  equals(c, 'CAN_FOLLOW actor is not suggested', r.category, null);
+  equals(c, 'CAN_FOLLOW actor is regular, not suggested', r.category, 'regular');
   /* --- story header: diagnostic only, never decides a category --- */
   // The probe proved Facebook stores a friend's comment story under the same keyed
   // story_header record as suggestion headers, so headers must not fold
   // (STRATEGY.md, decision #6). The evidence is still collected for diagnostics.
   calls.mapValue = (path) => (path === P.STORY_HEADER_PATH ? 'Suggested for you' : null);
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
-  equals(c, 'story header never folds a unit', r.category, null);
+  equals(c, 'story header never folds a unit (regular)', r.category, 'regular');
   equals(c, 'story header not in evidence', r.evidence.storyLocation, undefined);
 
   // A location-free story_header ("X commented on ...") is NOT suggestion evidence:
   // contextual stories carry one too and must stay visible.
   calls.mapValue = (path) => (path.indexOf('story_header') !== -1 && path.indexOf('$1') === -1 ? 'A friend commented on a post' : null);
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
-  equals(c, 'plain contextual story_header is not suggested', r.category, null);
+  equals(c, 'plain contextual story_header is regular', r.category, 'regular');
 
   // Existence of a location-keyed story_header without a title is not enough either.
   calls.mapValue = (path) => (path === '^story_header{$1}' ? { location: 'homepage_stream' } : null);
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
-  equals(c, 'story_header existence without title is not suggested', r.category, null);
+  equals(c, 'story_header existence without title is regular', r.category, 'regular');
   /* --- reels --- */
   calls.mapValue = () => null;
 
@@ -105,9 +105,9 @@ function run(c) {
   // showcase_story_type ALONE must NOT fold: a friend resharing a reel exposes the
   // same field on an ordinary Story unit, and that friend post has to stay visible.
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf({ showcase_story_type: 'SHOWCASE_SHORT_VIDEO' }) });
-  equals(c, 'showcase type alone is not reels', r.category, null);
+  equals(c, 'showcase type alone is regular', r.category, 'regular');
   r = C.classifyFeedUnit({ unitTypename: 'Story', feedUnit: feedUnitOf({ showcase_story_type: 'SHOWCASE_SHORT_VIDEO' }) });
-  equals(c, 'friend shared reel (Story) stays visible', r.category, null);
+  equals(c, 'friend shared reel (Story) is regular', r.category, 'regular');
 
   // A friend's share nests a ShowcaseFeedUnit attachment inside an ordinary Story:
   // the nested record's typename must never trigger the Reels rule
@@ -117,17 +117,17 @@ function run(c) {
     feedUnit: feedUnitOf(),
     children: [{ props: { feedUnit: { id: 'reel-1', __typename: 'ShowcaseFeedUnit' } } }]
   });
-  equals(c, 'friend share with nested showcase stays visible', r.category, null);
+  equals(c, 'friend share with nested showcase is regular', r.category, 'regular');
 
   // A payload whose OWN typename is missing (attachment-level payload) is equally not
   // a Reels surface: only a typename read off the nested record would match.
   r = C.classifyFeedUnit({ children: [{ props: { feedUnit: { id: 'reel-2', __typename: 'ShowcaseFeedUnit' } } }] });
-  equals(c, 'nested-only showcase typename is not reels', r.category, null);
+  equals(c, 'nested-only showcase typename is regular', r.category, 'regular');
 
   // The Reels attachment style wrapper renders attachments by definition; units
   // classified from that module must never fold as Reels.
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf({ __typename: 'ShowcaseFeedUnit' }) }, { moduleName: 'CometFeedStoryFBReelsAttachmentStyle.react' });
-  equals(c, 'attachment module context never folds as reels', r.category, null);
+  equals(c, 'attachment module context classifies as regular', r.category, 'regular');
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf({ __typename: 'ShowcaseFeedUnit' }) }, { moduleName: 'CometFeedUnitErrorBoundary.react' });
   equals(c, 'reels still folds for other modules', r.category, 'reels');
 
@@ -163,7 +163,7 @@ function run(c) {
     feedUnit: feedUnitOf(),
     children: [{ props: { feedUnit: { id: 'st-1', __typename: 'DiscoverFeedUnit' } } }]
   });
-  equals(c, 'nested-only DiscoverFeedUnit is not stories', r.category, null);
+  equals(c, 'nested-only DiscoverFeedUnit is regular', r.category, 'regular');
 
   /* --- priority: an ad in a Stories row is still an ad --- */
   calls.mapValue = (path) => (path === P.SPONSORED_PATH ? 'ad-5' : null);
@@ -178,7 +178,7 @@ function run(c) {
   /* --- no-match / empty --- */
   calls.mapValue = () => null;
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
-  equals(c, 'unmatched unit is no-match, not folded', r.category, null);
+  equals(c, 'unmatched unit with id is classified as regular', r.category, 'regular');
   equals(c, 'no-match reason', r.reason, 'no-match');
   equals(c, 'unit id still present for debugging', r.unitId, 'u1');
   c.ok('evidence block always returned', Boolean(r.evidence) && r.evidence.id === 'u1' && r.evidence.idCount === 1);

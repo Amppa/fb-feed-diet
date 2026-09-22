@@ -15,6 +15,7 @@
     foldSearchingAds: true,
     foldStories: true,
     foldReels: true,
+    foldRegular: false,
     debugProbe: false
   };
 
@@ -56,11 +57,12 @@
     suggestedGroup: 'other'
   };
 
-  // 'regular' has no keys on purpose: it is the no-match bucket and must never be
-  // foldable, so the group exists for stats only (STRATEGY.md, decision #8).
+  // 'regular' is now a real foldable category (decision #16): its single key
+  // foldRegular defaults to false, so ordinary friend posts are unfolded by
+  // default but can be folded via the Options page.
   const SETTING_KEYS_BY_GROUP = {
     ads: ['foldSponsored', 'foldMarketAds', 'foldSearchingAds'],
-    regular: [],
+    regular: ['foldRegular'],
     suggested: ['foldSuggested'],
     media: ['foldStories', 'foldReels'],
     other: ['foldSuggestedGroup']

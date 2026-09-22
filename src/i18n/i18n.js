@@ -46,7 +46,7 @@ window.FBDietI18N = (() => {
       groupAdsTitle: 'Ads',
       groupAdsDesc: 'Fold sponsored posts, Marketplace & search ads',
       groupRegularTitle: 'Regular posts',
-      groupRegularDesc: 'Posts from friends & people you follow (never folded)',
+      groupRegularDesc: 'Posts from friends & people you follow',
       groupSuggestedTitle: 'Suggested by Facebook',
       groupSuggestedDesc: "Fold posts from people you don't follow",
       groupMediaTitle: 'Reels & Stories',

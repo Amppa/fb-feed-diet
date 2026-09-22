@@ -25,7 +25,8 @@ window.FBDietClassify = (() => {
     REELS: 'reels',
     STORIES: 'stories',
     MARKET_ADS: 'marketAds',
-    SEARCH_ADS: 'searchingAds'
+    SEARCH_ADS: 'searchingAds',
+    REGULAR: 'regular'
   };
 
   // Maps a category to the storage key owned by the options page / popup
@@ -36,7 +37,8 @@ window.FBDietClassify = (() => {
     reels: 'foldReels',
     stories: 'foldStories',
     marketAds: 'foldMarketAds',
-    searchingAds: 'foldSearchingAds'
+    searchingAds: 'foldSearchingAds',
+    regular: 'foldRegular'
   };
 
   // Relay based classification rules (verified against the reference implementation)
@@ -464,10 +466,14 @@ window.FBDietClassify = (() => {
       return { category: CATEGORY.REELS, reason: 'unitTypename:ShowcaseFeedUnit' };
     }
 
-    // No rule matched. 'no-match' belongs to the no-* absence family (no-unit-id /
-    // no-payload) and never claims the unit IS a normal post: a missed suggestion
-    // carries the same category: null, which is exactly what the probe is for.
-    return { category: null, reason: evidence.idCount ? 'no-match' : 'no-unit-id' };
+    // No rule matched. If we have at least one unit id the unit is identifiable
+    // but unclassified — it is a 'regular' post (decision #16). Only units with
+    // zero ids (no-payload / no-unit-id) keep category: null so that truly
+    // unidentifiable remnants are still excluded from stats and folding.
+    if (evidence.idCount > 0) {
+      return { category: CATEGORY.REGULAR, reason: 'no-match' };
+    }
+    return { category: null, reason: 'no-unit-id' };
   }
 
   /** Unit ids are opaque base64 blobs; show a short fingerprint instead. */

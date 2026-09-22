@@ -150,6 +150,28 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
   3. `metadata.js` 從候選記錄中萃取作者帳號（`username`）、姓名、貼文完整網址（`permalink_url`）與文字摘要。
   4. `fold.js` 將 `props.lastCmp` 傳入分類器，並增強 `findDiagnosticSignals` 遍歷能力。
 
+### 決策 #16 — Regular posts 成為可折疊的分類（2026-09-22）
+- **背景**：決策 #8 原定 `regular` 為 no-match bucket，僅用於統計，不可折疊。但使用者回饋希望普通貼文也能透過切換開關來批量折疊。
+- **改動**：
+  1. `classify.js` 新增 `CATEGORY.REGULAR = 'regular'` 與 `SETTING_BY_CATEGORY.regular = 'foldRegular'`。
+  2. `pickCategory` 改為：當無規則命中且 `evidence.idCount > 0`（具有效 unit 資訊），回傳 `{ category: 'regular', reason: 'no-match' }`；僅有零 id（`no-unit-id`）才保持 `category: null`。
+  3. `defaults.js` 新增 `foldRegular: false`（預設展開），並將 `SETTING_KEYS_BY_GROUP.regular` 從 `[]` 改為 `['foldRegular']`。
+  4. `bridge.js`、`content.js` 同步補上 `foldRegular: false` 預設值，`MAX_EXPANDED` 擴充至 800。
+  5. `options.js` 新增 `groupRegular` 開關，加入 `GROUP_BY_SWITCH` / `SWITCH_BY_GROUP` / `CATEGORY_I18N` 映射，並解除 `updateHighlighting()` 中對 `regular` 的跳過。
+  6. `fold.js` 無需修改 — 現有 `isEnabled('regular')` → `false`（toggle OFF）時進入 `reportAllowed` 路徑（無 badge 無切換鈕）；`isEnabled('regular')` → `true`（toggle ON）時進入 `reportBlocked` 路徑（顯示 `[Regular] [+]` 折疊條，點擊展開後顯示 `[Regular] [-]` + 18px Header Bar）。
+- **統計行為**：`foldRegular: false` 時，regular 貼文僅計入 `total` 不計 `filtered`（與現有 `reportAllowed` 路徑一致）；`foldRegular: true` 時，計入 `total` + `filtered`。
+- **向後相容**：`category: null` 仍用於真正無 unit 資訊的殭屍元素，繼續走 `reportRegular` → `regular` 統計路徑。
+
+### 決策 #17 — 全動態牆 Feed 標籤化與雙向折疊架構（2026-09-22）
+- **背景**：先前架構下，toggle == off 的分類（包括預設 off 的 regular 貼文或使用者手動關閉的類別）會直接放行原生 DOM，無 Tag 與 Header Bar。使用者要求動態牆上全部 Feed（除右上角廣告外）皆帶有 Tag 與 Header，並支援雙向 fold/unfold。
+- **改動**：
+  1. **全面包裝（除右上角廣告外）**：`fold.js` 中的 `FBDietFold` 統一包裝所有進入動態牆的 Feed Units。右上角廣告（`CometAdsSideFeedUnitItem.react`）繼續走 `SideAdHidden` 純隱藏（`display: none`）。
+  2. **Toggle 決定初始狀態（Initial State）**：
+     - Toggle == ON 的分類（如廣告、推薦、短片）：預設 **Fold（收合）**，顯示 Notice Bar（專屬 Tag + `[+]`），本體 1x1 squash 隱藏。
+     - Toggle == OFF 的分類（如一般貼文，或使用者關閉的分類）：預設 **Unfold（展開）**，頂部常駐 18px 細緻 Header Bar（專屬 Tag + `[-]`），本體包在 `fb-diet-expand-body` 中展示。
+  3. **雙向即時切換**：`bridge.js` 實作 `isUnitFolded(unitId, defaultFolded)`，使用者點擊任何貼文的 Header（`[-]` 或 `[+]`）皆能即時切換該 unit 的折疊／展開狀態。
+  4. **快取上限調升**：`bridge.js` 狀態快取擴充至 800 筆，保障長篇滑動時使用者手動操作不被虛擬滾動遺忘。
+
 ---
 
 ## 4. 已知誤判案例（症狀 → 根因 → 修正）
@@ -161,18 +183,18 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
 | 3 | 朋友轉貼含 reel 被判 reels | `unitTypename:ShowcaseFeedUnit`（nested 附件 record 的 typename） | 決策 #3 |
 | 4 | 朋友照片被留言回應（「X 最近留言回應。」情境 story）被判 suggested | `story_header:homepage_stream`（與建議標題同一個 keyed record，probe 實證） | 決策 #6（規則全數退役） |
 
-> 注意修正後的副作用：**寧可漏折、不可誤折**。如果發現某些「真的建議貼文」開始漏折，先看 `regular`（reason: `no-match`）回報的 evidence（見 §5），有資料再精準補規則，不要直接放寬上述條件。
+> 注意修正後的副作用：**寧可漏折、不可誤折**。如果發現某些「真的建議貼文」開始漏折，先看 `regular`（category: `regular`, reason: `no-match`）回報的 evidence（見 §5），有資料再精準補規則，不要直接放寬上述條件。
 
 ---
 
 ## 5. 診斷工具與 runbook（遇到漏判／誤判時）
 
-> **術語**：未命中任何規則的貼文在統計中記為 `regular`（一般貼文），診斷層的 `reason` 為 `no-match`（`no-unit-id` / `no-payload` 代表連單元資訊都拿不到）；`category: null` **不代表已確認是一般貼文**，也可能是漏折的建議貼文，這正是 probe 要抓的線索。v1.2.0 前上述值都叫 `unknown`，舊 `fbDietLog` 與舊 probe JSON 仍可能出現該字串。
+> **術語**：未命中任何規則的貼文在統計中記為 `regular`（category: `regular`, reason: `no-match`）；`category: null` 代表連 unit 資訊都拿不到（reason: `no-unit-id`），**不代表已確認是一般貼文**，也可能是漏折的建議貼文，這正是 probe 要抓的線索。v1.2.0 前上述值都叫 `unknown`，舊 `fbDietLog` 與舊 probe JSON 仍可能出現該字串。
 
 1. **診斷日誌（自動、持久）**：`chrome.storage.local` 的 `fbDietLog` key，記錄最近 300 筆分類事件（blocked / allowed / regular，含 category、reason、unitTypename、moduleName、evidence、頁面路徑）。
    - Facebook 分頁 Console（選 content script context）：`__fbDietDumpLog()`、`__fbDietClearLog()`。
 2. **Feed 診斷按鈕（probe，手動）**：Options 開啟「🔎 顯示 Feed 診斷按鈕」（或 URL 加 `?fb_diet_debug=1`），每個經過 `FBDietFold` 的單元左側外浮現 🔍 按鈕，點擊即複製該單元的精簡 JSON（並在左側浮現類型提示氣泡：類型、群組、作者／社團、判斷、依據；點擊外部可關閉）：`classify` 分類結果（category/reason/evidence）、`enrichment`（作者／社團／內容／媒體／viewer）、`relayReads`（分類器實際讀過的 Relay paths 與回傳值）、觸發的元件模組、單元身份。舊版的完整 payload 快照與 Relay record dump 已移除（見決策 #11）。
-   - **漏判診斷**：對沒被摺疊的貼文按 🔍，看 `classify.category` 是 `null`（看 `reason`：`no-match` 為沒命中規則）還是被 settings 關掉；把 JSON 貼給對照 §3 補規則。
+   - **漏判診斷**：對沒被摺疊的貼文按 🔍，看 `classify.category` 是 `regular`（`reason: no-match` 代表沒命中規則，或 `foldRegular` 關閉）還是 `null`（`reason: no-unit-id`）；把 JSON 貼給對照 §3 補規則。
    - **誤判診斷**：對被誤折的貼文展開後按 🔍，看 `reason` 對回 §3 的哪條規則。
 3. **Options Debug 卡（報告判讀）**：Options 頁面底部的 DEBUG 卡可貼上 probe 複製的 JSON，按「判斷」即顯示當時分類結果，並用**目前版本規則**對 `payload` 重跑一次分類做對比。已知限制：probe 快照只含第一筆 record，`^` / `^^` 連結路徑在重跑時讀不到值（結果可能退化為 `no-match`），此時以當時結果為準。
 4. **即時 console**：URL 加 `?fb_diet_debug=1`，看 `[FB Diet][MAIN]` / `[FB Diet][Classify]` 輸出。

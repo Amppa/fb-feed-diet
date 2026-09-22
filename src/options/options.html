@@ -99,15 +99,19 @@
     <div class="section-label" data-i18n="sectionDietOptions">Feed Classifies</div>
     <div class="features-list" id="featuresList">
 
-      <!-- 1. Regular posts (stats only, never folded: STRATEGY.md decision #8) -->
+      <!-- 1. Regular posts -->
       <div class="feature-item">
         <div class="feature-meta">
           <span class="feature-icon">📰</span>
           <div>
             <div class="feature-title" data-i18n="groupRegularTitle">Regular posts</div>
-            <div class="feature-desc" data-i18n="groupRegularDesc">Posts from friends & people you follow (never folded)</div>
+            <div class="feature-desc" data-i18n="groupRegularDesc">Posts from friends &amp; people you follow</div>
           </div>
         </div>
+        <label class="switch">
+          <input type="checkbox" id="groupRegular" aria-label="Regular posts">
+          <span class="slider round"></span>
+        </label>
       </div>
 
       <!-- 2. Suggested by Facebook group -->

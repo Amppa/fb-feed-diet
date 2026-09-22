@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     foldSuggestedGroup: SHARED_DEFAULTS.foldSuggestedGroup !== false,
     foldStories: SHARED_DEFAULTS.foldStories !== false,
     foldReels: SHARED_DEFAULTS.foldReels !== false,
+    foldRegular: SHARED_DEFAULTS.foldRegular !== false,
     foldMarketAds: SHARED_DEFAULTS.foldMarketAds !== false,
     foldSearchingAds: SHARED_DEFAULTS.foldSearchingAds !== false,
     debugProbe: Boolean(SHARED_DEFAULTS.debugProbe)
@@ -38,12 +39,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const GROUP_BY_CATEGORY = DEFAULTS_MAP.GROUP_BY_CATEGORY || {};
 
   const GROUP_BY_SWITCH = {
+    groupRegular: 'regular',
     groupAds: 'ads',
     groupSuggested: 'suggested',
     groupMedia: 'media',
     groupOther: 'other'
   };
   const SWITCH_BY_GROUP = {
+    regular: 'groupRegular',
     ads: 'groupAds',
     suggested: 'groupSuggested',
     media: 'groupMedia',
@@ -69,7 +72,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function updateHighlighting() {
     const isMasterActive = masterToggle ? masterToggle.checked : true;
     for (const [group, el] of Object.entries(counters)) {
-      if (!el || group === 'total' || group === 'filtered' || group === 'regular') continue;
+      if (!el || group === 'total' || group === 'filtered') continue;
       const switchId = SWITCH_BY_GROUP[group];
       const isFolded = isMasterActive && switchId && switches[switchId] ? switches[switchId].checked : false;
       el.classList.toggle('active-folded', Boolean(isFolded));
@@ -261,7 +264,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     marketAds: 'labelMarket',
     searchingAds: 'labelSearch',
     stories: 'labelStories',
-    reels: 'labelReels'
+    reels: 'labelReels',
+    regular: 'labelRegular'
   };
 
   function tt(key) {

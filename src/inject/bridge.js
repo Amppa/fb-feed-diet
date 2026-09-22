@@ -33,10 +33,11 @@ window.FBDietBridge = (() => {
     foldSearchingAds: true,
     foldStories: true,
     foldReels: true,
+    foldRegular: false,
     debugProbe: false
   };
 
-  const MAX_EXPANDED = 400;
+  const MAX_EXPANDED = 800;
   const MAX_REPORTS = 200;
   const MAX_REGULAR = 150;
 
@@ -49,8 +50,10 @@ window.FBDietBridge = (() => {
     console.info('[FB Diet][MAIN]', event, payload || '');
   }
 
-  const expanded = [];
-  const expandedSet = new Set();
+  const toggled = [];
+  const toggledSet = new Set();
+  const expanded = toggled;
+  const expandedSet = toggledSet;
   const reportedBlocked = [];
   const reportedBlockedSet = new Set();
   const reportedRegular = [];
@@ -80,23 +83,25 @@ window.FBDietBridge = (() => {
     return true;
   }
 
-  function isExpanded(unitId) {
-    return Boolean(unitId) && expandedSet.has(unitId);
+  function isUnitFolded(unitId, defaultFolded) {
+    if (!unitId) return Boolean(defaultFolded);
+    const isToggled = toggledSet.has(unitId);
+    return isToggled ? !defaultFolded : Boolean(defaultFolded);
   }
 
-  function setExpanded(unitId, value) {
-    if (!unitId) return false;
-
-    if (value) return remember(expanded, expandedSet, unitId, MAX_EXPANDED);
-
-    expandedSet.delete(unitId);
-    const index = expanded.indexOf(unitId);
-    if (index !== -1) expanded.splice(index, 1);
-    return false;
+  function isExpanded(unitId, defaultFolded = true) {
+    return !isUnitFolded(unitId, defaultFolded);
   }
 
   function toggle(unitId) {
-    return setExpanded(unitId, !isExpanded(unitId));
+    if (!unitId) return false;
+    if (toggledSet.has(unitId)) {
+      toggledSet.delete(unitId);
+      const index = toggled.indexOf(unitId);
+      if (index !== -1) toggled.splice(index, 1);
+      return false;
+    }
+    return remember(toggled, toggledSet, unitId, MAX_EXPANDED);
   }
 
   function getSettings() {
@@ -275,7 +280,7 @@ window.FBDietBridge = (() => {
     setSettings,
     isEnabled,
     isExpanded,
-    setExpanded,
+    isUnitFolded,
     toggle,
     reportBlocked,
     reportAllowed,

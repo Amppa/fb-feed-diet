@@ -79,25 +79,37 @@ function run(c) {
     c.equals('group meta covers every group', ['ads', 'regular', 'suggested', 'media', 'other'].every((g) => Boolean(t.fold.GROUP_META[g])), true);
   }
 
-  /* --- regular payload: untouched + reported once --- */
+  /* --- regular payload: unfolded with regular header bar + reported once --- */
   {
     const t = setup({});
     const result = t.render(payloadOf('u-regular'));
-    c.ok('regular unit renders the untouched tree', result.__source === true && result.props.children === 'original post');
+    c.ok('regular unit renders unfolded with header bar', result.type === t.React.Fragment && Array.isArray(result.props.children));
+    const [headerBar, body] = result.props.children;
+    c.ok('header bar has expanded state class', headerBar.props.className.indexOf('fb-diet-state-expanded') !== -1);
+    const inner = Array.isArray(body.props.children) ? body.props.children[0] : body.props.children;
+    c.ok('regular original subtree stays mounted', inner.__source === true);
     c.equals('regular reported', countMessages(t.win, 'regular'), 1);
     const regularMsg = t.win.__messages.filter((m) => m && m.type === 'regular')[0];
     c.equals('regular report carries the no-match reason', regularMsg && regularMsg.payload.reason, 'no-match');
     t.render(payloadOf('u-regular'));
     c.equals('regular dedupe by unit id', countMessages(t.win, 'regular'), 1);
-    c.equals('no folding in regular state', countMessages(t.win, 'blocked'), 0);
+    c.equals('no folding in regular default state', countMessages(t.win, 'blocked'), 0);
+
+    // Can be folded manually by clicking the header toggle
+    headerBar.props.onClick();
+    c.ok('toggling regular folds it', t.bridge.isUnitFolded('u-regular', false) === true);
+    const foldedRegular = t.render(payloadOf('u-regular'));
+    c.equals('folded regular has FBDietBar', foldedRegular.props.children[0].type, t.fold.FBDietBar);
   }
 
-  /* --- category disabled reports allowed instead of blocked --- */
+  /* --- category disabled renders unfolded with header bar + reports allowed --- */
   {
     const t = setup({ [SPONSORED_PATH]: 'ad-allowed' });
     t.bridge.setSettings({ foldSponsored: false });
     const result = t.render(payloadOf('u-allowed'));
-    c.ok('disabled category renders untouched', result.__source === true);
+    c.ok('disabled category renders unfolded with header bar', result.type === t.React.Fragment && Array.isArray(result.props.children));
+    const [headerBar] = result.props.children;
+    c.ok('header bar is in expanded state', headerBar.props.className.indexOf('fb-diet-state-expanded') !== -1);
     c.equals('allowed reported', countMessages(t.win, 'allowed'), 1);
     c.equals('not blocked', countMessages(t.win, 'blocked'), 0);
   }
@@ -147,9 +159,10 @@ function run(c) {
     t.bridge.setSettings({ enabled: true });
 
     t.bridge.setSettings({ foldSponsored: false });
-    c.ok('category off renders untouched', t.render(payloadOf('u1')).__source === true);
+    const unfoldedOff = t.render(payloadOf('u1'));
+    c.ok('category off renders unfolded with header bar', unfoldedOff.type === t.React.Fragment && unfoldedOff.props.children[0].props.className.indexOf('fb-diet-state-expanded') !== -1);
     t.bridge.setSettings({ foldSponsored: true });
-    c.ok('category restored folds again', t.render(payloadOf('u1')).type === t.React.Fragment);
+    c.ok('category restored folds again', t.render(payloadOf('u1')).type === t.React.Fragment && t.render(payloadOf('u1')).props.children[0].type === t.fold.FBDietBar);
   }
 
   /* --- multiple categories block independently --- */
