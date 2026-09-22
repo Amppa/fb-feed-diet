@@ -77,7 +77,7 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
   - `suggested`：suggested
   - `media`：reels + stories
   - `other`：suggestedGroup
-- **運作方式**：群組是純「顯示與操作層」。Options 群組開關批次寫入映射的 per-category key（`SETTING_KEYS_BY_GROUP`）；「群組內全部開啟」才顯示為開。統計仍按 category 累計，顯示時加總。folded bar 顯示群組名；probe 氣泡與 Options 分析器同時顯示 type + group。
+- **運作方式**：群組是純「顯示與操作層」。Options 群組開關批次寫入映射的 per-category key（`SETTING_KEYS_BY_GROUP`）；「群組內全部開啟」才顯示為開。統計仍按 category 累計，顯示時加總。folded bar 顯示群組名；probe 氣泡同時顯示 type + group。
 - **命名（Phase A 暫定）**：`regular` 群組顯示為「一般貼文」。未來 Phase B 若用 probe 驗證出「朋友 vs 陌生人」「已追蹤 vs 未追蹤粉專」的可靠訊號，再把陌生人貼文從 regular 移到 suggested 群組，屆時 regular 群組更名「我認識的、追蹤的貼文」。所有關係欄位規則必須照 §5 安全流程驗證（決策 #1、#2 的教訓）。
 - **取捨**：使用者失去單一 category 的獨立開關（例如只想折 marketplace ad）；若日後有需要，可在群組下加進階子選項。
 
@@ -232,7 +232,7 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
 2. **Feed 診斷按鈕（probe，手動）**：Options 開啟「🔎 顯示 Feed 診斷按鈕」（或 URL 加 `?fb_diet_debug=1`），每個經過 `FBDietFold` 的單元左側外浮現 🔍 按鈕，點擊即複製該單元的精簡 JSON（並在左側浮現類型提示氣泡：類型、群組、作者／社團、判斷、依據；點擊外部可關閉）：`classify` 分類結果（category/reason/evidence）、`enrichment`（作者／社團／內容／媒體／viewer）、`relayReads`（分類器實際讀過的 Relay paths 與回傳值）、觸發的元件模組、單元身份。舊版的完整 payload 快照與 Relay record dump 已移除（見決策 #11）。
    - **漏判診斷**：對沒被摺疊的貼文按 🔍，看 `classify.category` 是 `regular`（`reason: no-match` 代表沒命中規則，或 `foldRegular` 關閉）還是 `null`（`reason: no-unit-id`）；把 JSON 貼給對照 §3 補規則。
    - **誤判診斷**：對被誤折的貼文展開後按 🔍，看 `reason` 對回 §3 的哪條規則。
-3. **Options Debug 卡（報告判讀）**：Options 頁面底部的 DEBUG 卡可貼上 probe 複製的 JSON，按「判斷」即顯示當時分類結果，並用**目前版本規則**對 `payload` 重跑一次分類做對比。已知限制：probe 快照只含第一筆 record，`^` / `^^` 連結路徑在重跑時讀不到值（結果可能退化為 `no-match`），此時以當時結果為準。
+3. **Options Debug 卡（診斷開關）**：Options 頁面底部的 DEBUG 卡提供「🔎 顯示 Feed 診斷按鈕」開關。開啟後可直接在動態牆單元左側點擊 🔍 按鈕複製診斷 JSON 並查看即時氣泡提示（原 Options 頁面手動貼上 JSON 的分析區塊已簡化移除）。
 4. **即時 console**：URL 加 `?fb_diet_debug=1`，看 `[FB Diet][MAIN]` / `[FB Diet][Classify]` 輸出。
 5. **單元測試**：`npm test`；新規則務必補 `tests/classify.test.js` 迴歸測試。
 

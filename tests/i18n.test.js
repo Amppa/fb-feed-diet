@@ -50,7 +50,7 @@ function run(c) {
   c.equals('back to zh-TW', i18n.t('masterStatusDisabled'), '已停用');
 
   /* --- options + popup keys exist in both locales --- */
-  const pageKeys = ['optionsTitle', 'optionsSubtitle', 'masterStatusActive', 'masterStatusDisabled', 'itemsFoldedOnDiet', 'reset', 'sectionEngineMode', 'modeProxyTitle', 'modeProxyDesc', 'sectionDietOptions', 'groupAdsTitle', 'groupAdsDesc', 'groupRegularTitle', 'groupRegularDesc', 'groupSuggestedTitle', 'groupSuggestedDesc', 'groupMediaTitle', 'groupMediaDesc', 'groupOtherTitle', 'groupOtherDesc', 'probeGroupLabel', 'langToggleTitle', 'popupSubtitle', 'optionsBtn'];
+  const pageKeys = ['optionsTitle', 'optionsSubtitle', 'masterStatusActive', 'masterStatusDisabled', 'itemsFoldedOnDiet', 'reset', 'sectionEngineMode', 'modeProxyTitle', 'modeProxyDesc', 'sectionDietOptions', 'groupAdsTitle', 'groupAdsDesc', 'groupRegularTitle', 'groupRegularDesc', 'groupSuggestedTitle', 'groupSuggestedDesc', 'groupMediaTitle', 'groupMediaDesc', 'groupOtherTitle', 'groupOtherDesc', 'featProbeTitle', 'langToggleTitle', 'popupSubtitle', 'optionsBtn'];
   c.ok('all page keys resolve in en', pageKeys.every((k) => i18n.t(k, 'en') !== k));
   c.ok('all page keys resolve in zh-TW', pageKeys.every((k) => i18n.t(k, 'zh-TW') !== k && i18n.t(k, 'zh-TW') !== i18n.t(k, 'en')));
 

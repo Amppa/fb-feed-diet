@@ -183,7 +183,7 @@ Loaded sequentially at `document_start` before Comet finishes loading:
     `suggested`, `media` (reels + stories), `other` (suggestedGroup).
     Storage stays per-category with zero migration; Options group switches batch-write the mapped keys
     (`SETTING_KEYS_BY_GROUP`, "on" only when every mapped key is on). Folded bars and the stats breakdown
-    display the group; probe popups and the Options analyzer show both layers (feed type + group).
+    display the group; probe popups show both layers (feed type + group).
 - **`bridge.js` (`window.FBDietBridge`)**:
   - Owns in-page expand/collapse state (`expandedSet`).
   - Manages deduplication sets (`reportedBlockedSet`, `reportedRegularSet`) to prevent redundant storage writes.
@@ -350,20 +350,12 @@ title/snippet (40 chars max), and match reason:
 Use it to diagnose missed folds (`classify.category: null` — check `reason`) and wrong folds
 (`reason` maps back to the rule table in [STRATEGY.md](STRATEGY.md) §3).
 
-### Options Debug Card (probe report analyzer)
+### Options Debug Card (Feed Probe Buttons)
 
-The Options page has a second **DEBUG** card below Feed Classifies. It hosts the probe-button
-toggle plus a report analyzer: paste a copied probe JSON, press **Analyze**, and the page shows
-the captured classification side by side with a re-run of the CURRENT rules
-(`FBDietClassify.classifyProbeReport(report)`, pure & Node-tested).
-In Probe v2, the analyzer renders:
-- Captured vs re-run verdict badges and match reason
-- Page URL and component module name
-- Collapsible **Enrichment Details** (`<details>` card with author, group permalink, content timestamp/CTA, media, and viewer)
-- Collapsible **Relay Reads** (compact `path → value` lines with styled `NULL` badges)
-- Collapsible **Relay Record Keys** (tag list of record keys)
-Known limitation: the probe snapshot contains only the first Relay record, so `^` / `^^` linked-record paths
-read as null on re-run and the re-run may degrade to `no-match` — the captured verdict stays authoritative.
+The Options page has a **DEBUG** card below Feed Classifies. It hosts the **Show Feed Probe Buttons**
+toggle: when enabled, each feed unit displays a 🔍 button on hover/focus to copy its diagnostic JSON
+and inspect the classification, enrichment details, and Relay reads directly via tooltip.
+(The previous in-page JSON analyzer textarea has been removed in favor of direct tooltip inspection.)
 
 ---
 
