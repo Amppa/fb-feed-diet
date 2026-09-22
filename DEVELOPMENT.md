@@ -33,6 +33,7 @@ fb-diet-feed/
 │   ├── inject/
 │   │   ├── proxy.js           # Hooks window.__d, wraps React components safely
 │   │   ├── relay.js           # Intercepts Relay Record Store and evaluates field paths
+│   │   ├── metadata.js        # Probe enrichment: author / group / content / media / viewer
 │   │   ├── classify.js        # Pure functions mapping feed props + Relay to categories
 │   │   ├── classify-retired.js# Retired rules kept for reference (never injected)
 │   │   ├── bridge.js          # In-memory settings, postMessage router, expansion state
@@ -332,12 +333,16 @@ window.__fbDietClearLog();     // wipes the log
 
 Enable "Show Feed Probe Buttons" in the Options page (or open Facebook with `?fb_diet_debug=1`).
 Every unit flowing through `FBDietFold` then shows a small 🔍 button floating on its left side;
-clicking it copies a JSON report of that unit and displays a floating popup (click outside to dismiss)
-showing the feed type, its user-facing group, the match reason and the evidence source:
+clicking it copies a compact JSON report of that unit and displays a floating popup (click outside to dismiss)
+showing the feed type, its user-facing group, the author / group name and the match reason:
 
-- The classification result (`category`, `unitId`, `unitTypename`, `reason`, full `evidence`)
-- The component module that produced the decision
-- A depth-limited snapshot of the unit payload and the Relay record fields
+- `classify`: the decision (`category`, `unitId`, `unitTypename`, `reason`, full `evidence`)
+- `enrichment` (`metadata.js`, best-effort & null-safe): author (id / name / typename / subscribe status),
+  group (id / name / join state), content (message snippet, permalink, created time), media
+  (attachment count, types, `isMultiImage`, `hasVideo`), viewer id
+- `relayReads`: the exact Relay paths the classifier tried for this unit, with the returned values
+- `payload`: unit identity only (`__typename` / `__id` / `post_id`) — the old full payload / Relay record
+  dumps were removed as noise (STRATEGY.md, decision #11)
 
 Use it to diagnose missed folds (`classify.category: null` — check `reason`) and wrong folds
 (`reason` maps back to the rule table in [STRATEGY.md](STRATEGY.md) §3).

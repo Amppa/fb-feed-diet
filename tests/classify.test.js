@@ -131,6 +131,20 @@ function run(c) {
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf({ __typename: 'ShowcaseFeedUnit' }) }, { moduleName: 'CometFeedUnitErrorBoundary.react' });
   equals(c, 'reels still folds for other modules', r.category, 'reels');
 
+  /* --- relay read log (probe relayReads) --- */
+  // Every read is recorded with the value that came back, and the log resets
+  // per classification so a probe reflects exactly one unit.
+  calls.mapValue = (path) => (path === P.SPONSORED_PATH ? 'ad-77' : null);
+  r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
+  let reads = C.getLastRelayReads();
+  c.ok('relay read log has entries', Array.isArray(reads) && reads.length > 0);
+  c.ok('relay read log carries the sponsored hit', reads.some((entry) => entry.path === P.SPONSORED_PATH && entry.value === 'ad-77'));
+
+  calls.mapValue = () => null;
+  r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
+  reads = C.getLastRelayReads();
+  c.ok('relay read log resets per unit', reads.every((entry) => entry.value === null));
+
   /* --- stories: mid-feed Stories row (DiscoverFeedUnit) --- */
   // The Stories row inserted into the home feed arrives via the generic
   // CometFeedUnitErrorBoundary.react wrapper, so only the unit's own typename can

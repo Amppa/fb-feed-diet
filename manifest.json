@@ -43,6 +43,7 @@
         "src/shared/defaults.js",
         "src/inject/proxy.js",
         "src/inject/relay.js",
+        "src/inject/metadata.js",
         "src/inject/classify.js",
         "src/inject/bridge.js",
         "src/inject/fold.js"

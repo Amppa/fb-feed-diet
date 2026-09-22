@@ -72,6 +72,10 @@ window.FBDietClassify = (() => {
   const STORY_HEADER_PATH = '^story_header{$1}.^title.text';
 
   let relayRead = () => null;
+  // Every Relay read the classifier performs for the current unit, in order.
+  // The probe report replays this list so a mis-detection shows exactly which
+  // paths were tried and what they returned.
+  let relayReads = [];
 
   function setRelayReader(reader) {
     if (typeof reader === 'function') relayRead = reader;
@@ -80,8 +84,10 @@ window.FBDietClassify = (() => {
   function safeRelayRead(ids, path, options) {
     try {
       const value = relayRead(ids, path, options);
+      relayReads.push({ path, value: value === undefined ? null : value });
       return value === undefined ? null : value;
     } catch (e) {
+      relayReads.push({ path, value: null });
       return null;
     }
   }
@@ -304,6 +310,8 @@ window.FBDietClassify = (() => {
   }
 
   function classifyFeedUnit(payload, context) {
+    // Fresh read log per unit: the probe reports the reads of THIS unit only.
+    relayReads = [];
     const result = {
       category: null,
       unitId: null,
@@ -343,9 +351,10 @@ window.FBDietClassify = (() => {
    *
    * classifyProbeReport re-runs the CURRENT rules over a probe report copied
    * from a feed 🔍 button. The captured classification is the verdict; the
-   * re-run is a comparison aid. Known limitation: the report's relayRecord is
-   * a single-record snapshot (fold.js describes only the first unit record),
-   * so paths that follow linked records (^ / ^^) cannot resolve and read as
+   * re-run is a comparison aid. Reports no longer embed a Relay record dump
+   * (see STRATEGY.md, decision #11), and a relayRecord field from an older
+   * report is still honored as a single-record snapshot, so paths that follow
+   * linked records (^ / ^^) cannot resolve and read as null on re-run.
    * null. Diagnostics must never throw, exactly like the live classifier.
    * ------------------------------------------------------------------ */
 
@@ -423,12 +432,15 @@ window.FBDietClassify = (() => {
       const relayRecord = report.relayRecord && typeof report.relayRecord === 'object' ? report.relayRecord : null;
       const previousReader = relayRead;
       let current;
+      const previousReads = relayReads;
       try {
+        relayReads = [];
         relayRead = (ids, path, options) => readSnapshotPath(relayRecord, path, options);
         current = classifyFeedUnit(report.payload, { moduleName: report.moduleName || null });
       } finally {
         // Never leak the snapshot reader into the caller's classifier state.
         relayRead = previousReader;
+        relayReads = previousReads;
       }
       return { ok: true, error: null, captured, current, relayAvailable: Boolean(relayRecord) };
     } catch (e) {
@@ -456,6 +468,7 @@ window.FBDietClassify = (() => {
       STORY_HEADER_PATH
     },
     setRelayReader,
+    getLastRelayReads: () => relayReads.slice(),
     classifyFeedUnit,
     classifyProbeReport,
     isCategoryEnabled,

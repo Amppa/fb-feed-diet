@@ -128,44 +128,16 @@ window.FBDietFold = (() => {
    *
    * When debugging is on (URL fb_diet_debug=1, console __fbDietDebug(true)) or
    * the debugProbe setting is enabled, every unit flowing through FBDietFold gets
-   * a small copy button. Clicking it copies a JSON report of the unit: the
-   * classification result (category / reason / evidence), the component module
-   * that produced the decision, and a depth-limited snapshot of the payload plus
-   * the Relay record — everything needed to diagnose a wrong or a missed fold.
+   * a small copy button. Clicking it copies a compact JSON report of the unit: the
+   * classification result (category / reason / evidence), the unit identity, the
+   * structured enrichment (author / group / content / media / viewer, metadata.js)
+   * and the relay read log — everything needed to diagnose a wrong or a missed fold.
    * ------------------------------------------------------------------ */
 
-  const PROBE_MAX_DEPTH = 5;
-  const PROBE_MAX_KEYS = 60;
   const PROBE_MAX_CHARS = 30000;
 
-  /** Depth-limited, JSON-safe serializer: functions / DOM nodes / cycles become markers. */
-  function safeSerialize(value, depth) {
-    try {
-      if (value === null) return null;
-      const kind = typeof value;
-      if (kind === 'string' || kind === 'number' || kind === 'boolean') return value;
-      if (kind === 'undefined') return null;
-      if (kind === 'function') return '[fn' + (value.name ? ' ' + value.name : '') + ']';
-      if (kind === 'symbol' || kind === 'bigint') return value.toString();
-      if (typeof Node !== 'undefined' && value instanceof Node) return '[' + (value.nodeName || 'node') + ']';
-      if (value instanceof Error) return 'Error: ' + value.message;
-      if (depth >= PROBE_MAX_DEPTH) return '[depth]';
-      if (Array.isArray(value)) {
-        return value.slice(0, PROBE_MAX_KEYS).map((item) => safeSerialize(item, depth + 1));
-      }
-      const out = {};
-      const keys = Object.keys(value);
-      for (let i = 0; i < keys.length && i < PROBE_MAX_KEYS; i += 1) {
-        out[keys[i]] = safeSerialize(value[keys[i]], depth + 1);
-      }
-      if (keys.length > PROBE_MAX_KEYS) out['…'] = '[more keys]';
-      return out;
-    } catch (e) {
-      return '[unserializable]';
-    }
-  }
-
-  function buildUnitProbeReport(props, classifyResult) {
+  function buildUnitProbeReport(props, classifyResult, relayReads) {
+    const feedUnit = props.payload && props.payload.feedUnit;
     const report = {
       at: new Date().toISOString(),
       href: typeof window !== 'undefined' && window.location ? window.location.href : null,
@@ -181,20 +153,33 @@ window.FBDietFold = (() => {
             moduleName: classifyResult.moduleName
           }
         : null,
-      payload: safeSerialize(props.payload, 0)
+      position: props.payload && typeof props.payload.position === 'number' ? props.payload.position : null,
+      unitTypename: props.payload && props.payload.unitTypename,
+      // Only the identity fields survive: the previous full payload/Relay dumps
+      // were 90% noise (query variables, React internals, opaque store structs).
+      payload: {
+        feedUnit: {
+          __typename: feedUnit && feedUnit.__typename,
+          __id: feedUnit && feedUnit.__id,
+          post_id: feedUnit && feedUnit.post_id
+        }
+      }
     };
 
-    // Best-effort Relay record snapshot for the unit id (the fields the classifier reads).
+    // Structured context: author / group / content / media / viewer (metadata.js).
+    let enrichment = null;
     try {
-      const relay = window.FBDietRelay;
-      const ids = classifyResult && classifyResult.evidence && classifyResult.evidence.ids;
-      if (relay && typeof relay.describe === 'function' && ids && ids.length) {
-        const record = relay.describe(ids[0]);
-        if (record) report.relayRecord = safeSerialize(record, 0);
+      const metadata = window.FBDietMetadata;
+      if (metadata && typeof metadata.collect === 'function') {
+        enrichment = metadata.collect(classifyResult, props);
       }
     } catch (e) {
-      // Relay probing is optional
+      // Optional module; a failure must never break the probe
     }
+    report.enrichment = enrichment;
+
+    // The exact Relay paths the classifier tried for THIS unit, with the values.
+    report.relayReads = Array.isArray(relayReads) && relayReads.length ? relayReads : null;
 
     let text = null;
     try {
@@ -203,7 +188,7 @@ window.FBDietFold = (() => {
       text = '{"error":"probe serialization failed: ' + String(e && e.message ? e.message : e) + '"}';
     }
     if (text.length > PROBE_MAX_CHARS) text = text.slice(0, PROBE_MAX_CHARS) + '\n…[truncated]';
-    return text;
+    return { text, enrichment };
   }
 
   function promptFallbackCopy(payload) {
@@ -258,7 +243,7 @@ window.FBDietFold = (() => {
     closeActiveProbePopup();
   }
 
-  function showProbePopup(holder, classifyResult, props) {
+  function showProbePopup(holder, classifyResult, props, enrich) {
     try {
       if (!holder || typeof document === 'undefined' || typeof document.createElement !== 'function') return;
 
@@ -291,6 +276,24 @@ window.FBDietFold = (() => {
       groupRow.className = 'fb-diet-probe-popup-row';
       groupRow.textContent = '群組：' + groupOf(category);
       popup.appendChild(groupRow);
+
+      // 作者：Sunny Lin（Page）／社團：某社團（metadata.js 的 enrichment，可為 null）
+      const enrichment = enrich || null;
+      const actorName = enrichment && enrichment.actor && enrichment.actor.name;
+      const actorType = enrichment && enrichment.actor && enrichment.actor.typename;
+      if (actorName || actorType) {
+        const actorRow = document.createElement('div');
+        actorRow.className = 'fb-diet-probe-popup-row';
+        actorRow.textContent = '作者：' + (actorName || '?') + (actorType ? '（' + actorType + '）' : '');
+        popup.appendChild(actorRow);
+      }
+      const groupName = enrichment && enrichment.group && enrichment.group.name;
+      if (groupName) {
+        const groupNameRow = document.createElement('div');
+        groupNameRow.className = 'fb-diet-probe-popup-row';
+        groupNameRow.textContent = '社團：' + groupName;
+        popup.appendChild(groupNameRow);
+      }
 
       // 判斷：sponsored_data.ad_id
       const judgeRow = document.createElement('div');
@@ -333,7 +336,7 @@ window.FBDietFold = (() => {
    * Wraps the unit's render output in a relative holder; the copy button is only
    * appended when probe mode is on (debug URL / debugProbe setting).
    */
-  function addProbe(element, props, classifyResult) {
+  function addProbe(element, props, classifyResult, relayReads) {
     try {
       const bridge = window.FBDietBridge;
       const React = window.FBDietProxy ? window.FBDietProxy.getReact() : null;
@@ -343,7 +346,8 @@ window.FBDietFold = (() => {
       const isProbeOn = bridge.isDebugEnabled() || (settings && settings.debugProbe === true);
       if (!isProbeOn) return element;
 
-      const reportText = buildUnitProbeReport(props, classifyResult);
+      const probe = buildUnitProbeReport(props, classifyResult, relayReads);
+      const reportText = probe.text;
       const onProbeClick = (event) => {
         try {
           if (event) {
@@ -365,7 +369,7 @@ window.FBDietFold = (() => {
           const holder = btn && typeof btn.closest === 'function'
             ? btn.closest('.fb-diet-probe-holder')
             : (btn ? btn.parentElement : null);
-          if (holder) showProbePopup(holder, classifyResult, props);
+          if (holder) showProbePopup(holder, classifyResult, props, probe.enrichment);
         } catch (e) {
           // Non-fatal
         }
@@ -436,6 +440,7 @@ window.FBDietFold = (() => {
       let unitId = null;
       let unitTypename = null;
       let classifyResult = null;
+      let relayReads = null;
 
       if (!category) {
         const classify = window.FBDietClassify;
@@ -445,9 +450,12 @@ window.FBDietFold = (() => {
         // style wrapper, for example, must never fold as Reels (see STRATEGY.md).
         const result = classify.classifyFeedUnit(props.payload, { moduleName: props.moduleName || null });
         classifyResult = result;
+        // The read log belongs to this unit's classification: capture it right
+        // away so later renders cannot pollute the probe report.
+        relayReads = typeof classify.getLastRelayReads === 'function' ? classify.getLastRelayReads() : null;
         if (!result.category) {
           if (typeof bridge.reportRegular === 'function') bridge.reportRegular(result);
-          return addProbe(rendered, props, classifyResult);
+          return addProbe(rendered, props, classifyResult, relayReads);
         }
 
         category = result.category;
@@ -474,7 +482,7 @@ window.FBDietFold = (() => {
             moduleName: props.moduleName || null
           });
         }
-        return addProbe(rendered, props, classifyResult);
+        return addProbe(rendered, props, classifyResult, relayReads);
       }
 
       // unitTypename / moduleName ride along so the diagnostic log shows which
@@ -527,7 +535,7 @@ window.FBDietFold = (() => {
         const output = FoldContext && FoldContext.Provider
           ? createEl(FoldContext.Provider, { value: true }, content)
           : (Fragment ? createEl(Fragment, null, content) : content);
-        return addProbe(output, props, classifyResult);
+        return addProbe(output, props, classifyResult, relayReads);
       }
 
       const bar = createEl(FBDietBar, { category, unitId, onToggle }, []);
@@ -546,7 +554,7 @@ window.FBDietFold = (() => {
       const output = FoldContext && FoldContext.Provider
         ? createEl(FoldContext.Provider, { value: true }, foldContent)
         : (Fragment ? createEl(Fragment, null, foldContent) : foldContent);
-      return addProbe(output, props, classifyResult);
+      return addProbe(output, props, classifyResult, relayReads);
     } catch (e) {
       return rendered;
     }

@@ -15,7 +15,7 @@ const vm = require('vm');
 const ROOT = path.resolve(__dirname, '..');
 
 // Manifest loading order of the MAIN world scripts
-const INJECT_ORDER = ['proxy.js', 'relay.js', 'classify.js', 'bridge.js', 'fold.js'];
+const INJECT_ORDER = ['proxy.js', 'relay.js', 'metadata.js', 'classify.js', 'bridge.js', 'fold.js'];
 
 class Checker {
   constructor(title) {

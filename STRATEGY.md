@@ -107,6 +107,13 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
 ### 決策 #5 — 處理方式：摺疊可還原 vs 1x1 隱藏
 - esuit 用 1x1 透明容器（避免 IntersectionObserver 崩潰）；fb-diet 用 squash 隱藏 + 可展開還原的 placeholder bar。維持 fb-diet 方式。
 
+### 決策 #11 — probe 精簡：保留證據、移除雜訊（2026-09-22）
+- **問題**：probe JSON 夾帶三種雜訊——(a) 完整 payload 內含 query variables（`__fragmentOwner.variables` 數十個 `__relay_internal__pv__*`）、React 內部結構（context / memo / fragments）；(b) 完整 Relay record dump 是不透明 store 結構（`__sources` / `__mutator` / `handle` 陣列），無欄位語意；(c) 對診斷（作者？社團？內容？關係狀態？分類器到底讀了什麼？）沒有直接幫助。
+- **保留（重要）**：`classify` 決策全文（category / reason / evidence）、`enrichment`（作者 id / name / typename / subscribe_status；社團 id / name / join_state；內容 message 片段 / permalink / created_time；媒體 count / types / isMultiImage / hasVideo；viewer id）、`relayReads`（分類器對此單元實際嘗試的 Relay paths 與回傳值——分類器每讀一個 path 就記一筆 `safeRelayRead`）。
+- **移除（雜訊）**：payload 只留單元身份（`__typename` / `__id` / `post_id`）；Relay record dump 不再內嵌（舊報告的 `relayRecord` 在分析器重跑時仍相容，視為單 record 快照）。
+- **實作**：`metadata.js`（獨立模組，MAIN world，manifest 在 classify 之前載入）+ fold.js `buildUnitProbeReport` 精簡 + classify.js `relayReads` 讀取日誌 + `getLastRelayReads()`；浮動氣泡新增「作者／社團」行。
+- **注意**：「加入／追蹤按鈕文字」與「多圖片版面」等 DOM 視覺訊號刻意不收：React 樹不可解析（iphonE 註記），以 Relay 欄位為準。
+
 ---
 
 ## 4. 已知誤判案例（症狀 → 根因 → 修正）
@@ -128,7 +135,7 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
 
 1. **診斷日誌（自動、持久）**：`chrome.storage.local` 的 `fbDietLog` key，記錄最近 300 筆分類事件（blocked / allowed / regular，含 category、reason、unitTypename、moduleName、evidence、頁面路徑）。
    - Facebook 分頁 Console（選 content script context）：`__fbDietDumpLog()`、`__fbDietClearLog()`。
-2. **Feed 診斷按鈕（probe，手動）**：Options 開啟「🔎 顯示 Feed 診斷按鈕」（或 URL 加 `?fb_diet_debug=1`），每個經過 `FBDietFold` 的單元左側外浮現 🔍 按鈕，點擊即複製該單元的完整 JSON（並在左側浮現類型提示氣泡，點擊外部可關閉）：分類結果（category/reason/evidence）、觸發的元件模組、payload 快照（深度 5）、Relay record 欄位。
+2. **Feed 診斷按鈕（probe，手動）**：Options 開啟「🔎 顯示 Feed 診斷按鈕」（或 URL 加 `?fb_diet_debug=1`），每個經過 `FBDietFold` 的單元左側外浮現 🔍 按鈕，點擊即複製該單元的精簡 JSON（並在左側浮現類型提示氣泡：類型、群組、作者／社團、判斷、依據；點擊外部可關閉）：`classify` 分類結果（category/reason/evidence）、`enrichment`（作者／社團／內容／媒體／viewer）、`relayReads`（分類器實際讀過的 Relay paths 與回傳值）、觸發的元件模組、單元身份。舊版的完整 payload 快照與 Relay record dump 已移除（見決策 #11）。
    - **漏判診斷**：對沒被摺疊的貼文按 🔍，看 `classify.category` 是 `null`（看 `reason`：`no-match` 為沒命中規則）還是被 settings 關掉；把 JSON 貼給對照 §3 補規則。
    - **誤判診斷**：對被誤折的貼文展開後按 🔍，看 `reason` 對回 §3 的哪條規則。
 3. **Options Debug 卡（報告判讀）**：Options 頁面底部的 DEBUG 卡可貼上 probe 複製的 JSON，按「判斷」即顯示當時分類結果，並用**目前版本規則**對 `payload` 重跑一次分類做對比。已知限制：probe 快照只含第一筆 record，`^` / `^^` 連結路徑在重跑時讀不到值（結果可能退化為 `no-match`），此時以當時結果為準。
