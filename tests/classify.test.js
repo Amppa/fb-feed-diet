@@ -82,7 +82,7 @@ function run(c) {
   calls.mapValue = (path) => (path === P.STORY_HEADER_PATH ? 'Suggested for you' : null);
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
   equals(c, 'story header never folds a unit', r.category, null);
-  equals(c, 'story header evidence still collected', r.evidence.storyLocation, 'homepage_stream');
+  equals(c, 'story header not in evidence', r.evidence.storyLocation, undefined);
 
   // A location-free story_header ("X commented on ...") is NOT suggestion evidence:
   // contextual stories carry one too and must stay visible.
@@ -181,7 +181,7 @@ function run(c) {
   equals(c, 'unmatched unit is no-match, not folded', r.category, null);
   equals(c, 'no-match reason', r.reason, 'no-match');
   equals(c, 'unit id still present for debugging', r.unitId, 'u1');
-  c.ok('evidence block always returned', Boolean(r.evidence) && Array.isArray(r.evidence.ids));
+  c.ok('evidence block always returned', Boolean(r.evidence) && r.evidence.id === 'u1' && r.evidence.idCount === 1);
 
   r = C.classifyFeedUnit({ feedUnit: {} });
   equals(c, 'unit without id reports no-unit-id', r.reason, 'no-unit-id');
@@ -256,13 +256,13 @@ function run(c) {
   equals(c, 'relay snapshot flagged', a.relayAvailable, true);
 
   // Direct fields in the snapshot still resolve (no link hop needed).
-  const storyTypeReport = {
-    classify: { category: null, reason: 'no-match' },
+  const directAdReport = {
+    classify: { category: 'sponsored', reason: 'sponsored_data.ad_id' },
     payload: { feedUnit: { id: 'u1', __typename: 'FeedUnitRoot' } },
-    relayRecord: { __id: 'u1', showcase_story_type: 'video' }
+    relayRecord: { __id: 'u1', is_sponsored: true }
   };
-  a = C.classifyProbeReport(storyTypeReport);
-  equals(c, 'direct snapshot field read', a.current.evidence.storyType, 'video');
+  a = C.classifyProbeReport(directAdReport);
+  equals(c, 'direct snapshot field read', a.current.evidence.adId, 'is_sponsored');
 
   // The snapshot reader must never leak: the previously injected live reader
   // is restored after the analysis.

@@ -663,6 +663,122 @@ input:checked + .slider:before {
   padding: 8px 12px;
 }
 
+.probe-link {
+  color: var(--active-color);
+  text-decoration: none;
+  margin-left: 4px;
+}
+.probe-link:hover {
+  text-decoration: underline;
+}
+
+.probe-section {
+  margin-top: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.probe-section-title {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.03);
+  user-select: none;
+}
+
+.probe-section-body {
+  padding: 8px 12px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.probe-sub-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  line-height: 1.4;
+}
+
+.probe-sub-indent {
+  padding-left: 14px;
+}
+
+.probe-sub-label {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.probe-sub-val {
+  color: var(--text-secondary);
+}
+
+.probe-msg-snippet {
+  font-style: italic;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.probe-relay-list {
+  font-family: 'Cascadia Code', Consolas, 'Courier New', monospace;
+  font-size: 11px;
+}
+
+.probe-relay-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
+}
+
+.probe-relay-path {
+  color: #38bdf8;
+  word-break: break-all;
+}
+
+.probe-relay-arrow {
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.probe-relay-val {
+  color: #4ade80;
+  word-break: break-all;
+}
+
+.probe-null {
+  color: #f87171;
+  font-weight: 700;
+  font-size: 10px;
+  padding: 1px 4px;
+  background: rgba(239, 68, 68, 0.15);
+  border-radius: 3px;
+}
+
+.probe-keys-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.probe-key-tag {
+  font-family: 'Cascadia Code', Consolas, 'Courier New', monospace;
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
 /* Main Toggle (Master On/Off) */
 .main-toggle {
   width: 48px;

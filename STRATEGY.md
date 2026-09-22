@@ -114,6 +114,24 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
 - **實作**：`metadata.js`（獨立模組，MAIN world，manifest 在 classify 之前載入）+ fold.js `buildUnitProbeReport` 精簡 + classify.js `relayReads` 讀取日誌 + `getLastRelayReads()`；浮動氣泡新增「作者／社團」行。
 - **注意**：「加入／追蹤按鈕文字」與「多圖片版面」等 DOM 視覺訊號刻意不收：React 樹不可解析（iphonE 註記），以 Relay 欄位為準。
 
+### 決策 #13 — Probe v2 設計：去重瘦身、NULL 標記與全方位除錯上下文（2026-09-22）
+- **核心理念**：日常過濾極致高效；出包（誤判／漏判）時收集足夠資訊以供再次開發，且去除重複與冗餘欄位。
+- **欄位精簡與去重**：
+  1. 單一事實來源：頂層 `unitTypename` 與 `payload.feedUnit.__typename` 刪除，僅保留 `classify.unitTypename`。
+  2. `payload.feedUnit` 僅留 `post_id`（定位用），刪除重複的 `__id` 與 `__typename`。
+  3. `classify.evidence` 刪除 `ids`（改為 `id` 與 `idCount`）、`storyType`、`storyLocation`、`storyTitle` 等舊欄位。
+- **語意上下文強化（enrichment）**：
+  1. `actor`：保留 `id`、`name`、`typename`、`subscribeStatus`。
+  2. `group`：保留 `id`、`name`、`joinState`，並新增 `permalink`（社團完整網址）。
+  3. `content`：包含 `permalink`（優先取自 Relay，fallback 以 actor.id + post_id 組成）、`message`（120 字）、`title`（原 storyTitle 專屬收攏位置）、`createdTime`（原始時間戳）、`createdAt`（人類可讀 ISO 時間字串）、`callToAction`（廣告行動按鈕）、`feedContext`（好友按讚留言情境脈絡）、`isReshare`（轉貼識別）。
+  4. `media`：`types` 陣列去重。
+  5. `viewer`：以 `isSelf`（布林值或 null）取代 viewer.id。
+- **全維度除錯支援**：頂層包含 `href`（頁面網址，區分首頁/社團/Watch）、`version`（擴充版本）、`settings`（當時過濾開關快照）、`relayReads`（路徑與值日誌）、`recordKeys`（Relay 記錄頂層鍵值清單，防範臉書改版新欄位盲區）。
+- **氣泡顯示規範**：
+  - 關係行：顯示 `subscribeStatus / joinState`，無值顯式標記 `NULL`。
+  - 標題行：`message` 優先顯示前 40 字；無 message 則取 `content.title` 前 40 字；皆無顯示 `NULL`。
+  - 社團名行：有值才顯示單獨一行。
+
 ---
 
 ## 4. 已知誤判案例（症狀 → 根因 → 修正）

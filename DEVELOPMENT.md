@@ -329,20 +329,23 @@ window.__fbDietDumpLog();      // prints & returns the stored entries
 window.__fbDietClearLog();     // wipes the log
 ```
 
-### Feed Probe Buttons (per-unit diagnostics)
+### Feed Probe Buttons (per-unit diagnostics, Probe v2)
 
 Enable "Show Feed Probe Buttons" in the Options page (or open Facebook with `?fb_diet_debug=1`).
 Every unit flowing through `FBDietFold` then shows a small 🔍 button floating on its left side;
 clicking it copies a compact JSON report of that unit and displays a floating popup (click outside to dismiss)
-showing the feed type, its user-facing group, the author / group name and the match reason:
+showing the feed type, user-facing group, author/group, relation status (`NULL` for missing values),
+title/snippet (40 chars max), and match reason:
 
-- `classify`: the decision (`category`, `unitId`, `unitTypename`, `reason`, full `evidence`)
-- `enrichment` (`metadata.js`, best-effort & null-safe): author (id / name / typename / subscribe status),
-  group (id / name / join state), content (message snippet, permalink, created time), media
-  (attachment count, types, `isMultiImage`, `hasVideo`), viewer id
+- `classify`: the decision (`category`, `unitId`, `unitTypename`, `reason`, streamlined `evidence` with `id`, `idCount`)
+- `enrichment` (`metadata.js`, best-effort & null-safe): author (id, name, typename, subscribe status),
+  group (id, name, join state, permalink), content (message snippet, title, permalink, raw `createdTime`,
+  ISO `createdAt`, `callToAction`, `feedContext`, `isReshare`), media (attachment count, deduplicated types,
+  `isMultiImage`, `hasVideo`), viewer (`isSelf`: boolean / null)
 - `relayReads`: the exact Relay paths the classifier tried for this unit, with the returned values
-- `payload`: unit identity only (`__typename` / `__id` / `post_id`) — the old full payload / Relay record
-  dumps were removed as noise (STRATEGY.md, decision #11)
+- `recordKeys`: top-level keys of the Relay record (identifies new/modified FB fields without huge dumps)
+- `href` / `version` / `settings`: context snapshot (page URL, extension version, active filter toggles)
+- `payload`: unit position and `feedUnit.post_id` only (redundant `__id` and `__typename` pruned, [STRATEGY.md](STRATEGY.md) decisions #11/#13)
 
 Use it to diagnose missed folds (`classify.category: null` — check `reason`) and wrong folds
 (`reason` maps back to the rule table in [STRATEGY.md](STRATEGY.md) §3).
@@ -352,9 +355,15 @@ Use it to diagnose missed folds (`classify.category: null` — check `reason`) a
 The Options page has a second **DEBUG** card below Feed Classifies. It hosts the probe-button
 toggle plus a report analyzer: paste a copied probe JSON, press **Analyze**, and the page shows
 the captured classification side by side with a re-run of the CURRENT rules
-(`FBDietClassify.classifyProbeReport(report)`, pure & Node-tested). Known limitation: the probe
-snapshot contains only the first Relay record, so `^` / `^^` linked-record paths read as null on
-re-run and the re-run may degrade to `no-match` — the captured verdict stays authoritative.
+(`FBDietClassify.classifyProbeReport(report)`, pure & Node-tested).
+In Probe v2, the analyzer renders:
+- Captured vs re-run verdict badges and match reason
+- Page URL and component module name
+- Collapsible **Enrichment Details** (`<details>` card with author, group permalink, content timestamp/CTA, media, and viewer)
+- Collapsible **Relay Reads** (compact `path → value` lines with styled `NULL` badges)
+- Collapsible **Relay Record Keys** (tag list of record keys)
+Known limitation: the probe snapshot contains only the first Relay record, so `^` / `^^` linked-record paths
+read as null on re-run and the re-run may degrade to `no-match` — the captured verdict stays authoritative.
 
 ---
 

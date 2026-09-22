@@ -314,6 +314,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     container.appendChild(row);
   }
 
+  function appendDetailLink(container, url, text) {
+    if (!url || typeof url !== 'string') return;
+    const a = document.createElement('a');
+    a.className = 'probe-link';
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = text || '🔗';
+    container.appendChild(a);
+  }
+
   function renderProbeResult(analysis, report) {
     probeResult.replaceChildren();
     probeResult.classList.add('has-result');
@@ -343,6 +354,149 @@ document.addEventListener('DOMContentLoaded', async () => {
       row.appendChild(makeProbeEl('span', 'probe-row-label', tt('probeModuleLabel')));
       row.appendChild(makeProbeEl('span', 'probe-module', String(report.moduleName)));
       probeResult.appendChild(row);
+    }
+
+    if (report && report.href) {
+      const row = makeProbeEl('div', 'probe-row');
+      row.appendChild(makeProbeEl('span', 'probe-row-label', tt('probeUrlLabel')));
+      const val = makeProbeEl('span', 'probe-module');
+      appendDetailLink(val, report.href, report.href);
+      row.appendChild(val);
+      probeResult.appendChild(row);
+    }
+
+    // Enrichment collapsible card
+    if (report && report.enrichment && typeof report.enrichment === 'object') {
+      const enrich = report.enrichment;
+      const details = document.createElement('details');
+      details.className = 'probe-section';
+      details.open = true;
+
+      const summary = document.createElement('summary');
+      summary.className = 'probe-section-title';
+      summary.textContent = '📦 ' + tt('probeEnrichmentTitle');
+      details.appendChild(summary);
+
+      const contentBox = makeProbeEl('div', 'probe-section-body');
+
+      // Actor
+      if (enrich.actor) {
+        const actorRow = makeProbeEl('div', 'probe-sub-row');
+        actorRow.appendChild(makeProbeEl('span', 'probe-sub-label', tt('probeActorLabel') + ': '));
+        const txt = (enrich.actor.name || '?') +
+          (enrich.actor.typename ? ' (' + enrich.actor.typename + ')' : '') +
+          ' | sub: ' + (enrich.actor.subscribeStatus || 'NULL') +
+          (enrich.actor.id ? ' | id: ' + enrich.actor.id : '');
+        actorRow.appendChild(makeProbeEl('span', 'probe-sub-val', txt));
+        contentBox.appendChild(actorRow);
+      }
+
+      // Group
+      if (enrich.group && (enrich.group.name || enrich.group.joinState || enrich.group.permalink)) {
+        const groupRow = makeProbeEl('div', 'probe-sub-row');
+        groupRow.appendChild(makeProbeEl('span', 'probe-sub-label', tt('probeGroupName') + ': '));
+        const txt = (enrich.group.name || '?') +
+          ' | join: ' + (enrich.group.joinState || 'NULL') +
+          (enrich.group.id ? ' | id: ' + enrich.group.id : '');
+        groupRow.appendChild(makeProbeEl('span', 'probe-sub-val', txt));
+        if (enrich.group.permalink) {
+          appendDetailLink(groupRow, enrich.group.permalink, ' ↗');
+        }
+        contentBox.appendChild(groupRow);
+      }
+
+      // Content (Message, Title, Permalinks, Timestamps, CTA, Feed Context)
+      if (enrich.content) {
+        const cRow = makeProbeEl('div', 'probe-sub-row');
+        cRow.appendChild(makeProbeEl('span', 'probe-sub-label', tt('probeContentLabel') + ': '));
+        const timeTxt = enrich.content.createdAt ? enrich.content.createdAt : (enrich.content.createdTime ? String(enrich.content.createdTime) : '');
+        const metaTxt = (timeTxt ? ' 🕒 ' + timeTxt : '') +
+          (enrich.content.callToAction ? ' | CTA: ' + enrich.content.callToAction : '') +
+          (enrich.content.feedContext ? ' | context: ' + enrich.content.feedContext : '') +
+          (enrich.content.isReshare ? ' | [Reshare]' : '');
+        cRow.appendChild(makeProbeEl('span', 'probe-sub-val', metaTxt));
+        if (enrich.content.permalink) {
+          appendDetailLink(cRow, enrich.content.permalink, ' ↗');
+        }
+        contentBox.appendChild(cRow);
+
+        if (enrich.content.title) {
+          const titleRow = makeProbeEl('div', 'probe-sub-row probe-sub-indent');
+          titleRow.appendChild(makeProbeEl('span', 'probe-sub-label', '↳ ' + tt('probeTitleLabel') + ': '));
+          titleRow.appendChild(makeProbeEl('span', 'probe-sub-val', enrich.content.title));
+          contentBox.appendChild(titleRow);
+        }
+
+        if (enrich.content.message) {
+          const msgRow = makeProbeEl('div', 'probe-sub-row probe-sub-indent');
+          msgRow.appendChild(makeProbeEl('span', 'probe-sub-val probe-msg-snippet', enrich.content.message));
+          contentBox.appendChild(msgRow);
+        }
+      }
+
+      // Media
+      if (enrich.media) {
+        const mRow = makeProbeEl('div', 'probe-sub-row');
+        mRow.appendChild(makeProbeEl('span', 'probe-sub-label', tt('probeMediaLabel') + ': '));
+        const txt = 'count: ' + (enrich.media.count !== null ? enrich.media.count : 'NULL') +
+          (Array.isArray(enrich.media.types) ? ' [' + enrich.media.types.join(', ') + ']' : '') +
+          (enrich.media.hasVideo ? ' (Video)' : '');
+        mRow.appendChild(makeProbeEl('span', 'probe-sub-val', txt));
+        contentBox.appendChild(mRow);
+      }
+
+      // Viewer
+      if (enrich.viewer) {
+        const vRow = makeProbeEl('div', 'probe-sub-row');
+        vRow.appendChild(makeProbeEl('span', 'probe-sub-label', tt('probeViewerLabel') + ': '));
+        vRow.appendChild(makeProbeEl('span', 'probe-sub-val', 'isSelf: ' + String(enrich.viewer.isSelf)));
+        contentBox.appendChild(vRow);
+      }
+
+      details.appendChild(contentBox);
+      probeResult.appendChild(details);
+    }
+
+    // Relay Reads collapsible card (壓行顯示：path → value)
+    if (report && Array.isArray(report.relayReads) && report.relayReads.length) {
+      const details = document.createElement('details');
+      details.className = 'probe-section';
+      const summary = document.createElement('summary');
+      summary.className = 'probe-section-title';
+      summary.textContent = '⚡ ' + tt('probeRelayReadsTitle') + ' (' + report.relayReads.length + ')';
+      details.appendChild(summary);
+
+      const list = makeProbeEl('div', 'probe-section-body probe-relay-list');
+      for (const item of report.relayReads) {
+        const row = makeProbeEl('div', 'probe-relay-row');
+        row.appendChild(makeProbeEl('span', 'probe-relay-path', item.path));
+        row.appendChild(makeProbeEl('span', 'probe-relay-arrow', ' → '));
+        if (item.value === null || item.value === undefined) {
+          row.appendChild(makeProbeEl('span', 'probe-null', 'NULL'));
+        } else {
+          row.appendChild(makeProbeEl('span', 'probe-relay-val', String(item.value)));
+        }
+        list.appendChild(row);
+      }
+      details.appendChild(list);
+      probeResult.appendChild(details);
+    }
+
+    // Record Keys collapsible card
+    if (report && Array.isArray(report.recordKeys) && report.recordKeys.length) {
+      const details = document.createElement('details');
+      details.className = 'probe-section';
+      const summary = document.createElement('summary');
+      summary.className = 'probe-section-title';
+      summary.textContent = '🔑 ' + tt('probeRecordKeysTitle') + ' (' + report.recordKeys.length + ')';
+      details.appendChild(summary);
+
+      const keysBox = makeProbeEl('div', 'probe-section-body probe-keys-box');
+      for (const k of report.recordKeys) {
+        keysBox.appendChild(makeProbeEl('span', 'probe-key-tag', k));
+      }
+      details.appendChild(keysBox);
+      probeResult.appendChild(details);
     }
   }
 

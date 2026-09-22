@@ -138,31 +138,37 @@ window.FBDietFold = (() => {
 
   function buildUnitProbeReport(props, classifyResult, relayReads) {
     const feedUnit = props.payload && props.payload.feedUnit;
+    const bridge = window.FBDietBridge;
+    const settings = bridge && typeof bridge.getSettings === 'function' ? bridge.getSettings() : null;
+
     const report = {
       at: new Date().toISOString(),
+      version: typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest ? chrome.runtime.getManifest().version : '1.4.0',
       href: typeof window !== 'undefined' && window.location ? window.location.href : null,
+      lang: typeof navigator !== 'undefined' && navigator.language ? navigator.language : null,
       moduleName: props.moduleName || null,
-      entryCategory: props.entryCategory || null,
-      classify: classifyResult
-        ? {
-            category: classifyResult.category,
-            unitId: classifyResult.unitId,
-            unitTypename: classifyResult.unitTypename,
-            reason: classifyResult.reason,
-            evidence: classifyResult.evidence,
-            moduleName: classifyResult.moduleName
-          }
-        : null,
-      position: props.payload && typeof props.payload.position === 'number' ? props.payload.position : null,
-      unitTypename: props.payload && props.payload.unitTypename,
-      // Only the identity fields survive: the previous full payload/Relay dumps
-      // were 90% noise (query variables, React internals, opaque store structs).
-      payload: {
-        feedUnit: {
-          __typename: feedUnit && feedUnit.__typename,
-          __id: feedUnit && feedUnit.__id,
-          post_id: feedUnit && feedUnit.post_id
+      position: props.payload && typeof props.payload.position === 'number' ? props.payload.position : null
+    };
+
+    if (props && props.entryCategory !== null && props.entryCategory !== undefined) {
+      report.entryCategory = props.entryCategory;
+    }
+
+    report.classify = classifyResult
+      ? {
+          category: classifyResult.category,
+          unitId: classifyResult.unitId,
+          unitTypename: classifyResult.unitTypename,
+          reason: classifyResult.reason,
+          evidence: classifyResult.evidence,
+          moduleName: classifyResult.moduleName
         }
+      : null;
+
+    const postId = (feedUnit && (feedUnit.post_id || feedUnit.clip_id || (feedUnit.story && feedUnit.story.post_id) || feedUnit.mf_story_key)) || null;
+    report.payload = {
+      feedUnit: {
+        post_id: postId
       }
     };
 
@@ -181,6 +187,20 @@ window.FBDietFold = (() => {
     // The exact Relay paths the classifier tried for THIS unit, with the values.
     report.relayReads = Array.isArray(relayReads) && relayReads.length ? relayReads : null;
 
+    // Top-level keys of the Relay record for this unit (essential for discovering new fields on FB updates)
+    let recordKeys = null;
+    try {
+      const relay = window.FBDietRelay;
+      const unitId = classifyResult && (classifyResult.unitId || (classifyResult.evidence && classifyResult.evidence.id));
+      if (relay && typeof relay.describe === 'function' && unitId) {
+        const record = relay.describe(unitId);
+        if (record && typeof record === 'object') {
+          recordKeys = Object.keys(record);
+        }
+      }
+    } catch (e) {}
+    report.recordKeys = recordKeys;
+
     let text = null;
     try {
       text = JSON.stringify(report, null, 2);
@@ -188,7 +208,7 @@ window.FBDietFold = (() => {
       text = '{"error":"probe serialization failed: ' + String(e && e.message ? e.message : e) + '"}';
     }
     if (text.length > PROBE_MAX_CHARS) text = text.slice(0, PROBE_MAX_CHARS) + '\n…[truncated]';
-    return { text, enrichment };
+    return { text, enrichment, report };
   }
 
   function promptFallbackCopy(payload) {
@@ -277,16 +297,19 @@ window.FBDietFold = (() => {
       groupRow.textContent = '群組：' + groupOf(category);
       popup.appendChild(groupRow);
 
-      // 作者：Sunny Lin（Page）／社團：某社團（metadata.js 的 enrichment，可為 null）
+      // 作者：Sunny Lin (@happylearningJapanese)（Page）
       const enrichment = enrich || null;
       const actorName = enrichment && enrichment.actor && enrichment.actor.name;
       const actorType = enrichment && enrichment.actor && enrichment.actor.typename;
-      if (actorName || actorType) {
+      const actorId = enrichment && enrichment.actor && (enrichment.actor.username || enrichment.actor.id);
+      if (actorName || actorType || actorId) {
         const actorRow = document.createElement('div');
         actorRow.className = 'fb-diet-probe-popup-row';
-        actorRow.textContent = '作者：' + (actorName || '?') + (actorType ? '（' + actorType + '）' : '');
+        actorRow.textContent = '作者：' + (actorName || actorId || '?') + (actorId && actorName && actorId !== actorName ? ' (@' + actorId + ')' : '') + (actorType ? '（' + actorType + '）' : '');
         popup.appendChild(actorRow);
       }
+
+      // 社團：某社團（單一行，有值才顯示）
       const groupName = enrichment && enrichment.group && enrichment.group.name;
       if (groupName) {
         const groupNameRow = document.createElement('div');
@@ -294,6 +317,34 @@ window.FBDietFold = (() => {
         groupNameRow.textContent = '社團：' + groupName;
         popup.appendChild(groupNameRow);
       }
+
+      // 關係：CAN_SUBSCRIBE / CAN_JOIN（無值顯示 NULL）
+      const subStatus = (enrichment && enrichment.actor && enrichment.actor.subscribeStatus) ||
+        (evidence && evidence.subscribeStatus) ||
+        'NULL';
+      const joinState = (enrichment && enrichment.group && enrichment.group.joinState) ||
+        (evidence && evidence.joinState) ||
+        'NULL';
+      const relRow = document.createElement('div');
+      relRow.className = 'fb-diet-probe-popup-row';
+      relRow.textContent = '關係：' + subStatus + ' / ' + joinState;
+      popup.appendChild(relRow);
+
+      // 標題：message 優先前 40 字，無則取 title，皆無為 NULL
+      let titleSnippet = null;
+      const msg = enrichment && enrichment.content && enrichment.content.message;
+      const storyTitle = enrichment && enrichment.content && enrichment.content.title;
+      if (msg && typeof msg === 'string' && msg.trim()) {
+        titleSnippet = msg.trim().slice(0, 40);
+      } else if (storyTitle && typeof storyTitle === 'string' && storyTitle.trim()) {
+        titleSnippet = storyTitle.trim().slice(0, 40);
+      } else {
+        titleSnippet = 'NULL';
+      }
+      const titleRow = document.createElement('div');
+      titleRow.className = 'fb-diet-probe-popup-row';
+      titleRow.textContent = '標題：' + titleSnippet;
+      popup.appendChild(titleRow);
 
       // 判斷：sponsored_data.ad_id
       const judgeRow = document.createElement('div');
@@ -735,6 +786,7 @@ window.FBDietFold = (() => {
     HIDE_MODE,
     FBDietFold,
     FBDietBar,
+    buildUnitProbeReport,
     install,
     getStatus: () => ({
       hideMode: HIDE_MODE,

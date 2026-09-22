@@ -190,6 +190,26 @@ function run(c) {
     // Probe off again: back to the plain fold
     t.bridge.setSettings({ debugProbe: false });
     c.ok('probe off restores the plain fold', t.render(payloadOf('u1')).type === t.React.Fragment);
+
+    /* --- probe report shape (Probe v2) --- */
+    const classifyRes = {
+      category: 'sponsored',
+      unitId: 'u1',
+      unitTypename: 'FeedUnitRoot',
+      reason: 'sponsored_data.ad_id',
+      evidence: { ownTypename: 'FeedUnitRoot', adId: 'ad-1', id: 'u1', idCount: 1 }
+    };
+    const reportWithoutEntry = t.fold.buildUnitProbeReport({ payload: { feedUnit: { id: 'u1', __typename: 'FeedUnitRoot', post_id: 'p123' } } }, classifyRes, []).report;
+    c.equals('entryCategory omitted when null', reportWithoutEntry.entryCategory, undefined);
+    c.equals('settings omitted from report', reportWithoutEntry.settings, undefined);
+    c.equals('top-level unitTypename removed', reportWithoutEntry.unitTypename, undefined);
+    c.equals('payload.feedUnit post_id preserved', reportWithoutEntry.payload.feedUnit.post_id, 'p123');
+    c.equals('payload.feedUnit __id removed', reportWithoutEntry.payload.feedUnit.__id, undefined);
+    c.equals('payload.feedUnit __typename removed', reportWithoutEntry.payload.feedUnit.__typename, undefined);
+    c.ok('version present', Boolean(reportWithoutEntry.version));
+
+    const reportWithEntry = t.fold.buildUnitProbeReport({ entryCategory: 'marketAds', payload: { feedUnit: {} } }, classifyRes, []).report;
+    c.equals('entryCategory present when provided', reportWithEntry.entryCategory, 'marketAds');
   }
 
   /* --- hostile payload never crashes the feed --- */

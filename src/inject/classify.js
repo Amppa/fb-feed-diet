@@ -165,17 +165,14 @@ window.FBDietClassify = (() => {
    */
   function gatherEvidence(unit) {
     const evidence = {
-      unitTypename: unit.unitTypename,
       ownTypename: unit.ownTypename,
       nestedTypename: unit.nestedTypename,
-      ids: unit.ids.slice(0, 4),
       adId: null,
       subscribeStatus: null,
       joinState: null,
-      storyType: null,
-      storyLocation: null,
-      storyTitle: null,
-      source: 'none'
+      source: 'none',
+      id: unit.ids && unit.ids.length ? unit.ids[0] : null,
+      idCount: unit.ids ? unit.ids.length : 0
     };
 
     // 1. Direct props
@@ -187,8 +184,7 @@ window.FBDietClassify = (() => {
       toStringOrNull(readProp(unit.record, 'actors.0.subscribe_status')) ||
       toStringOrNull(readProp(unit.record, 'actor.subscribe_status'));
     evidence.joinState = toStringOrNull(readProp(unit.record, 'to.viewer_forum_join_state'));
-    evidence.storyType = toStringOrNull(readProp(unit.record, 'showcase_story_type'));
-    if (evidence.adId || evidence.subscribeStatus || evidence.joinState || evidence.storyType) {
+    if (evidence.adId || evidence.subscribeStatus || evidence.joinState) {
       evidence.source = 'props';
     }
 
@@ -220,29 +216,6 @@ window.FBDietClassify = (() => {
         evidence.source = 'relay';
       }
     }
-    if (!evidence.storyType) {
-      const value = safeRelayRead(unit.ids, STORY_TYPE_PATH);
-      if (value) {
-        evidence.storyType = String(value);
-        evidence.source = 'relay';
-      }
-    }
-    // story_header is collected as DIAGNOSTIC information only and must never decide a
-    // category: the probe proved Facebook stores contextual stories under the SAME
-    // keyed record as suggestion headers - the header of a friend said recently-commented
-    // story lives in client:1238:story_header(location:homepage_stream):title. Header
-    // titles vary by language and format, so no rule can separate suggestions from
-    // friend activity here (STRATEGY.md, decision #6).
-    for (const location of SUGGESTED_STORY_LOCATIONS) {
-      const opts = { $1: { location }, params: { $1: { location } } };
-      const title = toStringOrNull(safeRelayRead(unit.ids, STORY_HEADER_PATH, opts));
-      if (title) {
-        evidence.storyLocation = location;
-        evidence.storyTitle = title;
-        evidence.source = 'relay';
-        break;
-      }
-    }
 
     return evidence;
   }
@@ -254,8 +227,9 @@ window.FBDietClassify = (() => {
   function pickCategory(evidence, context) {
     if (evidence.adId) return { category: CATEGORY.SPONSORED, reason: 'sponsored_data.ad_id' };
 
-    if (evidence.unitTypename && SUGGESTED_GROUP_TYPENAMES.indexOf(evidence.unitTypename) !== -1) {
-      return { category: CATEGORY.SUGGESTED_GROUP, reason: 'unitTypename:' + evidence.unitTypename };
+    const typename = evidence.ownTypename || evidence.nestedTypename;
+    if (typename && SUGGESTED_GROUP_TYPENAMES.indexOf(typename) !== -1) {
+      return { category: CATEGORY.SUGGESTED_GROUP, reason: 'unitTypename:' + typename };
     }
     // A plain Story with viewer_forum_join_state CAN_JOIN is a "suggested for you"
     // group post from a group the viewer has not joined: it folds with the suggested
@@ -267,10 +241,7 @@ window.FBDietClassify = (() => {
     if (evidence.subscribeStatus && SUGGESTED_SUBSCRIBE_STATES.indexOf(evidence.subscribeStatus) !== -1) {
       return { category: CATEGORY.SUGGESTED, reason: 'actors[0].subscribe_status' };
     }
-    // NOTE: there is deliberately NO story_header rule. The probe proved Facebook stores
-    // a friend said recently-commented story under the SAME
-    // story_header(location:homepage_stream) record as suggestion headers, so a header
-    // title cannot separate suggestions from friend activity (STRATEGY.md, decision #6).
+    // NOTE: there is deliberately NO story_header rule (STRATEGY.md, decision #6).
 
     // The mid-feed Stories row is a DiscoverFeedUnit delivered through the generic
     // feed unit wrapper, so it needs a typename rule of its own (STRATEGY.md, #7).
@@ -284,8 +255,7 @@ window.FBDietClassify = (() => {
     //      of a reel nests a ShowcaseFeedUnit attachment inside an ordinary Story, and a
     //      typename read off that nested record is NOT a Reels surface.
     //   2. The Reels attachment style wrapper renders attachments by definition, so units
-    //      arriving through it never fold as Reels. (showcase_story_type alone is
-    //      likewise NOT enough: an ordinary Story sharing a reel carries it too.)
+    //      arriving through it never fold as Reels.
     if (evidence.ownTypename === 'ShowcaseFeedUnit' && !(context && context.moduleName === STORY_ATTACHMENT_MODULE)) {
       return { category: CATEGORY.REELS, reason: 'unitTypename:ShowcaseFeedUnit' };
     }
@@ -293,7 +263,7 @@ window.FBDietClassify = (() => {
     // No rule matched. 'no-match' belongs to the no-* absence family (no-unit-id /
     // no-payload) and never claims the unit IS a normal post: a missed suggestion
     // carries the same category: null, which is exactly what the probe is for.
-    return { category: null, reason: evidence.ids.length ? 'no-match' : 'no-unit-id' };
+    return { category: null, reason: evidence.idCount ? 'no-match' : 'no-unit-id' };
   }
 
   /** Unit ids are opaque base64 blobs; show a short fingerprint instead. */
