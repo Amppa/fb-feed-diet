@@ -80,8 +80,8 @@
 }
 
 .fb-diet-badge-regular {
-  background: rgba(107, 114, 128, 0.14) !important;
-  color: #4b5563 !important;
+  background: rgba(16, 185, 129, 0.12) !important;
+  color: #10b981 !important;
 }
 
 .fb-diet-badge-suggested {
@@ -95,8 +95,8 @@
 }
 
 .fb-diet-badge-other {
-  background: rgba(16, 185, 129, 0.12) !important;
-  color: #10b981 !important;
+  background: rgba(59, 130, 246, 0.12) !important;
+  color: #3b82f6 !important;
 }
 
 /* Toggle symbol [+] / [-] (no animation, no opacity, instant response) */
