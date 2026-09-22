@@ -77,12 +77,37 @@
     media: ['foldStories', 'foldReels'],
     other: ['foldSuggestedGroup']
   };
-  globalThis.FB_DIET_DEFAULTS = {
+
+  const GROUP_META = {
+    ads: {
+      badgeClass: 'fb-diet-badge-ads',
+      badgeText: 'Ads'
+    },
+    regular: {
+      badgeClass: 'fb-diet-badge-regular',
+      badgeText: 'Regular'
+    },
+    suggested: {
+      badgeClass: 'fb-diet-badge-suggested',
+      badgeText: 'Suggested'
+    },
+    media: {
+      badgeClass: 'fb-diet-badge-media',
+      badgeText: 'Reels & Stories'
+    },
+    other: {
+      badgeClass: 'fb-diet-badge-other',
+      badgeText: 'Other'
+    }
+  };
+
+  globalThis.FB_DIET_DEFAULTS = {
     SETTINGS: DEFAULT_SETTINGS,
     COUNTS: DEFAULT_COUNTS,
     GROUP_ORDER: GROUP_ORDER,
     GROUP_BY_CATEGORY: GROUP_BY_CATEGORY,
     SETTING_KEYS_BY_GROUP: SETTING_KEYS_BY_GROUP,
+    GROUP_META: GROUP_META,
     VERSION: 1,
     getTodayDateString: getTodayDateString,
     normalizeFoldMode: normalizeFoldMode

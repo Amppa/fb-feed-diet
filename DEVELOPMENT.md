@@ -26,8 +26,9 @@ fb-diet-feed/
 │   │   └── background.js      # Service Worker: settings sync, tab broadcast
 │   ├── content/
 │   │   ├── content.css        # Responsive styling for inline placeholders
-│   │   ├── content.js         # Isolated world: storage sync, throttled stats, DOM fallback
-│   │   └── detector.js        # Multilingual regexes & DOM heuristics for fallback
+│   │   ├── content.js         # Isolated world: storage sync, throttled stats, bridge
+│   │   ├── detector.js        # Multilingual regexes & DOM heuristics for fallback
+│   │   └── fallback.js        # Isolated world: DOM fallback scanner & safe placeholders
 │   ├── i18n/
 │   │   └── i18n.js            # Shared en / zh-TW dictionary for options & popup pages
 │   ├── inject/
@@ -37,7 +38,9 @@ fb-diet-feed/
 │   │   ├── classify.js        # Pure functions mapping feed props + Relay to categories
 │   │   ├── classify-retired.js# Retired rules kept for reference (never injected)
 │   │   ├── bridge.js          # In-memory settings, postMessage router, expansion state
-│   │   └── fold.js            # FBDietFold React decorator component & placeholder UI
+│   │   ├── ui.js              # React placeholder bars (18px/36px), DOM extractors, badges
+│   │   ├── probe.js           # Diagnostic JSON generator, copy probe button, tooltip popup
+│   │   └── fold.js            # Lean coordinator: FBDietFold React decorator & registration
 │   ├── options/
 │   │   ├── options.html       # Full dashboard & group toggles
 │   │   ├── options.css        # Dark glassmorphic styles
@@ -50,6 +53,7 @@ fb-diet-feed/
     ├── harness.js             # Lightweight Node test assertion framework
     ├── run.js                 # Test runner discovering *.test.js
     ├── defaults.test.js       # Unit tests for shared defaults schema
+    ├── fallback.test.js       # Unit tests for DOM fallback placeholder & observation
     ├── proxy.test.js          # Unit tests for proxy.js registration & hooks
     ├── relay.test.js          # Unit tests for relay.js path navigation
     ├── classify.test.js       # Unit tests for feed unit classification

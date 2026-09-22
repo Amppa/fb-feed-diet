@@ -46,6 +46,8 @@
         "src/inject/metadata.js",
         "src/inject/classify.js",
         "src/inject/bridge.js",
+        "src/inject/ui.js",
+        "src/inject/probe.js",
         "src/inject/fold.js"
       ],
       "run_at": "document_start",
@@ -62,6 +64,7 @@
       "js": [
         "src/shared/defaults.js",
         "src/content/detector.js",
+        "src/content/fallback.js",
         "src/content/content.js"
       ],
       "run_at": "document_idle",

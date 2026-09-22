@@ -9,14 +9,16 @@
   const DEFAULT_SETTINGS = DEFAULTS.SETTINGS || {
     enabled: true,
     mode: 'proxy',
-    foldSponsored: 'mini',
-    foldSuggested: 'title',
-    foldSuggestedGroup: 'mini',
-    foldMarketAds: 'mini',
-    foldSearchingAds: 'mini',
-    foldStories: 'mini',
-    foldReels: 'mini',
-    foldRegular: 'off',
+    foldSponsored: true,
+    foldSuggested: true,
+    foldSuggestedGroup: true,
+    foldMarketAds: true,
+    foldSearchingAds: true,
+    foldStories: true,
+    foldReels: true,
+    foldRegular: false,
+    minimizedFoldMode: false,
+    alwaysShowFoldTitle: true,
     debugProbe: false
   };
   const DEFAULT_COUNTS = DEFAULTS.COUNTS || {
@@ -65,8 +67,6 @@
   // Buffer for throttled stats updates (transferred every 3 seconds)
   let countBuffer = Object.assign({}, DEFAULT_COUNTS);
   let flushTimer = null;
-  let observer = null;
-  let scanScheduled = false;
   let isShutDown = false;
 
   function getTodayString() {
@@ -121,11 +121,10 @@
     isShutDown = true;
 
     try {
-      observer?.disconnect();
+      window.FBDietDOMFallback?.stopObservation?.();
     } catch (e) {
       // Ignore: observer may already be gone
     }
-    observer = null;
 
     if (flushTimer) {
       clearTimeout(flushTimer);
@@ -233,17 +232,12 @@
     }
 
     try {
-      restoreAllElements();
+      window.FBDietDOMFallback?.restoreAllElements?.();
     } catch (e) {
       // Nothing folded yet: nothing to restore
     }
 
-    try {
-      observer?.disconnect();
-    } catch (e) {
-      // Ignore: observer may already be gone
-    }
-    observer = null;
+    window.FBDietDOMFallback?.stopObservation?.();
 
     announceToMain();
   }
@@ -395,11 +389,12 @@
       return;
     }
 
+    const fallback = window.FBDietDOMFallback;
     if (oldEnabled && !currentSettings.enabled) {
-      restoreAllElements();
+      fallback?.restoreAllElements?.();
     } else if (currentSettings.enabled) {
-      restoreAllElements();
-      scanPage();
+      fallback?.restoreAllElements?.();
+      fallback?.scanPage?.(currentSettings, recordBlock);
     }
   }
 
@@ -554,288 +549,14 @@
   }
 
   /**
-   * Builds the folding placeholder element
-   */
-  function createPlaceholder(type, originalElement) {
-    // Bars show the user-facing group, not the fine-grained category
-    // (STRATEGY.md, decision #8). Meta mirrors fold.js GROUP_META.
-    const GROUP_BY_CATEGORY = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.GROUP_BY_CATEGORY) || {};
-    const config = {
-      ads: {
-        badgeClass: 'fb-diet-badge-ads',
-        badgeText: 'Ads'
-      },
-      regular: {
-        badgeClass: 'fb-diet-badge-regular',
-        badgeText: 'Regular'
-      },
-      suggested: {
-        badgeClass: 'fb-diet-badge-suggested',
-        badgeText: 'Suggested'
-      },
-      media: {
-        badgeClass: 'fb-diet-badge-media',
-        badgeText: 'Reels & Stories'
-      },
-      other: {
-        badgeClass: 'fb-diet-badge-other',
-        badgeText: 'Other'
-      }
-    }[GROUP_BY_CATEGORY[type]] || {
-      badgeClass: 'fb-diet-badge-ads',
-      badgeText: 'Ads'
-    };
-
-    const bar = document.createElement('div');
-    bar.className = 'fb-diet-placeholder';
-    bar.setAttribute('data-fb-diet-type', type);
-    bar.title = 'Show post';
-
-    bar.innerHTML = `
-      <div class="fb-diet-placeholder-left">
-        <span class="fb-diet-badge ${config.badgeClass}">${config.badgeText}</span>
-      </div>
-    `;
-
-    let isExpanded = false;
-
-    bar.addEventListener('click', () => {
-      isExpanded = !isExpanded;
-      const badge = bar.querySelector('.fb-diet-badge');
-
-      if (isExpanded) {
-        originalElement.classList.add('fb-diet-is-expanded');
-        bar.classList.add('fb-diet-state-expanded');
-        bar.title = 'Re-fold';
-        if (badge) badge.textContent = config.badgeText;
-      } else {
-        originalElement.classList.remove('fb-diet-is-expanded');
-        bar.classList.remove('fb-diet-state-expanded');
-        bar.title = 'Show post';
-        if (badge) badge.textContent = config.badgeText;
-      }
-    });
-
-    return bar;
-  }
-
-  /**
-   * Folds a target element and injects the interactive placeholder
-   */
-  function foldElement(element, type) {
-    if (!element || element.dataset.fbDietFolded === 'true') return;
-    // Node may already be detached by Facebook's virtualized re-render
-    if (!element.isConnected || !element.parentElement) return;
-
-    element.dataset.fbDietFolded = 'true';
-    element.classList.add('fb-diet-folded-original');
-
-    try {
-      const placeholder = createPlaceholder(type, element);
-      element.parentElement.insertBefore(placeholder, element);
-    } catch (e) {
-      // Roll back so the element can be evaluated again later
-      element.classList.remove('fb-diet-folded-original');
-      delete element.dataset.fbDietFolded;
-      return;
-    }
-
-    recordBlock(type);
-  }
-
-  /**
-   * Restores all folded items back to normal
-   */
-  function restoreAllElements() {
-    document.querySelectorAll('.fb-diet-placeholder').forEach((p) => p.remove());
-    document.querySelectorAll('.fb-diet-folded-original').forEach((el) => {
-      el.classList.remove('fb-diet-folded-original', 'fb-diet-is-expanded');
-      delete el.dataset.fbDietFolded;
-      delete el.dataset.fbDietChecked;
-    });
-  }
-
-  /**
-   * Runs a detector predicate defensively: a detector throwing must never break the scan loop.
-   */
-  function safeDetect(predicate, element) {
-    try {
-      return predicate(element) === true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /**
-   * Evaluates a single DOM node against active filters
-   */
-  function evaluateElement(el) {
-    if (!currentSettings.enabled || !el || el.dataset.fbDietFolded === 'true') return;
-
-    // detector.js is injected before content.js, but never let a missing detector throw
-    const detector = window.FBDietDetector;
-    if (!detector || typeof detector.isSponsored !== 'function') return;
-
-    // Check Stories
-    if (currentSettings.foldStories && safeDetect(detector.isStories, el)) {
-      foldElement(el, 'stories');
-      return;
-    }
-
-    // Check Reels
-    if (currentSettings.foldReels && safeDetect(detector.isReels, el)) {
-      foldElement(el, 'reels');
-      return;
-    }
-
-    // Check Marketplace Ads
-    if (currentSettings.foldMarketAds && safeDetect(detector.isMarketAd, el)) {
-      foldElement(el, 'marketAds');
-      return;
-    }
-
-    // Check Search Result Ads
-    if (currentSettings.foldSearchingAds && safeDetect(detector.isSearchAd, el)) {
-      foldElement(el, 'searchingAds');
-      return;
-    }
-
-    // Check Sponsored Feed posts
-    if (currentSettings.foldSponsored && safeDetect(detector.isSponsored, el)) {
-      foldElement(el, 'sponsored');
-      return;
-    }
-
-    // Check Suggested Groups
-    if (currentSettings.foldSuggestedGroup && safeDetect(detector.isSuggestedGroup, el)) {
-      foldElement(el, 'suggestedGroup');
-      return;
-    }
-
-    // Check Suggested Feed posts
-    if (currentSettings.foldSuggested && safeDetect(detector.isSuggested, el)) {
-      foldElement(el, 'suggested');
-      return;
-    }
-  }
-
-  /**
-   * Scans all relevant feed and card elements on the page
-   */
-  function scanPage() {
-    if (!currentSettings.enabled || isShutDown) return;
-    // The MAIN world proxy owns detection once it is active; the DOM fallback must stay
-    // out of the way so the two engines never fight over the same posts.
-    if (proxyActive) return;
-
-    // Always scope to the main column so the left navigation / right rail can never be folded
-    const scope = document.querySelector('div[role="main"]') ? 'div[role="main"]' : 'body';
-
-    // Standard feed items, articles, and cards
-    const selectors = [
-      `${scope} [role="feed"] > div`,
-      `${scope} [role="article"]`,
-      `${scope} div[data-pagelet^="FeedUnit"]`,
-      `${scope} div[data-virtualized="false"]`,
-      // Stories & Reels containers
-      `${scope} div[data-pagelet*="Stories"]`,
-      `${scope} div[aria-label="Stories"]`,
-      `${scope} div[aria-label="限時動態"]`,
-      `${scope} div[data-pagelet*="Reel"]`,
-      `${scope} div[aria-label*="Reels"]`,
-      `${scope} div[aria-label*="連續短片"]`,
-      // Marketplace item cards
-      `${scope} div[aria-label="Collection of Marketplace items"] > div`,
-      `${scope} a[href*="/marketplace/item/"]`
-    ];
-
-    const elements = document.querySelectorAll(selectors.join(', '));
-    elements.forEach((el) => {
-      try {
-        // Find suitable top-level wrapper if inspecting an article
-        let target = el;
-        if (el.getAttribute('role') === 'article') {
-          const container = el.closest('[role="feed"] > div') || el.closest('[data-pagelet]') || el;
-          target = container;
-        }
-
-        if (!target) return;
-
-        // Never fold a container that holds several posts at once (virtualized mega-wrappers)
-        if (target.querySelectorAll('[role="article"]').length > 1) return;
-
-        // Facebook often inserts the Sponsored label after the feed wrapper is
-        // first mounted.  Keep a small fingerprint instead of a permanent
-        // "checked" flag so changed units are evaluated again, while unchanged
-        // units remain inexpensive during MutationObserver bursts.
-        const fingerprint = `${target.textContent || ''}\u0000${target.querySelectorAll('[aria-label], [data-ad-rendering-role], [data-ad-preview], [data-ad-comet-preview], [data-ad-id]').length}`;
-        if (target.dataset.fbDietFingerprint === fingerprint) return;
-        target.dataset.fbDietFingerprint = fingerprint;
-        window.FBDietDetector?.clearTextCache?.(target);
-        target.querySelectorAll('[role="article"], header').forEach((node) => {
-          window.FBDietDetector?.clearTextCache?.(node);
-        });
-
-        evaluateElement(target);
-      } catch (e) {
-        // One bad node must never abort the whole scan
-      }
-    });
-  }
-
-  // Throttle scanPage calls during DOM mutations
-  function triggerThrottledScan() {
-    if (scanScheduled || isShutDown) return;
-    scanScheduled = true;
-    requestAnimationFrame(() => {
-      scanScheduled = false;
-      if (isShutDown) return;
-      try {
-        scanPage();
-      } catch (e) {
-        // A failed scan is retried on the next mutation; never bubble into the page console
-      }
-    });
-  }
-
-  /**
-   * Sets up MutationObserver to handle dynamic infinite scroll feeds
+   * Sets up MutationObserver via DOM fallback to handle dynamic infinite scroll feeds
    */
   function startObservation() {
-    if (observer || isShutDown || proxyActive) return;
-
-    // Initial scan
-    try {
-      scanPage();
-    } catch (e) {
-      // The initial DOM may still be hydrating; the observer will pick it up
+    if (isShutDown || proxyActive) return;
+    const fallback = window.FBDietDOMFallback;
+    if (fallback && typeof fallback.startObservation === 'function') {
+      fallback.startObservation(() => currentSettings, recordBlock);
     }
-
-    const body = document.body;
-    if (!body) return;
-
-    observer = new MutationObserver((mutations) => {
-      if (isShutDown) return;
-
-      // The extension was reloaded/updated while this tab stayed open:
-      // stop all work quietly instead of throwing on every storage access.
-      if (!isExtensionValid()) {
-        shutdown();
-        return;
-      }
-
-      for (const mutation of mutations) {
-        if (mutation.addedNodes.length > 0) {
-          triggerThrottledScan();
-          break;
-        }
-      }
-    });
-
-    observer.observe(body, {
-      childList: true,
-      subtree: true
-    });
   }
 
   window.__fbDietDebug = () => {

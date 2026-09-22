@@ -12,6 +12,8 @@ function setup(relayMap) {
   loadInject(win, 'proxy.js');
   loadInject(win, 'classify.js');
   loadInject(win, 'bridge.js');
+  loadInject(win, 'ui.js');
+  loadInject(win, 'probe.js');
   loadInject(win, 'fold.js');
 
   win.FBDietClassify.setRelayReader((ids, path) => {

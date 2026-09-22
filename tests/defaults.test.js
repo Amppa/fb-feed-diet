@@ -64,6 +64,15 @@ function run(checker) {
   checker.ok('regular group writes foldRegular', Boolean(keysByGroup) && keysByGroup.regular.join(',') === 'foldRegular');
   checker.ok('every mapped key exists in SETTINGS', Boolean(keysByGroup) && Object.values(keysByGroup).every((keys) => keys.every((key) => key in settings)));
 
+  /* --- group metadata --- */
+  const groupMeta = defaults && defaults.GROUP_META;
+  checker.ok('GROUP_META exists', Boolean(groupMeta));
+  checker.equals('ads badge text is Ads', groupMeta && groupMeta.ads && groupMeta.ads.badgeText, 'Ads');
+  checker.equals('regular badge text is Regular', groupMeta && groupMeta.regular && groupMeta.regular.badgeText, 'Regular');
+  checker.equals('suggested badge text is Suggested', groupMeta && groupMeta.suggested && groupMeta.suggested.badgeText, 'Suggested');
+  checker.equals('media badge text is Reels & Stories', groupMeta && groupMeta.media && groupMeta.media.badgeText, 'Reels & Stories');
+  checker.equals('other badge text is Other', groupMeta && groupMeta.other && groupMeta.other.badgeText, 'Other');
+
   // normalizeFoldMode helper
   checker.ok('normalizeFoldMode exists', typeof defaults.normalizeFoldMode === 'function');
   checker.equals('normalizeFoldMode true + mini:false -> title', defaults.normalizeFoldMode(true, 'off', false), 'title');
