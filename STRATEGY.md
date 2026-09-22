@@ -235,6 +235,15 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
      - `bridge.js` 擴充所有設定鍵值變化監測，只要任何外觀或分類開關被切換，即時 dispatch `fb-diet:settings-changed`，通知當前可見的 feed units 重新計算外觀，達成無刷新即時同步。
   3. **效能安全**：Facebook 採用 Virtual Scrolling，當前留在 DOM 樹的單元僅約 10~20 則，React 狀態切換與 1x1 squash 容器在單一繪圖幀內即可完成，不會引發 Layout Thrashing。
 
+### 決策 #25 — 貼文標題顯示與摺疊列高度解耦（`showFeedTitle`），專案升版 2.0.0（2026-09-22）
+- **背景**：舊版 `alwaysShowFoldTitle` 一個開關同時決定「是否常駐橫條」與「橫條是否顯示貼文資訊」，導致使用者想「保留橫條但只看分類標籤」時無法設定；且鍵名 `...Title` 與它實際控制的對象（整條 fold bar）語意不符。
+- **改動**：
+  1. **鍵值正名**：`alwaysShowFoldTitle` → `alwaysShowFoldBar`（常駐摺疊列，預設 `true`）；`background.js` 與 `options.js` 於載入時做一次性舊鍵遷移，舊使用者設定不流失。
+  2. **新增 `showFeedTitle` 開關**（預設 `true`）：只控制摺疊列是否渲染 `[社團]`、`作者:` 與內文／媒體摘要。關閉時摺疊列僅保留群組標籤（`Ads` / `Regular` / `Suggested` / `Reels & Stories` / `Other`）與 `[+]` / `[-]` 切換鈕，高度仍為 36px（若同時開啟 `minimizedFoldMode` 則為 18px）。
+  3. **效能**：`fold.js` 只在 `showFeedTitle` 為真時呼叫 `FBDietMetadata.collect()`；`ui.js` 的 `FBDietTitleBar` 在關閉時略過補抓 DOM enrichment 的 effect，省下每則貼文的 DOM 查詢。
+  4. **相容別名**：`FBDietBar` 保留為別名，內部委派 `FBDietTitleBar({ isMini: true, showTitle: false })`。
+  5. **版本升級**：專案全面升版至 `2.0.0`（`manifest.json`、`package.json`、probe 報告 `version` 與測試同步），作為 `fold` / `content` 模組化與外觀控制解耦後的首個大版本。
+
 ---
 
 ## 4. 已知誤判案例（症狀 → 根因 → 修正）

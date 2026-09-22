@@ -252,7 +252,7 @@ function run(c) {
     c.equals('payload.feedUnit __typename removed', reportWithoutEntry.payload.feedUnit.__typename, undefined);
     c.ok('payloadKeys captured', Array.isArray(reportWithoutEntry.payload.payloadKeys));
     c.ok('feedUnitKeys captured', Array.isArray(reportWithoutEntry.payload.feedUnitKeys));
-    c.equals('version is 1.4.2', reportWithoutEntry.version, '1.4.2');
+    c.equals('version is 2.0.0', reportWithoutEntry.version, '2.0.0');
     c.ok('at.rendered present', Boolean(reportWithoutEntry.at && reportWithoutEntry.at.rendered));
     c.ok('at.probed present', Boolean(reportWithoutEntry.at && reportWithoutEntry.at.probed));
     c.ok('memory object present', Boolean(reportWithoutEntry.memory));

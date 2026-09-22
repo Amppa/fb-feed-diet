@@ -359,6 +359,7 @@ Use it to diagnose missed folds (`classify.category: null` — check `reason`) a
 
 The Options page includes a **Fold Appearance Settings** section containing:
 - **Always Show Fold Bar** (toggle, default true): When enabled, unfolded or expanded posts retain a top notice bar for identification and re-folding. When disabled, unfolded posts render completely natively without any injected header bar.
+- **Show Feed Title** (toggle, default true): Controls whether the fold bar renders the group, author, and message/media snippet. When disabled, the bar keeps only the group badge and the `[+]` / `[-]` toggle at the same height; metadata collection and DOM enrichment are skipped for performance ([STRATEGY.md](STRATEGY.md) decision #25).
 - **Minimized Fold Bar** (toggle, default false): Switches fold bars between 36px and 18px. When enabled, folded posts and retained notice bars render as an 18px compact bar (`FBDietBar`) instead of the 36px title bar (`FBDietTitleBar`). Changes sync immediately to all open Facebook tabs.
 
 ### Options Debug Card (Feed Probe Buttons)

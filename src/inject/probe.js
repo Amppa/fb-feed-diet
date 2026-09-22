@@ -182,7 +182,7 @@ window.FBDietProbe = (() => {
     }
 
     const report = {
-      version: '1.4.2',
+      version: '2.0.0',
       at: {
         rendered: renderIso,
         probed: nowIso
