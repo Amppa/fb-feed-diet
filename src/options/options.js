@@ -368,17 +368,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       probeResult.appendChild(row);
     }
 
-    if (report && report.relayStatus) {
+    const relayStatus = (report && report.memory && report.memory.relayStatus) || (report && report.relayStatus);
+    if (relayStatus) {
       const row = makeProbeEl('div', 'probe-row');
       row.appendChild(makeProbeEl('span', 'probe-row-label', tt('probeRelayStatus')));
-      const statText = (report.relayStatus.isReady ? 'Ready' : 'Not ready') + ' (sources: ' + report.relayStatus.sourceCount + ')';
+      const statText = (relayStatus.isReady ? 'Ready' : 'Not ready') + ' (sources: ' + relayStatus.sourceCount + ')';
       row.appendChild(makeProbeEl('span', 'probe-module', statText));
       probeResult.appendChild(row);
     }
 
-    // Enrichment collapsible card
-    if (report && report.enrichment && typeof report.enrichment === 'object') {
-      const enrich = report.enrichment;
+    // Enrichment collapsible card (Memory)
+    const enrich = (report && report.memory && report.memory.enrichment) || (report && report.enrichment);
+    if (enrich && typeof enrich === 'object') {
       const details = document.createElement('details');
       details.className = 'probe-section';
       details.open = true;

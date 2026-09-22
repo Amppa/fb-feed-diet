@@ -442,7 +442,7 @@ window.FBDietFold = (() => {
     }
 
     const report = {
-      version: '1.4.1',
+      version: '1.4.2',
       at: {
         rendered: renderIso,
         probed: nowIso
@@ -475,15 +475,15 @@ window.FBDietFold = (() => {
         }
       : null;
 
-    // Dual-track: (1) initial Props/Relay data, (2) live DOM rendered state
-    report.initial = {
+    // Dual-track: (1) memory (Props & Relay store in memory), (2) dom (live rendered DOM)
+    report.memory = {
       enrichment: initialEnrichment,
       relayStatus: null
     };
     try {
       const relay = window.FBDietRelay;
       if (relay) {
-        report.initial.relayStatus = {
+        report.memory.relayStatus = {
           isReady: typeof relay.isReady === 'function' ? relay.isReady() : false,
           sourceCount: typeof relay.getSourceCount === 'function' ? relay.getSourceCount() : 0,
           lastError: typeof relay.getLastError === 'function' ? relay.getLastError() : null
@@ -499,15 +499,6 @@ window.FBDietFold = (() => {
       adUrl: adUrl || null,
       media: (domLive && domLive.media) || null
     };
-
-    // Keep top-level enrichment populated for backward-compatibility with popup & options
-    const mergedEnrichment = initialEnrichment || { actor: {}, group: {}, content: {}, media: null, viewer: null };
-    if (!mergedEnrichment.actor) mergedEnrichment.actor = {};
-    if (!mergedEnrichment.actor.name && report.dom.actor) mergedEnrichment.actor.name = report.dom.actor;
-    if (!mergedEnrichment.content) mergedEnrichment.content = {};
-    if (!mergedEnrichment.content.message && report.dom.snippet) mergedEnrichment.content.message = report.dom.snippet;
-    if (!mergedEnrichment.content.permalink && (adUrl || postUrl)) mergedEnrichment.content.permalink = adUrl || postUrl;
-    report.enrichment = mergedEnrichment;
 
     const payloadKeys = props.payload && typeof props.payload === 'object' ? Object.keys(props.payload) : null;
     const feedUnitKeys = feedUnit && typeof feedUnit === 'object' ? Object.keys(feedUnit) : null;
@@ -553,7 +544,7 @@ window.FBDietFold = (() => {
       text = '{"error":"probe serialization failed: ' + String(e && e.message ? e.message : e) + '"}';
     }
     if (text.length > PROBE_MAX_CHARS) text = text.slice(0, PROBE_MAX_CHARS) + '\n…[truncated]';
-    return { text, enrichment: mergedEnrichment, report };
+    return { text, report };
   }
 
   function promptFallbackCopy(payload) {
@@ -608,7 +599,7 @@ window.FBDietFold = (() => {
     closeActiveProbePopup();
   }
 
-  function showProbePopup(holder, classifyResult, props, enrich) {
+  function showProbePopup(holder, classifyResult, props, report) {
     try {
       if (!holder || typeof document === 'undefined' || typeof document.createElement !== 'function') return;
 
@@ -652,8 +643,7 @@ window.FBDietFold = (() => {
       popup.appendChild(sourceRow);
 
       // Link: article or ad URL (if found)
-      const enrichment = enrich || null;
-      const postUrl = enrichment && enrichment.content && enrichment.content.permalink;
+      const postUrl = report && report.url && (report.url.post || report.url.ad);
       if (postUrl) {
         const linkRow = document.createElement('div');
         linkRow.className = 'fb-diet-probe-popup-row';
@@ -730,7 +720,7 @@ window.FBDietFold = (() => {
         copyProbeReport(reportText);
 
         try {
-          if (holder) showProbePopup(holder, classifyResult, props, liveProbe.enrichment);
+          if (holder) showProbePopup(holder, classifyResult, props, liveProbe.report);
         } catch (e) {
           // Non-fatal
         }

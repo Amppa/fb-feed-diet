@@ -221,12 +221,13 @@ function run(c) {
     c.equals('payload.feedUnit __typename removed', reportWithoutEntry.payload.feedUnit.__typename, undefined);
     c.ok('payloadKeys captured', Array.isArray(reportWithoutEntry.payload.payloadKeys));
     c.ok('feedUnitKeys captured', Array.isArray(reportWithoutEntry.payload.feedUnitKeys));
-    c.equals('version is 1.4.1', reportWithoutEntry.version, '1.4.1');
+    c.equals('version is 1.4.2', reportWithoutEntry.version, '1.4.2');
     c.ok('at.rendered present', Boolean(reportWithoutEntry.at && reportWithoutEntry.at.rendered));
     c.ok('at.probed present', Boolean(reportWithoutEntry.at && reportWithoutEntry.at.probed));
-    c.ok('initial object present', Boolean(reportWithoutEntry.initial));
+    c.ok('memory object present', Boolean(reportWithoutEntry.memory));
     c.ok('dom object present', Boolean(reportWithoutEntry.dom));
     c.ok('url object present', Boolean(reportWithoutEntry.url));
+    c.equals('outer enrichment removed', reportWithoutEntry.enrichment, undefined);
 
     const reportWithSignals = t.fold.buildUnitProbeReport({
       payload: {

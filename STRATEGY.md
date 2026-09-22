@@ -199,6 +199,15 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
   3. **雙時間戳記**：`at` 區分為 `rendered`（React 初次渲染時間）與 `probed`（使用者點擊診斷按鈕時間）。
   4. **版本升級**：專案全面升版至 `1.4.1`。
 
+### 決策 #21 — 釐清生命週期順序：記憶體正名為 `memory`，移除舊版外層假 `enrichment`，升級至 1.4.2（2026-09-22）
+- **背景**：在無向後相容包袱下，原本外層的 `enrichment` 把 DOM 現場爬到的資料回填假冒成記憶體資料，且命名與順序混淆。使用者釐清：生命週期應嚴格區分「記憶體既有（第一步）」與「DOM 現場爬取（第二步）」。
+- **改動**：
+  1. **正名為 `memory`**：將 `initial` 正名為 `memory`，僅包含初次渲染時記憶體存在的 `enrichment` 與 `relayStatus`，未命中即保持乾淨的 `null`。
+  2. **獨立 `dom` 區塊**：純粹放現場從 DOM 爬到的 `actor`, `snippet`, `group`, `postUrl`, `adUrl`, `media`。
+  3. **刪除頂層偽 `enrichment`**：徹底刪除舊版向下相容的 fallback merge 欄位。
+  4. **提示氣泡直連 `url`**：氣泡中的 `Link:` 直接讀取 `report.url.post || report.url.ad`。
+  5. **版本升級**：專案全面升版至 `1.4.2`。
+
 ---
 
 ## 4. 已知誤判案例（症狀 → 根因 → 修正）
