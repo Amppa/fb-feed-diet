@@ -88,7 +88,10 @@ function run(c) {
     const result = t.render(payloadOf('u-regular'));
     c.ok('regular unit renders unfolded with header bar', result.type === t.React.Fragment && Array.isArray(result.props.children));
     const [headerBar, body] = result.props.children;
-    c.ok('header bar has expanded state class', headerBar.props.className.indexOf('fb-diet-state-expanded') !== -1);
+    c.equals('header bar is FBDietTitleBar', headerBar.type, t.fold.FBDietTitleBar);
+    c.equals('header bar isExpanded is true', headerBar.props.isExpanded, true);
+    const headerBarRender = headerBar.type(headerBar.props);
+    c.ok('header bar has expanded state class', headerBarRender.props.className.indexOf('fb-diet-state-expanded') !== -1);
     const inner = Array.isArray(body.props.children) ? body.props.children[0] : body.props.children;
     c.ok('regular original subtree stays mounted', inner.__source === true);
     c.equals('regular reported', countMessages(t.win, 'regular'), 1);
@@ -99,10 +102,11 @@ function run(c) {
     c.equals('no folding in regular default state', countMessages(t.win, 'blocked'), 0);
 
     // Can be folded manually by clicking the header toggle
-    headerBar.props.onClick();
+    headerBar.props.onToggle();
     c.ok('toggling regular folds it', t.bridge.isUnitFolded('u-regular', false) === true);
     const foldedRegular = t.render(payloadOf('u-regular'));
-    c.equals('folded regular has FBDietBar', foldedRegular.props.children[0].type, t.fold.FBDietBar);
+    c.equals('folded regular has FBDietTitleBar', foldedRegular.props.children[0].type, t.fold.FBDietTitleBar);
+    c.equals('folded regular has isMini true', foldedRegular.props.children[0].props.isMini, true);
   }
 
   /* --- regular payload with default settings: 36px title bar when unfolded --- */
@@ -121,7 +125,8 @@ function run(c) {
     const result = t.render(payloadOf('u-allowed'));
     c.ok('disabled category renders unfolded with header bar', result.type === t.React.Fragment && Array.isArray(result.props.children));
     const [headerBar] = result.props.children;
-    c.ok('header bar is in expanded state', headerBar.props.className.indexOf('fb-diet-state-expanded') !== -1);
+    const headerBarRender = headerBar.type(headerBar.props);
+    c.ok('header bar is in expanded state', headerBarRender.props.className.indexOf('fb-diet-state-expanded') !== -1);
     c.equals('allowed reported', countMessages(t.win, 'allowed'), 1);
     c.equals('not blocked', countMessages(t.win, 'blocked'), 0);
   }
@@ -145,7 +150,8 @@ function run(c) {
     c.equals('fragment holds bar + hidden container', children.length, 2);
     const bar = children[0];
     const hidden = children[1];
-    c.equals('bar is FBDietBar', bar.type, t.fold.FBDietBar);
+    c.equals('bar is FBDietTitleBar', bar.type, t.fold.FBDietTitleBar);
+    c.equals('bar isMini is true', bar.props.isMini, true);
     c.equals('bar gets the category', bar.props.category, 'sponsored');
     c.ok('bar carries the toggle callback', typeof bar.props.onToggle === 'function');
     c.equals('hidden container class', hidden.props.className, 'fb-diet-fold-hidden fb-diet-foldsquash');
@@ -173,18 +179,21 @@ function run(c) {
 
     t.bridge.setSettings({ foldSponsored: false, minimizedFoldMode: true });
     const unfoldedOff = t.render(payloadOf('u1'));
-    c.ok('category off renders unfolded with header bar', unfoldedOff.type === t.React.Fragment && unfoldedOff.props.children[0].props.className.indexOf('fb-diet-state-expanded') !== -1);
+    const [offHeaderBar] = unfoldedOff.props.children;
+    const offHeaderRender = offHeaderBar.type(offHeaderBar.props);
+    c.ok('category off renders unfolded with header bar', unfoldedOff.type === t.React.Fragment && offHeaderRender.props.className.indexOf('fb-diet-state-expanded') !== -1);
 
-    t.bridge.setSettings({ foldSponsored: false, minimizedFoldMode: true, alwaysShowFoldTitle: false });
+    t.bridge.setSettings({ foldSponsored: false, minimizedFoldMode: true, alwaysShowFoldBar: false });
     const unfoldedClean = t.render(payloadOf('u1'));
-    c.ok('alwaysShowFoldTitle off renders native without bar', unfoldedClean.__source === true);
+    c.ok('alwaysShowFoldBar off renders native without bar', unfoldedClean.__source === true);
 
-    t.bridge.setSettings({ foldSponsored: false, minimizedFoldMode: false, alwaysShowFoldTitle: true });
+    t.bridge.setSettings({ foldSponsored: false, minimizedFoldMode: false, alwaysShowFoldBar: true });
     const unfoldedTitleBar = t.render(payloadOf('u1'));
-    c.ok('alwaysShowFoldTitle on + mini off renders unfolded with title bar', unfoldedTitleBar.type === t.React.Fragment && unfoldedTitleBar.props.children[0].type === t.fold.FBDietTitleBar);
+    c.ok('alwaysShowFoldBar on + mini off renders unfolded with title bar', unfoldedTitleBar.type === t.React.Fragment && unfoldedTitleBar.props.children[0].type === t.fold.FBDietTitleBar);
 
-    t.bridge.setSettings({ foldSponsored: true, minimizedFoldMode: true, alwaysShowFoldTitle: true });
-    c.ok('category restored folds again', t.render(payloadOf('u1')).type === t.React.Fragment && t.render(payloadOf('u1')).props.children[0].type === t.fold.FBDietBar);
+    t.bridge.setSettings({ foldSponsored: true, minimizedFoldMode: true, alwaysShowFoldBar: true });
+    c.ok('category restored folds again', t.render(payloadOf('u1')).type === t.React.Fragment && t.render(payloadOf('u1')).props.children[0].type === t.fold.FBDietTitleBar);
+    c.equals('category restored has isMini true', t.render(payloadOf('u1')).props.children[0].props.isMini, true);
   }
 
   /* --- multiple categories block independently --- */

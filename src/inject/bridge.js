@@ -35,7 +35,8 @@ window.FBDietBridge = (() => {
     foldReels: true,
     foldRegular: false,
     minimizedFoldMode: false,
-    alwaysShowFoldTitle: true,
+    alwaysShowFoldBar: true,
+    showFeedTitle: true,
     debugProbe: false
   };
 

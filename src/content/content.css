@@ -166,6 +166,16 @@
   filter: brightness(0.96) !important;
 }
 
+/* 18px compact variant for Minimized Fold Bar */
+.fb-diet-titlebar.fb-diet-titlebar-mini {
+  height: 18px !important;
+  min-height: 18px !important;
+  max-height: 18px !important;
+  padding: 1px 8px !important;
+  font-size: 11px !important;
+  line-height: 16px !important;
+}
+
 .fb-diet-title-content {
   display: flex !important;
   align-items: center !important;

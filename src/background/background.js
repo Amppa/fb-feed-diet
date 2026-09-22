@@ -21,7 +21,8 @@ const DEFAULT_SETTINGS = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFA
   foldReels: true,
   foldRegular: false,
   minimizedFoldMode: false,
-  alwaysShowFoldTitle: true,
+  alwaysShowFoldBar: true,
+  showFeedTitle: true,
   debugProbe: false
 };
 
@@ -59,8 +60,13 @@ chrome.runtime.onInstalled.addListener(async () => {
   if (!data.settings) {
     await chrome.storage.local.set({ settings: DEFAULT_SETTINGS });
   } else {
+    // Migrate legacy key alwaysShowFoldTitle -> alwaysShowFoldBar if present
+    const raw = data.settings;
+    if (raw.alwaysShowFoldBar === undefined && raw.alwaysShowFoldTitle !== undefined) {
+      raw.alwaysShowFoldBar = raw.alwaysShowFoldTitle;
+    }
     // Ensure all keys exist in case of future updates
-    const mergedSettings = { ...DEFAULT_SETTINGS, ...data.settings };
+    const mergedSettings = { ...DEFAULT_SETTINGS, ...raw };
     await chrome.storage.local.set({ settings: mergedSettings });
   }
 

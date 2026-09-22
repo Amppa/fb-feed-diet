@@ -35,7 +35,8 @@ function run(checker) {
   checker.equals('settings.foldReels is true', settings && settings.foldReels, true);
   checker.equals('settings.foldRegular is false', settings && settings.foldRegular, false);
   checker.equals('settings.minimizedFoldMode is false', settings && settings.minimizedFoldMode, false);
-  checker.equals('settings.alwaysShowFoldTitle is true', settings && settings.alwaysShowFoldTitle, true);
+  checker.equals('settings.alwaysShowFoldBar is true', settings && settings.alwaysShowFoldBar, true);
+  checker.equals('settings.showFeedTitle is true', settings && settings.showFeedTitle, true);
   checker.equals('settings.debugProbe is false', settings && settings.debugProbe, false);
 
   const counts = defaults && defaults.COUNTS;

@@ -200,23 +200,38 @@
         <div class="feature-meta">
           <span class="feature-icon">📌</span>
           <div>
-            <div class="feature-title" data-i18n="featAlwaysShowTitleTitle">Always Show Fold Bar</div>
-            <div class="feature-desc" data-i18n="featAlwaysShowTitleDesc">Keep a top bar when posts are unfolded for identification and quick re-folding</div>
+            <div class="feature-title" data-i18n="featAlwaysShowBarTitle">Keep Bar When Expanded</div>
+            <div class="feature-desc" data-i18n="featAlwaysShowBarDesc">Keep a fold bar at the top after expanding for quick re-folding</div>
           </div>
         </div>
         <label class="switch">
-          <input type="checkbox" id="alwaysShowFoldTitle" aria-label="Always Show Fold Bar">
+          <input type="checkbox" id="alwaysShowFoldBar" aria-label="Keep Bar When Expanded">
           <span class="slider round"></span>
         </label>
       </div>
 
-      <!-- 2. Minimized fold bar (18px vs 36px) -->
+      <!-- 2. Show Feed Title -->
+      <div class="feature-item">
+        <div class="feature-meta">
+          <span class="feature-icon">🏷️</span>
+          <div>
+            <div class="feature-title" data-i18n="featShowFeedTitleTitle">Show Feed Title</div>
+            <div class="feature-desc" data-i18n="featShowFeedTitleDesc">Show author, group, or snippet on the fold bar</div>
+          </div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="showFeedTitle" aria-label="Show Feed Title">
+          <span class="slider round"></span>
+        </label>
+      </div>
+
+      <!-- 3. Minimized fold bar (18px vs 36px) -->
       <div class="feature-item">
         <div class="feature-meta">
           <span class="feature-icon">📏</span>
           <div>
-            <div class="feature-title" data-i18n="featMinimizedFoldTitle">Minimized Fold Bar</div>
-            <div class="feature-desc" data-i18n="featMinimizedFoldDesc">Use compact 18px bar instead of 36px title bar (switches 36/18pixel)</div>
+            <div class="feature-title" data-i18n="featMinimizedFoldTitle">Minimized Fold Bar (18px)</div>
+            <div class="feature-desc" data-i18n="featMinimizedFoldDesc">Switch to 18px ultra-slim height (default is 36px)</div>
           </div>
         </div>
         <label class="switch">

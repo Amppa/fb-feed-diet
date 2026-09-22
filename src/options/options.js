@@ -144,8 +144,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       foldReels: true,
       foldRegular: false,
       minimizedFoldMode: false,
-      alwaysShowFoldTitle: true
+      alwaysShowFoldBar: true,
+      showFeedTitle: true
     };
+    await chrome.storage.local.set({ settings });
+  }
+
+  // Migrate alwaysShowFoldTitle to alwaysShowFoldBar
+  if (settings.alwaysShowFoldTitle !== undefined && settings.alwaysShowFoldBar === undefined) {
+    settings.alwaysShowFoldBar = Boolean(settings.alwaysShowFoldTitle);
     await chrome.storage.local.set({ settings });
   }
 

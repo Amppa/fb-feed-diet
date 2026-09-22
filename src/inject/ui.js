@@ -57,23 +57,13 @@ window.FBDietUI = (() => {
 
   /**
    * The collapsed notice bar (entire strip is clickable).
+   * Kept for backwards compatibility; delegates to FBDietTitleBar.
    */
   function FBDietBar(props) {
-    const meta = GROUP_META[groupOf(props.category)] || GROUP_META.other;
-
-    const left = createEl('div', { className: 'fb-diet-placeholder-left' }, [
-      createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText])
-    ]);
-
-    return createEl(
-      'div',
-      {
-        className: 'fb-diet-placeholder',
-        title: 'Show post',
-        onClick: props.onToggle
-      },
-      [left]
-    );
+    return FBDietTitleBar(Object.assign({}, props, {
+      isMini: props.isMini !== undefined ? props.isMini : true,
+      showTitle: false
+    }));
   }
 
   const titleBarCache = new Map();
@@ -194,115 +184,129 @@ window.FBDietUI = (() => {
    * Title mode bar (24px single line snippet, permanent across expand/collapse).
    */
   function FBDietTitleBar(props) {
-    const meta = GROUP_META[groupOf(props.category)] || GROUP_META.other;
-    const isExpanded = Boolean(props.isExpanded);
+    try {
+      const meta = GROUP_META[groupOf(props.category)] || GROUP_META.other;
+      const isExpanded = Boolean(props.isExpanded);
+      const isMini = Boolean(props.isMini);
+      const showTitle = props.showTitle !== undefined ? Boolean(props.showTitle) : true;
 
-    const React = window.FBDietProxy ? window.FBDietProxy.getReact() : null;
-    const barRef = React && typeof React.useRef === 'function' ? React.useRef(null) : { current: null };
+      const React = window.FBDietProxy ? window.FBDietProxy.getReact() : null;
+      const barRef = React && typeof React.useRef === 'function' ? React.useRef(null) : { current: null };
 
-    const unitId = props.unitId;
-    const cached = unitId ? titleBarCache.get(unitId) : null;
-    const [domData, setDomData] = (React && typeof React.useState === 'function')
-      ? React.useState(cached || null)
-      : [cached || null, () => {}];
+      const unitId = props.unitId;
+      const cached = unitId ? titleBarCache.get(unitId) : null;
+      const [domData, setDomData] = (React && typeof React.useState === 'function')
+        ? React.useState(cached || null)
+        : [cached || null, () => {}];
 
-    const enrichment = props.enrichment || null;
-    const initialActor = (enrichment && enrichment.actor && enrichment.actor.name) || (domData && domData.actorName) || '';
-    const initialMsg = (enrichment && enrichment.content && (enrichment.content.message || enrichment.content.title)) || (domData && domData.snippetText) || '';
-    const initialGroup = (enrichment && enrichment.group && enrichment.group.name) || (domData && domData.groupName) || '';
+      const enrichment = props.enrichment || null;
+      const initialActor = (enrichment && enrichment.actor && enrichment.actor.name) || (domData && domData.actorName) || '';
+      const initialMsg = (enrichment && enrichment.content && (enrichment.content.message || enrichment.content.title)) || (domData && domData.snippetText) || '';
+      const initialGroup = (enrichment && enrichment.group && enrichment.group.name) || (domData && domData.groupName) || '';
 
-    if (React && typeof React.useEffect === 'function') {
-      React.useEffect(() => {
-        if (initialActor && initialMsg) return;
-        const el = barRef && barRef.current;
-        if (!el) return;
-        const container = el.nextElementSibling || (el.parentElement ? el.parentElement.querySelector('.fb-diet-fold-hidden, .fb-diet-expand-body') : null);
-        if (!container) return;
+      if (React && typeof React.useEffect === 'function') {
+        React.useEffect(() => {
+          if (!showTitle) return;
+          if (unitId && titleBarCache.has(unitId)) return;
+          if (initialActor && initialMsg) return;
+          const el = barRef && barRef.current;
+          if (!el) return;
+          const container = el.nextElementSibling || (el.parentElement ? el.parentElement.querySelector('.fb-diet-fold-hidden, .fb-diet-expand-body') : null);
+          if (!container) return;
 
-        const foundActor = initialActor || extractAuthorFromDom(container);
-        const foundMsg = initialMsg || extractMessageFromDom(container);
-        const foundGroup = initialGroup || extractGroupFromDom(container);
-        const foundAdUrl = extractAdUrlFromDom(container);
-        const isMediaGroup = props.category === 'reels' || props.category === 'stories';
-        const foundMedia = (!foundMsg && extractMediaFromDom(container, isMediaGroup)) || '';
+          const foundActor = initialActor || extractAuthorFromDom(container);
+          const foundMsg = initialMsg || extractMessageFromDom(container);
+          const foundGroup = initialGroup || extractGroupFromDom(container);
+          const foundAdUrl = extractAdUrlFromDom(container);
+          const isMediaGroup = props.category === 'reels' || props.category === 'stories';
+          const foundMedia = (!foundMsg && extractMediaFromDom(container, isMediaGroup)) || '';
 
-        if (foundActor || foundMsg || foundGroup || foundMedia || foundAdUrl) {
-          const newData = {
-            actorName: foundActor || '',
-            snippetText: foundMsg || foundMedia || '',
-            groupName: foundGroup || '',
-            adUrl: foundAdUrl || ''
-          };
-          if (unitId) titleBarCache.set(unitId, newData);
-          setDomData(newData);
-        }
-      }, [initialActor, initialMsg, initialGroup, unitId, props.category]);
-    }
-
-    const effectiveActor = (domData && domData.actorName) || initialActor;
-    const effectiveMsg = (domData && domData.snippetText) || initialMsg;
-    const effectiveGroup = (domData && domData.groupName) || initialGroup;
-
-    const badge = createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText]);
-    const contentKids = [badge];
-
-    // Group name (with max-width: 140px in css)
-    if (effectiveGroup) {
-      contentKids.push(
-        createEl('span', { className: 'fb-diet-title-group', title: effectiveGroup }, ['[' + effectiveGroup + ']'])
-      );
-    }
-
-    // Author string & reshare detection
-    let authorText = '';
-    if (effectiveActor) {
-      authorText = effectiveActor + ':';
-    } else if (props.category === 'stories') {
-      authorText = '限時動態';
-    } else if (props.category === 'reels') {
-      authorText = '連續短片';
-    } else if (props.category === 'suggestedGroup') {
-      authorText = '推薦社團:';
-    }
-
-    if (authorText) {
-      contentKids.push(
-        createEl('span', { className: 'fb-diet-title-author', title: authorText }, [authorText])
-      );
-    }
-
-    // Message snippet / title / media fallback
-    let snippetText = effectiveMsg;
-    if (!snippetText) {
-      const media = enrichment && enrichment.media;
-      const isMediaCategory = props.category === 'reels' || props.category === 'stories';
-      if (media && media.hasVideo) {
-        snippetText = '🎬 [影片]';
-      } else if (!isMediaCategory && media && (media.count > 0 || media.isMultiImage)) {
-        snippetText = media.isMultiImage ? '📷 [多張相片]' : '📷 [相片]';
-      } else if (enrichment && enrichment.content && enrichment.content.callToAction) {
-        snippetText = '👉 [' + enrichment.content.callToAction + ']';
+          if (foundActor || foundMsg || foundGroup || foundMedia || foundAdUrl) {
+            const newData = {
+              actorName: foundActor || '',
+              snippetText: foundMsg || foundMedia || '',
+              groupName: foundGroup || '',
+              adUrl: foundAdUrl || ''
+            };
+            if (unitId) titleBarCache.set(unitId, newData);
+            setDomData(newData);
+          }
+        }, [unitId, showTitle]);
       }
-    }
 
-    if (snippetText) {
-      contentKids.push(
-        createEl('span', { className: 'fb-diet-title-snippet', title: snippetText }, [snippetText])
+      const effectiveActor = (domData && domData.actorName) || initialActor;
+      const effectiveMsg = (domData && domData.snippetText) || initialMsg;
+      const effectiveGroup = (domData && domData.groupName) || initialGroup;
+
+      const badge = createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText]);
+      const contentKids = [badge];
+
+      if (showTitle) {
+        // Group name (with max-width: 140px in css)
+        if (effectiveGroup) {
+          contentKids.push(
+            createEl('span', { className: 'fb-diet-title-group', title: effectiveGroup }, ['[' + effectiveGroup + ']'])
+          );
+        }
+
+        // Author string & reshare detection
+        let authorText = '';
+        if (effectiveActor) {
+          authorText = effectiveActor + ':';
+        } else if (props.category === 'stories') {
+          authorText = '限時動態';
+        } else if (props.category === 'reels') {
+          authorText = '連續短片';
+        } else if (props.category === 'suggestedGroup') {
+          authorText = '推薦社團:';
+        }
+
+        if (authorText) {
+          contentKids.push(
+            createEl('span', { className: 'fb-diet-title-author', title: authorText }, [authorText])
+          );
+        }
+
+        // Message snippet / title / media fallback
+        let snippetText = effectiveMsg;
+        if (!snippetText) {
+          const media = enrichment && enrichment.media;
+          const isMediaCategory = props.category === 'reels' || props.category === 'stories';
+          if (media && media.hasVideo) {
+            snippetText = '🎬 [影片]';
+          } else if (!isMediaCategory && media && (media.count > 0 || media.isMultiImage)) {
+            snippetText = media.isMultiImage ? '📷 [多張相片]' : '📷 [相片]';
+          } else if (enrichment && enrichment.content && enrichment.content.callToAction) {
+            snippetText = '👉 [' + enrichment.content.callToAction + ']';
+          }
+        }
+
+        if (snippetText) {
+          contentKids.push(
+            createEl('span', { className: 'fb-diet-title-snippet', title: snippetText }, [snippetText])
+          );
+        }
+      }
+
+      const contentBox = createEl('div', { className: 'fb-diet-title-content' }, contentKids);
+
+      let className = 'fb-diet-titlebar';
+      if (isMini) className += ' fb-diet-titlebar-mini';
+      if (isExpanded) className += ' fb-diet-state-expanded';
+
+      return createEl(
+        'div',
+        {
+          ref: barRef,
+          className: className,
+          title: isExpanded ? 'Re-fold' : 'Show post',
+          onClick: props.onToggle
+        },
+        [contentBox]
       );
+    } catch (e) {
+      return null;
     }
-
-    const contentBox = createEl('div', { className: 'fb-diet-title-content' }, contentKids);
-
-    return createEl(
-      'div',
-      {
-        ref: barRef,
-        className: 'fb-diet-titlebar' + (isExpanded ? ' fb-diet-state-expanded' : ''),
-        title: isExpanded ? 'Re-fold' : 'Show post',
-        onClick: props.onToggle
-      },
-      [contentBox]
-    );
   }
 
   return {

@@ -215,76 +215,40 @@ window.FBDietFold = (() => {
         }
       };
 
-      // When unfolded and alwaysShowFoldTitle is disabled, return native render cleanly without any bar
-      if (!isFolded && settings.alwaysShowFoldTitle === false) {
+      // When unfolded and alwaysShowFoldBar is disabled, return native render cleanly without any bar
+      const keepBar = settings.alwaysShowFoldBar !== undefined ? settings.alwaysShowFoldBar : (settings.alwaysShowFoldTitle !== false);
+      if (!isFolded && !keepBar) {
         return addProbe(rendered, props, classifyResult, relayReads);
       }
 
       const ui = getUI();
+      const isMini = Boolean(settings.minimizedFoldMode);
+      const showTitle = settings.showFeedTitle !== undefined ? Boolean(settings.showFeedTitle) : true;
 
-      // Case 1: Title Mode (24px snippet bar, permanent across expand and collapse)
-      if (foldStyle === 'title') {
-        const enrichment = window.FBDietMetadata ? window.FBDietMetadata.collect(classifyResult, props) : null;
-        const TitleBarComponent = ui.FBDietTitleBar;
-        const titleBar = createEl(
-          TitleBarComponent,
-          {
-            category,
-            unitId,
-            isExpanded: !isFolded,
-            enrichment,
-            onToggle
-          },
-          []
-        );
+      // Only collect metadata if showTitle is enabled to save work
+      const enrichment = (showTitle && window.FBDietMetadata)
+        ? window.FBDietMetadata.collect(classifyResult, props)
+        : null;
 
-        if (!isFolded) {
-          // Unfolded with permanent 24px title bar on top
-          const expandedBody = createEl('div', { className: 'fb-diet-expand-body' }, [rendered]);
-          const content = [titleBar, expandedBody];
-          const Fragment = React.Fragment || null;
-          const output = FoldContext && FoldContext.Provider
-            ? createEl(FoldContext.Provider, { value: true }, content)
-            : (Fragment ? createEl(Fragment, null, content) : content);
-          return addProbe(output, props, classifyResult, relayReads);
-        }
+      const TitleBarComponent = ui.FBDietTitleBar;
+      const bar = createEl(
+        TitleBarComponent,
+        {
+          category,
+          unitId,
+          isExpanded: !isFolded,
+          isMini,
+          showTitle,
+          enrichment,
+          onToggle
+        },
+        []
+      );
 
-        // Folded in 24px title mode
-        const hidden = createEl(
-          'div',
-          {
-            className: 'fb-diet-fold-hidden fb-diet-foldsquash',
-            'aria-hidden': 'true'
-          },
-          [rendered]
-        );
-        const foldContent = [titleBar, hidden];
-        const Fragment = React.Fragment || null;
-        const output = FoldContext && FoldContext.Provider
-          ? createEl(FoldContext.Provider, { value: true }, foldContent)
-          : (Fragment ? createEl(Fragment, null, foldContent) : foldContent);
-        return addProbe(output, props, classifyResult, relayReads);
-      }
-
-      // Case 2: Mini Mode (18px Notice Bar)
       if (!isFolded) {
-        const groupOfFn = ui.groupOf || ((c) => c);
-        const groupMeta = (ui.GROUP_META && ui.GROUP_META[groupOfFn(category)]) || { badgeClass: '', badgeText: '' };
-        const refoldLeft = createEl('div', { className: 'fb-diet-placeholder-left' }, [
-          createEl('span', { className: 'fb-diet-badge ' + groupMeta.badgeClass }, [groupMeta.badgeText])
-        ]);
-        const refoldBar = createEl(
-          'div',
-          {
-            className: 'fb-diet-placeholder fb-diet-state-expanded',
-            title: 'Re-fold',
-            onClick: onToggle
-          },
-          [refoldLeft]
-        );
-
+        // Unfolded with top bar
         const expandedBody = createEl('div', { className: 'fb-diet-expand-body' }, [rendered]);
-        const content = [refoldBar, expandedBody];
+        const content = [bar, expandedBody];
         const Fragment = React.Fragment || null;
         const output = FoldContext && FoldContext.Provider
           ? createEl(FoldContext.Provider, { value: true }, content)
@@ -292,8 +256,7 @@ window.FBDietFold = (() => {
         return addProbe(output, props, classifyResult, relayReads);
       }
 
-      const BarComponent = ui.FBDietBar;
-      const bar = createEl(BarComponent, { category, unitId, onToggle }, []);
+      // Folded
       const hidden = createEl(
         'div',
         {
