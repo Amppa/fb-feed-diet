@@ -137,47 +137,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   let settings = data.settings || {};
   const counts = data.counts || {};
 
-  // Migration: if any foldXxx is a string ('mini'/'title'/'off'), reset to clean boolean defaults
-  const hasLegacyStringValues = Object.keys(SETTING_KEYS_BY_GROUP).some(group => {
-    const keys = SETTING_KEYS_BY_GROUP[group] || [];
-    return keys.some(k => typeof settings[k] === 'string');
-  });
-  if (hasLegacyStringValues) {
-    settings = {
-      ...settings,
-      foldSponsored: true,
-      foldSuggested: true,
-      foldSuggestedGroup: true,
-      foldMarketAds: true,
-      foldSearchingAds: true,
-      foldStories: true,
-      foldReels: true,
-      foldRegular: false,
-      minimizedFoldMode: false,
-      alwaysShowFoldBar: true,
-      showTitleMode: 'whenFolded'
-    };
-    await chrome.storage.local.set({ settings });
-  }
-
-  // Migrate alwaysShowFoldTitle to alwaysShowFoldBar
-  if (settings.alwaysShowFoldTitle !== undefined && settings.alwaysShowFoldBar === undefined) {
-    settings.alwaysShowFoldBar = Boolean(settings.alwaysShowFoldTitle);
-    await chrome.storage.local.set({ settings });
-  }
-
-  // Migrate showFeedTitle boolean -> showTitleMode (STRATEGY.md decision #27):
-  // false keeps the deliberate "never"; true rolls forward to the new default.
-  // The second branch upgrades 'whenExpanded' written by an earlier preview build.
-  if (settings.showTitleMode === undefined) {
-    settings.showTitleMode = settings.showFeedTitle === false ? 'never' : 'whenFolded';
-    await chrome.storage.local.set({ settings });
-  }
-  if (settings.showTitleMode === 'whenExpanded') {
-    settings.showTitleMode = 'whenFolded';
-    await chrome.storage.local.set({ settings });
-  }
-
   // Resolve language: stored setting wins, otherwise detect from the browser UI.
   const lang = settings.lang || (i18n ? i18n.detect() : 'en');
   if (i18n) i18n.setLang(lang);

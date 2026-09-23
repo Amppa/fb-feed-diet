@@ -25,6 +25,7 @@ This hub links the developer documentation for **FB Diet**. Topic files live und
   - [Cross-Project Comparison Matrix](docs/research/README.md#cross-project-comparison-matrix)
   - [esuit-suggest-blocker Teardown](docs/research/esuit.md)
 - [Documentation Ownership](#documentation-ownership)
+- [⚡ Current Stage Policy: Zero Backward Compatibility Overhead](#-current-stage-policy-zero-backward-compatibility-overhead)
 
 ## 🛠️ Project Structure
 
@@ -103,3 +104,13 @@ fb-diet-feed/
 - **`docs/debugging.md`**: In-browser diagnostic consoles and debugging.
 - **`AGENTS.md`**: Project-agnostic engineering contract — Git workflow, task decomposition, commit granularity, verification discipline, and autonomy boundaries.
 - **`STRATEGY.md`**: Feed classification strategy, Relay field mapping, and the authoritative decision log to consult before touching `classify.js` or `fold.js`.
+
+---
+
+## ⚡ Current Stage Policy: Zero Backward Compatibility Overhead
+
+> **Active Project Directive (Rapid Iteration Stage)**:
+> - The project is currently maintained by and for core testers (user base: ~2).
+> - **No Legacy Migrations**: Do not write, maintain, or introduce defensive code for legacy schema migrations (e.g. converting deprecated string settings `'mini'`/`'title'`, renaming obsolete storage keys, or juggling transitional preview formats).
+> - **Clean State / Reset-on-Upgrade**: When settings schemas or key names evolve, storage is updated by shallow merging `FB_DIET_DEFAULTS.SETTINGS` with existing keys (`Object.assign({}, DEFAULT_SETTINGS, data.settings)`). If a breaking change occurs, a clean reset to defaults is the standard procedure.
+> - **Code Simplicity Over Legacy Support**: Keep `background.js` and `options.js` lean, pure, and free of historical migration boilerplate. Full backward compatibility will only be introduced when the extension is prepared for broad public release.
