@@ -102,7 +102,7 @@
       <!-- 1. Regular posts -->
       <div class="feature-item">
         <div class="feature-meta">
-          <span class="feature-icon">📰</span>
+          <span class="feature-icon">🙋</span>
           <div>
             <div class="feature-title">
               <span data-i18n="groupRegularTitle">Regular posts</span>
@@ -201,14 +201,14 @@
       <!-- 1. Whitelist scope -->
       <div class="feature-item">
         <div class="feature-meta">
-          <span class="feature-icon">🧭</span>
+          <span class="feature-icon">✨</span>
           <div>
-            <div class="feature-title" data-i18n="featFoldScopeTitle">Only Fold on the Whitelist</div>
-            <div class="feature-desc" data-i18n="featFoldScopeDesc">Home, Search and Marketplace; all other pages stay untouched</div>
+            <div class="feature-title" data-i18n="featFoldScopeTitle">Only Filter on Home, Search & Marketplace</div>
+            <div class="feature-desc" data-i18n="featFoldScopeDesc">Other pages like personal profiles and groups remain untouched</div>
           </div>
         </div>
         <label class="switch">
-          <input type="checkbox" id="restrictFoldScope" aria-label="Only Fold on the Whitelist">
+          <input type="checkbox" id="restrictFoldScope" aria-label="Only Filter on Home, Search & Marketplace">
           <span class="slider round"></span>
         </label>
       </div>
@@ -218,12 +218,12 @@
         <div class="feature-meta">
           <span class="feature-icon">📌</span>
           <div>
-            <div class="feature-title" data-i18n="featAlwaysShowBarTitle">Keep Fold Bar When Expanded</div>
-            <div class="feature-desc" data-i18n="featAlwaysShowBarDesc">Keep a fold bar at the top after expanding for quick re-folding</div>
+            <div class="feature-title" data-i18n="featAlwaysShowBarTitle">Show Header on Expanded Posts</div>
+            <div class="feature-desc" data-i18n="featAlwaysShowBarDesc">Shows a Header when posts are expanded or unfiltered so you can fold them; when off, posts have no Header and cannot be folded</div>
           </div>
         </div>
         <label class="switch">
-          <input type="checkbox" id="alwaysShowFoldBar" aria-label="Keep Fold Bar When Expanded">
+          <input type="checkbox" id="alwaysShowFoldBar" aria-label="Show Header on Expanded Posts">
           <span class="slider round"></span>
         </label>
       </div>
@@ -231,15 +231,15 @@
       <!-- 3. Fold Bar Title (3-state dropdown) -->
       <div class="feature-item">
         <div class="feature-meta">
-          <span class="feature-icon">🏷️</span>
+          <span class="feature-icon">💬</span>
           <div>
-            <div class="feature-title" data-i18n="featTitleModeTitle">Fold Bar Title</div>
-            <div class="feature-desc" data-i18n="featTitleModeDesc">Show group, author and snippet on the fold bar; while folded the bar keeps only the badge</div>
+            <div class="feature-title" data-i18n="featTitleModeTitle">Header Snippet Display</div>
+            <div class="feature-desc" data-i18n="featTitleModeDesc">Set to hide snippet, always show snippet, or show only when folded</div>
           </div>
         </div>
-        <select class="feature-select" id="showTitleMode" aria-label="Fold Bar Title">
+        <select class="feature-select" id="showTitleMode" aria-label="Header Snippet Display">
           <option value="always" data-i18n="featTitleModeAlways">Always Show</option>
-          <option value="whenFolded" data-i18n="featTitleModeWhenFolded">Only When Folded</option>
+          <option value="whenFolded" data-i18n="featTitleModeWhenFolded">Only When Folded (Default)</option>
           <option value="never" data-i18n="featTitleModeNever">Always Hide</option>
         </select>
       </div>
@@ -249,12 +249,12 @@
         <div class="feature-meta">
           <span class="feature-icon">📏</span>
           <div>
-            <div class="feature-title" data-i18n="featMinimizedFoldTitle">Minimized Fold Bar (18px)</div>
+            <div class="feature-title" data-i18n="featMinimizedFoldTitle">Minimized Header (18px)</div>
             <div class="feature-desc" data-i18n="featMinimizedFoldDesc">Switch to 18px ultra-slim height (default is 36px)</div>
           </div>
         </div>
         <label class="switch">
-          <input type="checkbox" id="minimizedFoldMode" aria-label="Minimized Fold Bar">
+          <input type="checkbox" id="minimizedFoldMode" aria-label="Minimized Header (18px)">
           <span class="slider round"></span>
         </label>
       </div>
