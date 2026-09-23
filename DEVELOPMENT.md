@@ -151,7 +151,7 @@ graph TD
 ### Shared Defaults Module (`src/shared/`)
 
 - **`defaults.js` (`globalThis.FB_DIET_DEFAULTS`)**: Single source of truth for configuration and stat schema.
-  - Exposes `FB_DIET_DEFAULTS.SETTINGS`, `FB_DIET_DEFAULTS.COUNTS`, the user-facing group layer (`GROUP_BY_CATEGORY`, `SETTING_KEYS_BY_GROUP`, `GROUP_ORDER`; STRATEGY.md decision #8), and `VERSION`.
+  - Exposes `FB_DIET_DEFAULTS.SETTINGS` (including `restrictFoldScope`, the fold-scope restriction switch), `FB_DIET_DEFAULTS.COUNTS`, the user-facing group layer (`GROUP_BY_CATEGORY`, `SETTING_KEYS_BY_GROUP`, `GROUP_ORDER`; STRATEGY.md decision #8), the pure fold-scope helper `isFoldScopeAllowed(pathname)` (STRATEGY.md decision #26), and `VERSION`.
   - Loaded before all scripts via `manifest.json` (`content_scripts`), `importScripts` (`background.js`), and `<script>` tags (`popup.html`, `options.html`).
   - Eliminates configuration drift across contexts.
 
@@ -200,7 +200,8 @@ Loaded sequentially at `document_start` before Comet finishes loading:
   - Enforces strict Rules of Hooks (unconditional top-level hooks: `useContext`, `useState`, `useEffect`, `useSafeLayoutEffect`).
   - **Safe Hydration Commit Gate**: Returns the original `rendered` tree during initial SSR hydration pass, then transitions to folded UI via `useSafeLayoutEffect` immediately upon commit, eliminating React 18 `#418` hydration mismatch errors.
   - If a unit matches an active filter and is not expanded, renders an inline `FBDietFold` bar and sets the original element container to squash mode (`1x1` container).
-  - Also guards sidebar ad units (`SideAdHidden` and `RightRailUnitWrapper`) with identical commit gates.
+  - **Fold scope guard** (STRATEGY.md, decision #26): after the unconditional hooks and the enabled/mode checks, `settings.restrictFoldScope !== false` plus `FB_DIET_DEFAULTS.isFoldScopeAllowed(location.pathname)` decide whether classification runs. Out-of-scope units (e.g. `/groups/...`) return the untouched tree with a null-classify probe — zero classification, zero counters, zero `fbDietLog` entries, no fold bar. Fails open when the defaults module or the pathname is unavailable.
+  - Also guards sidebar ad units (`SideAdHidden` and `RightRailUnitWrapper`) with identical commit gates. `SideAdHidden` is a pure visual hide that works on every page (independent of `restrictFoldScope`) and posts no counters (decision #26).
   - Tracks diagnostic hydration statistics (`getStatus().hydration`).
   - Preserves Relay query subscriptions and React component identity.
 
@@ -215,6 +216,9 @@ Loaded sequentially at `document_start` before Comet finishes loading:
 - **`detector.js` (`window.FBDietDetector`)**:
   - Fallback text parser with multilingual keyword dictionaries (Sponsored, Suggested, etc.).
   - Handles SVG text masking, aria-labels, and obfuscated spans.
+- **`fallback.js` (`window.FBDietDOMFallback`)**:
+  - DOM fallback scanner used when the MAIN world proxy never reports in (STRATEGY.md, decision #26).
+  - `scanPage` honours `restrictFoldScope` with a `wasInFoldScope` transition flag: the scan runs only inside the allowlist; leaving the scope restores all folded elements once and clears stale `data-fb-diet-fingerprint` values (so recycled SPA nodes can re-fold); while out of scope each scan costs a single pathname comparison.
 
 ### Shared i18n Module (`src/i18n/`)
 
@@ -350,6 +354,7 @@ title/snippet (40 chars max), and match reason:
 - `relayReads`: the exact Relay paths the classifier tried for this unit, with the returned values
 - `recordKeys`: top-level keys of the Relay record (identifies new/modified FB fields without huge dumps)
 - `href` / `version` / `settings`: context snapshot (page URL, extension version, active filter toggles)
+- `scope`: fold-scope context (`restricted` — the `restrictFoldScope` setting, `allowed` — runtime verdict for this path, `path` — `location.pathname`; STRATEGY.md decision #26)
 - `payload`: unit position and `feedUnit.post_id` only (redundant `__id` and `__typename` pruned, [STRATEGY.md](STRATEGY.md) decisions #11/#13)
 
 Use it to diagnose missed folds (`classify.category: null` — check `reason`) and wrong folds
@@ -361,6 +366,7 @@ The Options page includes a **Fold Appearance Settings** section containing:
 - **Always Show Fold Bar** (toggle, default true): When enabled, unfolded or expanded posts retain a top notice bar for identification and re-folding. When disabled, unfolded posts render completely natively without any injected header bar.
 - **Show Feed Title** (toggle, default true): Controls whether the fold bar renders the group, author, and message/media snippet. When disabled, the bar keeps only the group badge and the `[+]` / `[-]` toggle at the same height; metadata collection and DOM enrichment are skipped for performance ([STRATEGY.md](STRATEGY.md) decision #25).
 - **Minimized Fold Bar** (toggle, default false): Switches fold bars between 36px and 18px. When enabled, folded posts and retained notice bars render as an 18px compact bar (`FBDietBar`) instead of the 36px title bar (`FBDietTitleBar`). Changes sync immediately to all open Facebook tabs.
+- **Fold Only On Home & Search** (toggle `restrictFoldScope`, default true): Restricts classification and folding to the allowlist (`/`, `/home.php`, `/search*`, `/marketplace*`) via `FB_DIET_DEFAULTS.isFoldScopeAllowed`. Groups, profiles, and other pages render natively with zero counters and log entries; right-rail ad hiding stays active on every page and is never counted (STRATEGY.md decision #26).
 
 ### Options Debug Card (Feed Probe Buttons)
 

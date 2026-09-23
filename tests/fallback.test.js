@@ -186,6 +186,57 @@ function run(checker) {
   let evalBlocked = null;
   fallback.evaluateElement(spoEl, { enabled: true, foldSponsored: true }, (cat) => { evalBlocked = cat; });
   checker.equals('evaluateElement folds matching sponsored element', evalBlocked, 'sponsored');
+
+  /* --- fold scope: leaving the allowlist restores once, re-entering rescans (decision #26) --- */
+  {
+    const calls = { restore: 0, fingerprint: 0, scan: 0 };
+    const staleEl = { dataset: { fbDietFingerprint: 'stale-fp' }, classList: new FakeClassList() };
+    doc.querySelectorAll = (selector) => {
+      if (selector === '.fb-diet-placeholder') {
+        calls.restore += 1;
+        return [{ remove() {} }];
+      }
+      if (selector === '.fb-diet-folded-original') return [staleEl];
+      if (selector === '[data-fb-diet-fingerprint]') {
+        calls.fingerprint += 1;
+        return [staleEl];
+      }
+      calls.scan += 1;
+      return [];
+    };
+
+    const settings = { enabled: true, restrictFoldScope: true };
+
+    // In scope: the full scan runs, nothing is restored.
+    sandbox.location = { pathname: '/' };
+    fallback.scanPage(settings, () => {});
+    checker.equals('in-scope scan runs the selector pass', calls.scan, 1);
+    checker.equals('in-scope scan restores nothing', calls.restore, 0);
+
+    // Leave the allowlist: restore fires exactly once and clears stale fingerprints.
+    sandbox.location = { pathname: '/groups/feed' };
+    fallback.scanPage(settings, () => {});
+    checker.equals('leaving the scope restores folded elements once', calls.restore, 1);
+    checker.equals('leaving the scope queries fingerprints once', calls.fingerprint, 1);
+    checker.equals('stale fingerprint deleted for recycled nodes', staleEl.dataset.fbDietFingerprint, undefined);
+    checker.equals('out-of-scope scan skips the selector pass', calls.scan, 1);
+
+    // Still out of scope: only the pathname comparison runs (no restore, no scan).
+    fallback.scanPage(settings, () => {});
+    checker.equals('staying out of scope does not restore again', calls.restore, 1);
+    checker.equals('staying out of scope does not rescan', calls.scan, 1);
+
+    // Back in scope: the scan resumes so restored units can re-fold.
+    sandbox.location = { pathname: '/' };
+    fallback.scanPage(settings, () => {});
+    checker.equals('re-entering the scope rescans', calls.scan, 2);
+    checker.equals('re-entering the scope restores nothing', calls.restore, 1);
+
+    // Toggle off: out-of-scope paths scan anyway.
+    sandbox.location = { pathname: '/groups/feed' };
+    fallback.scanPage({ enabled: true, restrictFoldScope: false }, () => {});
+    checker.equals('restrictFoldScope:false scans out of scope', calls.scan, 3);
+  }
 }
 
 module.exports = { run };

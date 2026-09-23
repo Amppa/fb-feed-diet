@@ -19,6 +19,7 @@
     minimizedFoldMode: false,
     alwaysShowFoldBar: true,
     showFeedTitle: true,
+    restrictFoldScope: true,
     debugProbe: false
   };
 
@@ -28,6 +29,17 @@
       return minimizedFoldMode ? 'mini' : 'title';
     }
     return fallback;
+  }
+
+  // Fold scope (STRATEGY.md decision #26): classification and folding only run on
+  // the allowlisted surfaces when SETTINGS.restrictFoldScope is on. Prefix matching
+  // respects segment boundaries (/searchabc is NOT /search). Fail-open: a missing
+  // or unknown pathname never blocks folding.
+  const FOLD_SCOPE_PREFIXES = ['/', '/home.php', '/search', '/marketplace'];
+
+  function isFoldScopeAllowed(pathname) {
+    if (typeof pathname !== 'string' || !pathname) return true;
+    return FOLD_SCOPE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + '/'));
   }
 
   function getTodayDateString(d) {
@@ -111,6 +123,7 @@
     GROUP_META: GROUP_META,
     VERSION: 1,
     getTodayDateString: getTodayDateString,
-    normalizeFoldMode: normalizeFoldMode
+    normalizeFoldMode: normalizeFoldMode,
+    isFoldScopeAllowed: isFoldScopeAllowed
   };
 })();

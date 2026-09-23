@@ -1,5 +1,5 @@
 'use strict';
-const { Checker, createFakeReact, createWindow, loadInject, createFakeComet, countMessages } = require('./harness');
+const { Checker, createFakeReact, createWindow, loadInject, loadDefaults, createFakeComet, countMessages } = require('./harness');
 
 const FEED_MODULE = 'CometFeedUnitErrorBoundary.react';
 const SPONSORED_PATH = '^sponsored_data.ad_id';
@@ -252,7 +252,7 @@ function run(c) {
     c.equals('payload.feedUnit __typename removed', reportWithoutEntry.payload.feedUnit.__typename, undefined);
     c.ok('payloadKeys captured', Array.isArray(reportWithoutEntry.payload.payloadKeys));
     c.ok('feedUnitKeys captured', Array.isArray(reportWithoutEntry.payload.feedUnitKeys));
-    c.equals('version is 2.0.0', reportWithoutEntry.version, '2.0.0');
+    c.equals('version is 2.0.1', reportWithoutEntry.version, '2.0.1');
     c.ok('at.rendered present', Boolean(reportWithoutEntry.at && reportWithoutEntry.at.rendered));
     c.ok('at.probed present', Boolean(reportWithoutEntry.at && reportWithoutEntry.at.probed));
     c.ok('memory object present', Boolean(reportWithoutEntry.memory));
@@ -279,6 +279,22 @@ function run(c) {
 
     const reportWithEntry = t.fold.buildUnitProbeReport({ entryCategory: 'marketAds', payload: { feedUnit: {} } }, classifyRes, []).report;
     c.equals('entryCategory present when provided', reportWithEntry.entryCategory, 'marketAds');
+
+    /* --- probe report scope fields (STRATEGY.md decision #26) --- */
+    c.ok('scope object present', Boolean(reportWithoutEntry.scope) && typeof reportWithoutEntry.scope === 'object');
+    c.equals('scope.restricted reflects the default restriction', reportWithoutEntry.scope.restricted, true);
+    c.equals('scope.path is null without a pathname', reportWithoutEntry.scope.path, null);
+
+    const tScope = setup({});
+    tScope.win.FB_DIET_DEFAULTS = loadDefaults();
+    tScope.win.location.pathname = '/groups/feed';
+    const outOfScopeReport = tScope.fold.buildUnitProbeReport({ payload: { feedUnit: {} } }, classifyRes, []).report;
+    c.equals('scope.path captures the page pathname', outOfScopeReport.scope.path, '/groups/feed');
+    c.equals('scope.allowed is false on /groups', outOfScopeReport.scope.allowed, false);
+    tScope.bridge.setSettings({ restrictFoldScope: false });
+    const unrestrictedReport = tScope.fold.buildUnitProbeReport({ payload: { feedUnit: {} } }, classifyRes, []).report;
+    c.equals('scope.restricted false when the toggle is off', unrestrictedReport.scope.restricted, false);
+    c.equals('scope.allowed true when the toggle is off', unrestrictedReport.scope.allowed, true);
   }
 
   /* --- 3-tier fold mode: title mode (24px persistent header bar) --- */
@@ -310,6 +326,58 @@ function run(c) {
     expandedTitleBar.props.onToggle();
     const reFolded = t.render(payloadOf('u-title'));
     c.ok('re-folded title bar is collapsed again', reFolded.props.children[0].props.isExpanded === false);
+  }
+
+  /* --- fold scope restriction: out-of-scope units stay native (STRATEGY.md decision #26) --- */
+  {
+    const t = setup({ [SPONSORED_PATH]: 'ad-1' });
+    t.win.FB_DIET_DEFAULTS = loadDefaults();
+    t.win.location.pathname = '/groups/feed';
+
+    const untouched = t.render(payloadOf('u-scope'));
+    c.ok('out-of-scope unit renders untouched', untouched.__source === true);
+    c.equals('out-of-scope posts no blocked message', countMessages(t.win, 'blocked'), 0);
+    c.equals('out-of-scope posts no regular message', countMessages(t.win, 'regular'), 0);
+    c.equals('out-of-scope posts no allowed message', countMessages(t.win, 'allowed'), 0);
+
+    // Toggle off: restriction lifts and the same unit folds on an out-of-scope path
+    t.bridge.setSettings({ restrictFoldScope: false });
+    const unrestricted = t.render(payloadOf('u-scope'));
+    c.ok('restrictFoldScope:false folds outside the allowlist', unrestricted.type === t.React.Fragment);
+    c.equals('restriction off reports blocked once', countMessages(t.win, 'blocked'), 1);
+
+    // Toggle back on, navigate in-scope: folding resumes under the restriction
+    t.bridge.setSettings({ restrictFoldScope: true });
+    t.win.location.pathname = '/';
+    const inScope = t.render(payloadOf('u-scope-2'));
+    c.ok('in-scope unit folds with the restriction on', inScope.type === t.React.Fragment);
+    c.equals('in-scope blocked reported', countMessages(t.win, 'blocked'), 2);
+  }
+
+  /* --- side-rail ad: hiding independent of scope, never counted (decision #26) --- */
+  {
+    const t = setup({});
+    t.win.FB_DIET_DEFAULTS = loadDefaults();
+    t.win.location.pathname = '/groups/feed';
+
+    function SideSourceCmp() {
+      return { type: 'div', props: { children: 'side ad' }, __source: true };
+    }
+    t.win.__d(SideSourceCmp, 'CometAdsSideFeedUnitItem.react', [], null, null, null, { default: SideSourceCmp });
+    t.comet.require('CometAdsSideFeedUnitItem.react');
+    const sideWrapper = t.comet.getExport('CometAdsSideFeedUnitItem.react').default;
+
+    // Emulate the hydration commit gate: first pass commits the layout effect,
+    // second pass renders the hidden node.
+    t.React.resetHooks();
+    const element = sideWrapper({ feedUnit: { id: 'side-1' } });
+    c.ok('side wrapper carries lastCmp + payload', Boolean(element.props.lastCmp) && Boolean(element.props.payload));
+    element.type(element.props);
+    t.React.resetHooks();
+    const hidden = element.type(element.props);
+
+    c.ok('side ad hides on an out-of-scope page', Boolean(hidden) && hidden.type === 'div' && hidden.props.className === 'adhidden fb-diet-side-ad-hidden');
+    c.equals('side ad hiding posts no blocked message', countMessages(t.win, 'blocked'), 0);
   }
 
   /* --- hostile payload never crashes the feed --- */

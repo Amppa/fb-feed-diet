@@ -130,8 +130,31 @@ window.FBDietDOMFallback = (() => {
     }
   }
 
+  // Fold scope (STRATEGY.md decision #26): classify only on the allowlisted surfaces.
+  // Leaving the scope restores every folded element exactly once and clears stale
+  // fingerprints (restoreAllElements keeps them, so recycled SPA nodes would never
+  // re-fold). While out of scope each scan costs one pathname comparison; fail-open
+  // when defaults or the pathname are unavailable.
+  let wasInFoldScope = null;
+
+  function isCurrentPathAllowed() {
+    const defaults = globalThis.FB_DIET_DEFAULTS;
+    if (!defaults || typeof defaults.isFoldScopeAllowed !== 'function') return true;
+    return defaults.isFoldScopeAllowed(window.location ? window.location.pathname : undefined);
+  }
+
   function scanPage(settings, onBlocked) {
     if (!settings || !settings.enabled) return;
+
+    const inScope = settings.restrictFoldScope === false || isCurrentPathAllowed();
+    if (wasInFoldScope === true && !inScope) {
+      restoreAllElements();
+      document.querySelectorAll('[data-fb-diet-fingerprint]').forEach((el) => {
+        delete el.dataset.fbDietFingerprint;
+      });
+    }
+    wasInFoldScope = inScope;
+    if (!inScope) return;
 
     const scope = document.querySelector('div[role="main"]') ? 'div[role="main"]' : 'body';
     const selectors = [

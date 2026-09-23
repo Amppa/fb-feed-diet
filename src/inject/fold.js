@@ -125,6 +125,20 @@ window.FBDietFold = (() => {
       // If disabled or in DOM mode, let original render untouched
       if (!settings.enabled || settings.mode === 'dom') return rendered;
 
+      // Fold scope (STRATEGY.md decision #26): outside the allowlisted surfaces skip
+      // classification, counters, logs and fold bars entirely. Probe stays available
+      // with a null classify result. Fail-open when defaults or the pathname are missing.
+      if (settings.restrictFoldScope !== false) {
+        const scopeDefaults = window.FB_DIET_DEFAULTS;
+        const isScopeAllowed = scopeDefaults && typeof scopeDefaults.isFoldScopeAllowed === 'function'
+          ? scopeDefaults.isFoldScopeAllowed
+          : null;
+        const pathname = window.location ? window.location.pathname : undefined;
+        if (isScopeAllowed && !isScopeAllowed(pathname)) {
+          return addProbe(rendered, props, null, null);
+        }
+      }
+
       let category = props.entryCategory || null;
       let reason = 'component:' + (props.moduleName || 'unknown');
       let unitId = null;
@@ -301,9 +315,8 @@ window.FBDietFold = (() => {
     const settings = bridge.getSettings();
     if (!settings.enabled || settings.foldSponsored === false) return rendered;
 
-    bridge.reportBlocked({ category: 'sponsored', unitId: 'side_ad', reason: 'right-rail-sponsored' });
-
-    // Directly hide right sidebar ad: return an empty hidden node (no placeholder, no unfold)
+    // Pure visual hide: independent of restrictFoldScope and never counted or logged
+    // (STRATEGY.md decision #26). Empty hidden node, no placeholder, no unfold.
     return createEl('div', { className: 'adhidden fb-diet-side-ad-hidden', style: { display: 'none' } }, []);
   }
 

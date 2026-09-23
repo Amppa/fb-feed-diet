@@ -182,7 +182,7 @@ window.FBDietProbe = (() => {
     }
 
     const report = {
-      version: '2.0.0',
+      version: '2.0.1',
       at: {
         rendered: renderIso,
         probed: nowIso
@@ -276,6 +276,25 @@ window.FBDietProbe = (() => {
       }
     } catch (e) {}
     report.recordKeys = recordKeys;
+
+    // Fold-scope context (STRATEGY.md decision #26): was folding restricted for this
+    // report, what is the runtime verdict, and on which path.
+    let scopePath = null;
+    let scopeRestricted = false;
+    let scopeAllowed = true;
+    try {
+      scopePath = (window.location && window.location.pathname) || null;
+      const scopeSettings = window.FBDietBridge && window.FBDietBridge.getSettings ? window.FBDietBridge.getSettings() : null;
+      scopeRestricted = Boolean(scopeSettings && scopeSettings.restrictFoldScope !== false);
+      const scopeDefaults = window.FB_DIET_DEFAULTS;
+      const isScopeAllowed = scopeDefaults && typeof scopeDefaults.isFoldScopeAllowed === 'function'
+        ? scopeDefaults.isFoldScopeAllowed
+        : null;
+      scopeAllowed = !scopeRestricted || !isScopeAllowed || isScopeAllowed(scopePath);
+    } catch (e) {
+      // Diagnostics must never break the report
+    }
+    report.scope = { restricted: scopeRestricted, allowed: scopeAllowed, path: scopePath };
 
     let text = null;
     try {
@@ -380,6 +399,14 @@ window.FBDietProbe = (() => {
       sourceRow.className = 'fb-diet-probe-popup-row';
       sourceRow.textContent = 'Source: ' + evidenceText;
       popup.appendChild(sourceRow);
+
+      // Scope: fold-scope verdict (STRATEGY.md decision #26)
+      if (report && report.scope) {
+        const scopeRow = document.createElement('div');
+        scopeRow.className = 'fb-diet-probe-popup-row';
+        scopeRow.textContent = 'Scope: ' + (report.scope.allowed ? 'home/search/marketplace' : 'groups/profile');
+        popup.appendChild(scopeRow);
+      }
 
       // Link: article or ad URL (if found)
       const postUrl = report && report.url && (report.url.post || report.url.ad);

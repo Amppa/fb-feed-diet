@@ -20,6 +20,7 @@
     minimizedFoldMode: false,
     alwaysShowFoldBar: true,
     showFeedTitle: true,
+    restrictFoldScope: true,
     debugProbe: false
   };
   const DEFAULT_COUNTS = DEFAULTS.COUNTS || {

@@ -38,6 +38,7 @@ function run(checker) {
   checker.equals('settings.alwaysShowFoldBar is true', settings && settings.alwaysShowFoldBar, true);
   checker.equals('settings.showFeedTitle is true', settings && settings.showFeedTitle, true);
   checker.equals('settings.debugProbe is false', settings && settings.debugProbe, false);
+  checker.equals('settings.restrictFoldScope is true', settings && settings.restrictFoldScope, true);
 
   const counts = defaults && defaults.COUNTS;
   checker.ok('COUNTS object exists', Boolean(counts));
@@ -83,6 +84,19 @@ function run(checker) {
   checker.equals('normalizeFoldMode title + mini:false -> title', defaults.normalizeFoldMode('title', 'off', false), 'title');
   checker.equals('normalizeFoldMode title + mini:true -> mini', defaults.normalizeFoldMode('title', 'off', true), 'mini');
   checker.equals('normalizeFoldMode fallback', defaults.normalizeFoldMode('unknown', 'off'), 'off');
+
+  /* --- fold scope allowlist (STRATEGY.md decision #26) --- */
+  checker.ok('isFoldScopeAllowed exists', typeof defaults.isFoldScopeAllowed === 'function');
+  checker.equals('home root allowed', defaults.isFoldScopeAllowed('/'), true);
+  checker.equals('home.php allowed', defaults.isFoldScopeAllowed('/home.php'), true);
+  checker.equals('search root allowed', defaults.isFoldScopeAllowed('/search'), true);
+  checker.equals('search subpage allowed', defaults.isFoldScopeAllowed('/search/top'), true);
+  checker.equals('marketplace item allowed', defaults.isFoldScopeAllowed('/marketplace/item/1'), true);
+  checker.equals('groups feed rejected', defaults.isFoldScopeAllowed('/groups/feed'), false);
+  checker.equals('profile page rejected', defaults.isFoldScopeAllowed('/mypage'), false);
+  checker.equals('search prefix boundary rejected', defaults.isFoldScopeAllowed('/searchabc'), false);
+  checker.equals('empty path fails open', defaults.isFoldScopeAllowed(''), true);
+  checker.equals('undefined path fails open', defaults.isFoldScopeAllowed(undefined), true);
 
   // Idempotency: repeated execution does not throw
   let threw = false;

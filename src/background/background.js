@@ -23,6 +23,7 @@ const DEFAULT_SETTINGS = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFA
   minimizedFoldMode: false,
   alwaysShowFoldBar: true,
   showFeedTitle: true,
+  restrictFoldScope: true,
   debugProbe: false
 };
 

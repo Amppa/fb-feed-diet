@@ -244,6 +244,20 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
   4. **相容別名**：`FBDietBar` 保留為別名，內部委派 `FBDietTitleBar({ isMini: true, showTitle: false })`。
   5. **版本升級**：專案全面升版至 `2.0.0`（`manifest.json`、`package.json`、probe 報告 `version` 與測試同步），作為 `fold` / `content` 模組化與外觀控制解耦後的首個大版本。
 
+### 決策 #26 — 折疊範圍限制 `restrictFoldScope` 與右欄廣告「隱藏獨立、不計數」（2026-09-23）
+- **背景**：分類摺疊只想作用在動態牆主表面；社團、個人頁等其他頁面照常分類會帶來無謂的統計與 `fbDietLog` 雜訊。同時使用者裁示：**右側廣告隱藏是獨立功能，且不計數**（推翻「範圍內才計數」的過渡方案）。
+- **範圍定義（allowlist）**：`defaults.js` 新增純函數 `isFoldScopeAllowed(pathname)`，允許 `/`、`/home.php`、`/search`、`/marketplace` 四個前綴，**邊界敏感**（`/searchabc` 不算 `/search`，`/mypage` 不算 `/`）。`''`／`undefined` 一律放行（fail-open）。預設 `SETTINGS.restrictFoldScope: true`。
+- **改動**：
+  1. `fold.js` 主路徑守門：插在**無條件 hooks 之後、分類之前**（enabled/mode 檢查之下）。範圍外 → `return addProbe(rendered, props, null, null)`：零分類、零 `reportBlocked`/`reportAllowed`/`reportRegular`、零 log、無摺疊列；probe 開啟時仍可複製診斷（`classify: null` + `scope` 欄可看出被範圍擋下）。雙 fail-safe：`FB_DIET_DEFAULTS` 缺席或 `isFoldScopeAllowed` 非函數 → 放行；`location.pathname` 缺失 → 放行。
+  2. `fold.js` `SideAdHidden`：**刪除** `bridge.reportBlocked({ category: 'sponsored', unitId: 'side_ad', ... })`。隱藏邏輯完全不動（不受 `restrictFoldScope` 影響、全站生效、仍受 `enabled`/`foldSponsored` 管理）；`hydrationStats` 診斷計數保留。`RightRailUnitWrapper` 本來就不計數，未改。
+  3. `fallback.js`（DOM 模式）`scanPage` 轉態旗標 `wasInFoldScope`：離開 allowlist 的**那一瞬間**執行一次 `restoreAllElements()`，並額外清除 `data-fb-diet-fingerprint`（`restoreAllElements` 原本不清指紋 → FB 複用 DOM 節點後指紋相等會直接 return，回首頁永不復摺）；範圍外每次掃描僅做一次 pathname 比對，趨近零成本；`restrictFoldScope: false` 時 guard 短路。
+  4. `probe.js`：報告新增頂層 `scope: { restricted, allowed, path }`（插在 `recordKeys` 之後、序列化之前）；氣泡列 `Scope:` 插在 `Source` 列與 `Link` 列之間，固定兩種字串：`home/search/marketplace`（allowed）／`groups/profile`（not allowed）。已知邊界：限制關＋範圍外頁 → `allowed: true` 但 `restricted: false` + `path` 可還原真相（刻意不做第三種文案）。
+  5. 設定頁：`options.html` `appearanceList` 第 4 個開關 `#restrictFoldScope`（`options.js` 通用接線零改動）；`i18n.js` 新增 `featFoldScopeTitle` / `featFoldScopeDesc`（en + zh-TW）。
+  6. `background.js` / `content.js` / `bridge.js` 的 inline `DEFAULT_SETTINGS` 副本同步補上 `restrictFoldScope: true`。
+- **統計行為變更**：右欄廣告**永不計數**——`fbDietLog` 不會出現 `unitId: side_ad`，`sponsored` 計數不再包含右欄廣告（舊版每會話曾 +1）。
+- **版本升級**：`manifest.json`、`package.json`、probe 報告 `version`、`tests/fold.test.js` 斷言同步升版 `2.0.1`。
+- **排除項**：Facebook 的 Groups Feed 官方廣告版位屬「範圍外」——照 allowlist 不分類不計數；若日後要納入，改 allowlist 即可，無需動守門。
+
 ---
 
 ## 4. 已知誤判案例（症狀 → 根因 → 修正）

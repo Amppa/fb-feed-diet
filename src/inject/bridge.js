@@ -37,6 +37,7 @@ window.FBDietBridge = (() => {
     minimizedFoldMode: false,
     alwaysShowFoldBar: true,
     showFeedTitle: true,
+    restrictFoldScope: true,
     debugProbe: false
   };
 

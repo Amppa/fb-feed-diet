@@ -140,6 +140,20 @@ function loadInject(win, file) {
 }
 
 /**
+ * Loads src/shared/defaults.js into a fresh vm context and returns the exposed
+ * FB_DIET_DEFAULTS object. Lets tests inject the real defaults (e.g. the fold-scope
+ * allowlist) into a window double that was created without them.
+ */
+function loadDefaults() {
+  const code = fs.readFileSync(path.join(ROOT, 'src', 'shared', 'defaults.js'), 'utf8');
+  const sandbox = { globalThis: {} };
+  sandbox.globalThis.globalThis = sandbox.globalThis;
+  vm.createContext(sandbox);
+  vm.runInContext(code, sandbox, { filename: 'src/shared/defaults.js' });
+  return sandbox.globalThis.FB_DIET_DEFAULTS;
+}
+
+/**
  * Minimal Comet loader. Supports both __d argument shapes; require() executes the
  * stored factory with the canonical 7 arguments (index 6 = exports object, matching
  * definerPath "[6].default").
@@ -197,6 +211,7 @@ module.exports = {
   createFakeReact,
   createWindow,
   loadInject,
+  loadDefaults,
   createFakeComet,
   countMessages,
   ROOT
