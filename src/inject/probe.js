@@ -181,8 +181,9 @@ window.FBDietProbe = (() => {
       postUrl = 'https://www.facebook.com/' + authorHandle + '/posts/' + postId;
     }
 
+    const extVersion = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.VERSION) || '2.1.0';
     const report = {
-      version: '2.1.0',
+      version: extVersion,
       at: {
         rendered: renderIso,
         probed: nowIso

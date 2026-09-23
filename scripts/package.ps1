@@ -18,6 +18,19 @@ $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
 $rawName = if ($manifest.name) { $manifest.name } else { "fb-diet" }
 $version = if ($manifest.version) { $manifest.version } else { "1.0.0" }
 
+# Verify version parity with defaults.js
+$defaultsPath = Join-Path $rootDir "src\shared\defaults.js"
+if (Test-Path $defaultsPath) {
+    $defaultsContent = Get-Content $defaultsPath -Raw
+    if ($defaultsContent -match "VERSION:\s*['""]([^'""]+)['""]") {
+        $defaultsVer = $matches[1]
+        if ($defaultsVer -ne $version) {
+            Write-Error "Version mismatch! manifest.json ($version) does not match defaults.js ($defaultsVer)."
+            exit 1
+        }
+    }
+}
+
 $slug = ($rawName.ToLower() -replace '[^a-z0-9]+', '-').Trim('-')
 $zipFileName = "$slug-v$version.zip"
 $zipFilePath = Join-Path $releaseDir $zipFileName

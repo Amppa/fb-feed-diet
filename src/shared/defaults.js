@@ -129,6 +129,7 @@
     }
   };
 
+  const EXTENSION_VERSION = '2.1.0';
   globalThis.FB_DIET_DEFAULTS = {
     SETTINGS: DEFAULT_SETTINGS,
     COUNTS: DEFAULT_COUNTS,
@@ -136,7 +137,7 @@
     GROUP_BY_CATEGORY: GROUP_BY_CATEGORY,
     SETTING_KEYS_BY_GROUP: SETTING_KEYS_BY_GROUP,
     GROUP_META: GROUP_META,
-    VERSION: 1,
+    VERSION: EXTENSION_VERSION,
     getTodayDateString: getTodayDateString,
     normalizeFoldMode: normalizeFoldMode,
     normalizeTitleMode: normalizeTitleMode,

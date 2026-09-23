@@ -23,6 +23,17 @@ const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8'));
 const rawName = manifest.name || 'fb-diet';
 const version = manifest.version || '1.0.0';
 
+// Verify version parity with defaults.js
+const DEFAULTS_PATH = path.join(ROOT_DIR, 'src', 'shared', 'defaults.js');
+if (fs.existsSync(DEFAULTS_PATH)) {
+  const defaultsContent = fs.readFileSync(DEFAULTS_PATH, 'utf8');
+  const match = defaultsContent.match(/VERSION:\s*['"]([^'"]+)['"]/);
+  if (match && match[1] !== version) {
+    console.error(`Error: Version mismatch! manifest.json (${version}) does not match defaults.js (${match[1]}).`);
+    process.exit(1);
+  }
+}
+
 // Sanitize filename
 const slug = rawName
   .toLowerCase()
