@@ -252,7 +252,7 @@ function run(c) {
     c.equals('payload.feedUnit __typename removed', reportWithoutEntry.payload.feedUnit.__typename, undefined);
     c.ok('payloadKeys captured', Array.isArray(reportWithoutEntry.payload.payloadKeys));
     c.ok('feedUnitKeys captured', Array.isArray(reportWithoutEntry.payload.feedUnitKeys));
-    c.equals('version is 2.0.1', reportWithoutEntry.version, '2.0.1');
+    c.equals('version is 2.1.0', reportWithoutEntry.version, '2.1.0');
     c.ok('at.rendered present', Boolean(reportWithoutEntry.at && reportWithoutEntry.at.rendered));
     c.ok('at.probed present', Boolean(reportWithoutEntry.at && reportWithoutEntry.at.probed));
     c.ok('memory object present', Boolean(reportWithoutEntry.memory));
@@ -378,6 +378,54 @@ function run(c) {
 
     c.ok('side ad hides on an out-of-scope page', Boolean(hidden) && hidden.type === 'div' && hidden.props.className === 'adhidden fb-diet-side-ad-hidden');
     c.equals('side ad hiding posts no blocked message', countMessages(t.win, 'blocked'), 0);
+  }
+
+  /* --- fold bar title modes: showTitleMode three-state (STRATEGY.md decision #27) --- */
+  {
+    const t = setup({ [SPONSORED_PATH]: 'ad-1' });
+    t.win.FB_DIET_DEFAULTS = loadDefaults();
+
+    // Default showTitleMode = 'whenFolded': folded bars show the title text...
+    let out = t.render(payloadOf('u-titlemode'));
+    c.ok('default mode folds the unit', out.type === t.React.Fragment);
+    c.equals('folded bar shows the title under whenFolded', out.props.children[0].props.showTitle, true);
+
+    // ...and expanded bars keep only the badge
+    out.props.children[0].props.onToggle();
+    out = t.render(payloadOf('u-titlemode'));
+    c.equals('expanded bar hides the title under whenFolded', out.props.children[0].props.showTitle, false);
+
+    // Fold it again for the remaining mode checks
+    t.bridge.toggle('u-titlemode');
+    out = t.render(payloadOf('u-titlemode'));
+    c.equals('unit folds again', out.props.children[0].props.isExpanded, false);
+
+    // 'always': title visible even while folded
+    t.bridge.setSettings({ showTitleMode: 'always' });
+    out = t.render(payloadOf('u-titlemode'));
+    c.equals('folded bar shows the title under always', out.props.children[0].props.showTitle, true);
+
+    // 'never': no title in either state
+    t.bridge.setSettings({ showTitleMode: 'never' });
+    out = t.render(payloadOf('u-titlemode'));
+    c.equals('folded bar hides the title under never', out.props.children[0].props.showTitle, false);
+    out.props.children[0].props.onToggle();
+    out = t.render(payloadOf('u-titlemode'));
+    c.equals('expanded bar hides the title under never', out.props.children[0].props.showTitle, false);
+
+    // Legacy boolean fallback (missing showTitleMode): false keeps never...
+    t.bridge.setSettings({ showTitleMode: undefined, showFeedTitle: false });
+    out = t.render(payloadOf('u-titlemode'));
+    c.equals('legacy showFeedTitle:false hides the title', out.props.children[0].props.showTitle, false);
+
+    // ...and true rolls forward to the new default (decision #27 migration policy)
+    t.bridge.toggle('u-titlemode');
+    t.bridge.setSettings({ showTitleMode: undefined, showFeedTitle: true });
+    out = t.render(payloadOf('u-titlemode'));
+    c.equals('legacy showFeedTitle:true rolls forward while folded', out.props.children[0].props.showTitle, true);
+    out.props.children[0].props.onToggle();
+    out = t.render(payloadOf('u-titlemode'));
+    c.equals('legacy showFeedTitle:true hides the title when expanded', out.props.children[0].props.showTitle, false);
   }
 
   /* --- hostile payload never crashes the feed --- */

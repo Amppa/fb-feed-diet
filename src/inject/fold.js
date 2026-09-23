@@ -59,6 +59,27 @@ window.FBDietFold = (() => {
     return window.FBDietProbe || {};
   }
 
+  /**
+   * Resolves whether the fold bar renders its title text for the current state
+   * (STRATEGY.md decision #27). Prefers the shared normalizeTitleMode helper and
+   * degrades to an equivalent local mapping when the defaults module is absent.
+   * 'whenFolded' shows the title while the post is folded (a summary of the
+   * hidden content) and hides it once expanded, where the post itself is visible.
+   */
+  function resolveShowTitle(settings, expanded) {
+    const raw = settings.showTitleMode !== undefined ? settings.showTitleMode : settings.showFeedTitle;
+    const defaults = window.FB_DIET_DEFAULTS;
+    let mode = raw;
+    if (defaults && typeof defaults.normalizeTitleMode === 'function') {
+      mode = defaults.normalizeTitleMode(raw);
+    } else if (raw !== 'always' && raw !== 'whenFolded' && raw !== 'never') {
+      mode = raw === false ? 'never' : 'whenFolded';
+    }
+    if (mode === 'never') return false;
+    if (mode === 'always') return true;
+    return !expanded;
+  }
+
   function createEl(type, props, children) {
     const ui = getUI();
     if (ui.createEl) return ui.createEl(type, props, children);
@@ -237,7 +258,7 @@ window.FBDietFold = (() => {
 
       const ui = getUI();
       const isMini = Boolean(settings.minimizedFoldMode);
-      const showTitle = settings.showFeedTitle !== undefined ? Boolean(settings.showFeedTitle) : true;
+      const showTitle = resolveShowTitle(settings, !isFolded);
 
       // Only collect metadata if showTitle is enabled to save work
       const enrichment = (showTitle && window.FBDietMetadata)

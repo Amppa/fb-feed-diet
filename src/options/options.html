@@ -191,41 +191,60 @@
 
     </div>
 
-    <!-- Fold Appearance Settings -->
-    <div class="section-label section-gap" data-i18n="sectionFoldAppearance">Fold Appearance Settings</div>
+    <!-- Appearance Settings -->
+    <div class="section-header section-gap">
+      <div class="section-label" data-i18n="sectionFoldAppearance">Appearance Settings</div>
+      <button class="reset-btn" id="resetAppearanceBtn" title="Reset appearance settings to defaults" data-i18n-title="resetAppearanceDesc" data-i18n="resetAppearanceBtn">Defaults</button>
+    </div>
     <div class="features-list" id="appearanceList">
 
-      <!-- 1. Always show fold bar -->
+      <!-- 1. Whitelist scope -->
+      <div class="feature-item">
+        <div class="feature-meta">
+          <span class="feature-icon">🧭</span>
+          <div>
+            <div class="feature-title" data-i18n="featFoldScopeTitle">Only Fold on the Whitelist</div>
+            <div class="feature-desc" data-i18n="featFoldScopeDesc">Home, Search and Marketplace; all other pages stay untouched</div>
+          </div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="restrictFoldScope" aria-label="Only Fold on the Whitelist">
+          <span class="slider round"></span>
+        </label>
+      </div>
+
+      <!-- 2. Keep the fold bar when expanded -->
       <div class="feature-item">
         <div class="feature-meta">
           <span class="feature-icon">📌</span>
           <div>
-            <div class="feature-title" data-i18n="featAlwaysShowBarTitle">Keep Bar When Expanded</div>
+            <div class="feature-title" data-i18n="featAlwaysShowBarTitle">Keep Fold Bar When Expanded</div>
             <div class="feature-desc" data-i18n="featAlwaysShowBarDesc">Keep a fold bar at the top after expanding for quick re-folding</div>
           </div>
         </div>
         <label class="switch">
-          <input type="checkbox" id="alwaysShowFoldBar" aria-label="Keep Bar When Expanded">
+          <input type="checkbox" id="alwaysShowFoldBar" aria-label="Keep Fold Bar When Expanded">
           <span class="slider round"></span>
         </label>
       </div>
 
-      <!-- 2. Show Feed Title -->
+      <!-- 3. Fold Bar Title (3-state dropdown) -->
       <div class="feature-item">
         <div class="feature-meta">
           <span class="feature-icon">🏷️</span>
           <div>
-            <div class="feature-title" data-i18n="featShowFeedTitleTitle">Show Feed Title</div>
-            <div class="feature-desc" data-i18n="featShowFeedTitleDesc">Show author, group, or snippet on the fold bar</div>
+            <div class="feature-title" data-i18n="featTitleModeTitle">Fold Bar Title</div>
+            <div class="feature-desc" data-i18n="featTitleModeDesc">Show group, author and snippet on the fold bar; while folded the bar keeps only the badge</div>
           </div>
         </div>
-        <label class="switch">
-          <input type="checkbox" id="showFeedTitle" aria-label="Show Feed Title">
-          <span class="slider round"></span>
-        </label>
+        <select class="feature-select" id="showTitleMode" aria-label="Fold Bar Title">
+          <option value="always" data-i18n="featTitleModeAlways">Always Show</option>
+          <option value="whenFolded" data-i18n="featTitleModeWhenFolded">Only When Folded</option>
+          <option value="never" data-i18n="featTitleModeNever">Always Hide</option>
+        </select>
       </div>
 
-      <!-- 3. Minimized fold bar (18px vs 36px) -->
+      <!-- 4. Minimized fold bar (18px vs 36px) -->
       <div class="feature-item">
         <div class="feature-meta">
           <span class="feature-icon">📏</span>
@@ -240,38 +259,17 @@
         </label>
       </div>
 
-      <!-- 4. Restrict fold scope (home / search / marketplace only) -->
-      <div class="feature-item">
-        <div class="feature-meta">
-          <span class="feature-icon">🧭</span>
-          <div>
-            <div class="feature-title" data-i18n="featFoldScopeTitle">Fold Only On Home &amp; Search</div>
-            <div class="feature-desc" data-i18n="featFoldScopeDesc">Only classify and fold on Home, Search and Marketplace; groups, profiles and other pages stay native</div>
-          </div>
-        </div>
-        <label class="switch">
-          <input type="checkbox" id="restrictFoldScope" aria-label="Fold Only On Home and Search">
-          <span class="slider round"></span>
-        </label>
-      </div>
-
-    </div>
-
-    <!-- Debug Card (probe diagnostics) -->
-    <div class="section-label section-gap" data-i18n="sectionDebug">DEBUG</div>
-    <div class="features-list debug-card" id="debugCard">
-
-      <!-- 5. Show Feed Probe Buttons (diagnostics) -->
+      <!-- 5. Feed probe (debug) -->
       <div class="feature-item">
         <div class="feature-meta">
           <span class="feature-icon">🔎</span>
           <div>
-            <div class="feature-title" data-i18n="featProbeTitle">Show Feed Probe Buttons</div>
-            <div class="feature-desc" data-i18n="featProbeDesc">Adds a copy-diagnostics button to every feed unit (debugging)</div>
+            <div class="feature-title" data-i18n="featProbeTitle">Enable Feed Probe (Debug)</div>
+            <div class="feature-desc" data-i18n="featProbeDesc">Adds a copy-diagnostics button to every feed item</div>
           </div>
         </div>
         <label class="switch">
-          <input type="checkbox" id="debugProbe" aria-label="Show Feed Probe Buttons">
+          <input type="checkbox" id="debugProbe" aria-label="Enable Feed Probe (Debug)">
           <span class="slider round"></span>
         </label>
       </div>

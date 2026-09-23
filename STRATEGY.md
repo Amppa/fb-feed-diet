@@ -258,6 +258,23 @@ esuit 只在首頁（`pathname === '/'`）運作，分類器 `classifyFeedUnit(o
 - **版本升級**：`manifest.json`、`package.json`、probe 報告 `version`、`tests/fold.test.js` 斷言同步升版 `2.0.1`。
 - **排除項**：Facebook 的 Groups Feed 官方廣告版位屬「範圍外」——照 allowlist 不分類不計數；若日後要納入，改 allowlist 即可，無需動守門。
 
+### 決策 #27 — 外觀設定重組：三態摺疊列標題 `showTitleMode`、單一列表與 Defaults 按鈕（2026-09-23）
+- **背景**：外觀區原本是四個布林開關＋獨立 DEBUG 卡，「顯示標題」只有開/關兩態，無法表達「摺疊時看摘要、展開時精簡」這個最常見的需求；範圍開關（decision #26）排在最後也不符合使用頻率。
+- **新鍵 `showTitleMode`（取代布林 `showFeedTitle`，預設 `'whenFolded'`）**：
+  1. `'always'`：摺疊列恆顯示 `[社團]`/`作者:`/摘要（＝舊 `true` 行為）。
+  2. `'whenFolded'`：**摺疊時顯示標題（隱藏內容的摘要），展開後僅分類標籤 + `[-]`**（新預設；中間項語意為 Only When Folded —— 初版實作成 Only When Expanded，使用者裁定顛倒後修正）。
+  3. `'never'`：恆不顯示標題（＝舊 `false` 行為）。
+  - `defaults.js` 提供 `normalizeTitleMode(value, fallback = 'whenFolded')`：非三值時 `false → never`、`true → whenFolded`、其餘回 fallback；正規化集中在單一入口。預覽版曾寫入的 `'whenExpanded'` 屬未知值，經 fallback 正規化為新預設。
+- **遷移（方案 B：全員套用新預設）**：`background.js` onInstalled 與 `options.js` 載入時：(a) `showTitleMode` 缺席則寫入 `showFeedTitle === false ? 'never' : 'whenFolded'`（`false` 是刻意選擇→保留；`true` 與舊預設無法分辨→視為未表達偏好、前滾到新預設）；(b) 既有 `'whenExpanded'`（預覽版寫入）更名為 `'whenFolded'`。**已知行為變更**：原 `showFeedTitle: true` 的既有使用者，**展開後**的摺疊列會從「顯示標題」變「僅分類標籤」（摺疊時不變、仍顯示標題）；要舊行為請選 Always Show。舊鍵保留在 storage 不刪，讀取時 `showTitleMode` 優先（`fold.js` `resolveShowTitle` 亦保留布林 fallback，`FB_DIET_DEFAULTS` 缺席時以等價本地邏輯 fail-safe）。
+- **改動**：
+  1. `fold.js`：`resolveShowTitle(settings, !isFolded)` 依狀態解析 `showTitle` prop（`whenFolded` → `!expanded`）；`enrichment`（`FBDietMetadata.collect`）與 `ui.js` DOM enrichment effect 皆跟著 per-state 值 —— `whenFolded`/`never` 在**展開**態自動跳過收集（效能紅利）。**`ui.js` 零改動**（本就吃 `props.showTitle`，effect deps `[unitId, showTitle]` 隨狀態切換）。
+  2. `options.html`：單一列表順序 1. Only Fold on the Whitelist → 2. Keep Fold Bar When Expanded → 3. **Fold Bar Title（`<select>` 三態：Always Show / Only When Folded / Always Hide）** → 4. Minimized Fold Bar (18px) → 5. Enable Feed Probe (Debug)；**移除獨立 DEBUG 區段**（`sectionDebug` i18n 鍵一併刪除）。
+  3. `options.js`：`selects` 接線（收集 / 初始值含 `selectedIndex === -1` 保護 / `change` / `storage.onChanged` 回寫）；模組常數 `APPEARANCE_KEYS`（五鍵）；**Defaults 按鈕**從 `SHARED_DEFAULTS` 取值寫入 → `saveAndBroadcastSettings` → `applyAppearanceControls` 顯式回寫控制項 DOM（不依賴 onChanged 送達）；legacy-string reset 物件改寫 `showTitleMode: 'whenFolded'`。
+  4. `options.css`：`.section-header`（左標籤右按鈕，僅用既有版面慣例的 12px 間距）、`.feature-select`（`appearance: none`＋內聯 SVG 箭頭＋`background-color`／`:focus-visible`，**並明確指定 `option` 深底白字** —— 原生彈窗不吃繼承色會白字白底不可讀）、`.reset-btn:focus-visible`（**補既有 a11y 缺口**，統計卡 Reset 同步受益）。
+  5. `i18n.js`：`featShowFeedTitle*` → `featTitleMode*` 五鍵；`sectionFoldAppearance` 字串 `Fold Appearance Settings → Appearance Settings`（zh：摺疊外觀設定 → 外觀設定）；`featAlwaysShowBarTitle`、`featFoldScopeTitle/Desc`、`featProbeTitle/Desc` 改版；新增 `resetAppearanceBtn` / `resetAppearanceDesc`。UI 用語採使用者裁定的 **whitelist**，程式碼/文件維持 allowlist。
+- **Defaults 按鈕語意**：只重置本區段五鍵（分類群組開關與總開關不受影響）；無二次確認（與統計卡 Reset 一致）；master off 時仍可點（僅寫設定）。
+- **版本升級**：`manifest.json`、`package.json`、probe 報告 `version`、`tests/fold.test.js` 斷言同步升版 `2.1.0`（新增設定鍵＋遷移＋行為變更）。
+
 ---
 
 ## 4. 已知誤判案例（症狀 → 根因 → 修正）

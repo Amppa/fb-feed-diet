@@ -19,9 +19,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   const SETTING_KEYS_BY_GROUP = DEFAULTS_MAP.SETTING_KEYS_BY_GROUP || {};
 
   const switches = {};
-  document.querySelectorAll('#featuresList input[type="checkbox"], #appearanceList input[type="checkbox"], #debugCard input[type="checkbox"]').forEach(input => {
+  document.querySelectorAll('#featuresList input[type="checkbox"], #appearanceList input[type="checkbox"]').forEach(input => {
     if (input.id) switches[input.id] = input;
   });
+
+  // Section dropdowns (the Fold Bar Title select) live in the same appearance list.
+  const selects = {};
+  document.querySelectorAll('#appearanceList select').forEach(el => {
+    if (el.id) selects[el.id] = el;
+  });
+
+  // Settings keys owned by the Appearance Settings section; the Defaults button
+  // restores exactly these from FB_DIET_DEFAULTS.SETTINGS (STRATEGY.md decision #27).
+  const APPEARANCE_KEYS = ['restrictFoldScope', 'alwaysShowFoldBar', 'showTitleMode', 'minimizedFoldMode', 'debugProbe'];
 
   const GROUP_BY_SWITCH = {
     groupRegular: 'regular',
@@ -145,7 +155,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       foldRegular: false,
       minimizedFoldMode: false,
       alwaysShowFoldBar: true,
-      showFeedTitle: true
+      showTitleMode: 'whenFolded'
     };
     await chrome.storage.local.set({ settings });
   }
@@ -153,6 +163,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Migrate alwaysShowFoldTitle to alwaysShowFoldBar
   if (settings.alwaysShowFoldTitle !== undefined && settings.alwaysShowFoldBar === undefined) {
     settings.alwaysShowFoldBar = Boolean(settings.alwaysShowFoldTitle);
+    await chrome.storage.local.set({ settings });
+  }
+
+  // Migrate showFeedTitle boolean -> showTitleMode (STRATEGY.md decision #27):
+  // false keeps the deliberate "never"; true rolls forward to the new default.
+  // The second branch upgrades 'whenExpanded' written by an earlier preview build.
+  if (settings.showTitleMode === undefined) {
+    settings.showTitleMode = settings.showFeedTitle === false ? 'never' : 'whenFolded';
+    await chrome.storage.local.set({ settings });
+  }
+  if (settings.showTitleMode === 'whenExpanded') {
+    settings.showTitleMode = 'whenFolded';
     await chrome.storage.local.set({ settings });
   }
 
@@ -177,6 +199,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (currentSettings[key] !== undefined) {
       checkbox.checked = Boolean(currentSettings[key]);
     }
+  }
+
+  for (const [key, select] of Object.entries(selects)) {
+    if (currentSettings[key] === undefined) continue;
+    select.value = String(currentSettings[key]);
+    if (select.selectedIndex === -1) select.selectedIndex = 0;
   }
 
   // Initialize counts
@@ -213,6 +241,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (e) {
       // Storage onChanged covers environments where runtime messaging is unavailable
     }
+  }
+
+  /**
+   * Restores the Appearance Settings section to FB_DIET_DEFAULTS.SETTINGS values.
+   * Writes storage, broadcasts to open tabs, then repaints the section controls
+   * directly so the UI never waits on the storage.onChanged round trip.
+   */
+  function applyAppearanceControls(settings) {
+    for (const key of APPEARANCE_KEYS) {
+      const checkbox = switches[key];
+      if (checkbox && settings[key] !== undefined) checkbox.checked = Boolean(settings[key]);
+      const select = selects[key];
+      if (select && settings[key] !== undefined) {
+        select.value = String(settings[key]);
+        if (select.selectedIndex === -1) select.selectedIndex = 0;
+      }
+    }
+  }
+
+  const resetAppearanceBtn = document.getElementById('resetAppearanceBtn');
+  if (resetAppearanceBtn) {
+    resetAppearanceBtn.addEventListener('click', async () => {
+      const { settings: current } = await chrome.storage.local.get('settings');
+      const updated = { ...current };
+      for (const key of APPEARANCE_KEYS) {
+        if (SHARED_DEFAULTS[key] !== undefined) updated[key] = SHARED_DEFAULTS[key];
+      }
+      await saveAndBroadcastSettings(updated);
+      applyAppearanceControls(updated);
+    });
   }
 
   // Handle Master toggle
@@ -261,6 +319,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // Handle appearance dropdowns (e.g. showTitleMode); the value is the raw option string
+  for (const [key, select] of Object.entries(selects)) {
+    select.addEventListener('change', async () => {
+      const { settings: current } = await chrome.storage.local.get('settings');
+      await saveAndBroadcastSettings({ ...current, [key]: select.value });
+    });
+  }
+
   // Handle Reset button
   resetBtn.addEventListener('click', () => {
     chrome.runtime.sendMessage({ type: 'RESET_COUNTS' }, (res) => {
@@ -288,6 +354,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const group = GROUP_BY_SWITCH[key];
             if (group) checkbox.checked = isGroupOn(s, group);
             else if (s[key] !== undefined) checkbox.checked = Boolean(s[key]);
+          }
+          for (const [key, select] of Object.entries(selects)) {
+            if (s[key] === undefined) continue;
+            select.value = String(s[key]);
+            if (select.selectedIndex === -1) select.selectedIndex = 0;
           }
           updateHighlighting();
           if (s.lang && i18n && s.lang !== i18n.getLang()) {

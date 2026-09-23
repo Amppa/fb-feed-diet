@@ -18,7 +18,7 @@
     foldRegular: false,
     minimizedFoldMode: false,
     alwaysShowFoldBar: true,
-    showFeedTitle: true,
+    showTitleMode: 'whenFolded',
     restrictFoldScope: true,
     debugProbe: false
   };
@@ -40,6 +40,21 @@
   function isFoldScopeAllowed(pathname) {
     if (typeof pathname !== 'string' || !pathname) return true;
     return FOLD_SCOPE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + '/'));
+  }
+
+  // Fold bar title visibility (STRATEGY.md decision #27): 'always' shows the
+  // group/author/snippet on every bar, 'whenFolded' shows it only while the post
+  // is folded (a summary of the hidden content; expanded bars keep badge + [-]),
+  // 'never' never renders the title text. The legacy showFeedTitle boolean maps
+  // onto that: false was a deliberate choice (never), while true rolls forward to
+  // the new default because it is indistinguishable from the old default value.
+  // Note: 'whenExpanded' (an earlier preview value) is unknown here and therefore
+  // normalizes to the current default via the fallback.
+  function normalizeTitleMode(value, fallback = 'whenFolded') {
+    if (value === 'always' || value === 'whenFolded' || value === 'never') return value;
+    if (value === false) return 'never';
+    if (value === true) return 'whenFolded';
+    return fallback;
   }
 
   function getTodayDateString(d) {
@@ -124,6 +139,7 @@
     VERSION: 1,
     getTodayDateString: getTodayDateString,
     normalizeFoldMode: normalizeFoldMode,
+    normalizeTitleMode: normalizeTitleMode,
     isFoldScopeAllowed: isFoldScopeAllowed
   };
 })();

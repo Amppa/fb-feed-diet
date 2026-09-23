@@ -36,7 +36,7 @@ function run(checker) {
   checker.equals('settings.foldRegular is false', settings && settings.foldRegular, false);
   checker.equals('settings.minimizedFoldMode is false', settings && settings.minimizedFoldMode, false);
   checker.equals('settings.alwaysShowFoldBar is true', settings && settings.alwaysShowFoldBar, true);
-  checker.equals('settings.showFeedTitle is true', settings && settings.showFeedTitle, true);
+  checker.equals('settings.showTitleMode is whenFolded', settings && settings.showTitleMode, 'whenFolded');
   checker.equals('settings.debugProbe is false', settings && settings.debugProbe, false);
   checker.equals('settings.restrictFoldScope is true', settings && settings.restrictFoldScope, true);
 
@@ -97,6 +97,18 @@ function run(checker) {
   checker.equals('search prefix boundary rejected', defaults.isFoldScopeAllowed('/searchabc'), false);
   checker.equals('empty path fails open', defaults.isFoldScopeAllowed(''), true);
   checker.equals('undefined path fails open', defaults.isFoldScopeAllowed(undefined), true);
+
+  /* --- fold bar title modes (STRATEGY.md decision #27) --- */
+  checker.ok('normalizeTitleMode exists', typeof defaults.normalizeTitleMode === 'function');
+  checker.equals('title mode always passes through', defaults.normalizeTitleMode('always'), 'always');
+  checker.equals('title mode whenFolded passes through', defaults.normalizeTitleMode('whenFolded'), 'whenFolded');
+  checker.equals('title mode never passes through', defaults.normalizeTitleMode('never'), 'never');
+  checker.equals('legacy true rolls forward to the new default', defaults.normalizeTitleMode(true), 'whenFolded');
+  checker.equals('legacy false keeps never', defaults.normalizeTitleMode(false), 'never');
+  checker.equals('unknown value falls back to the new default', defaults.normalizeTitleMode('wat'), 'whenFolded');
+  checker.equals('stale preview value falls back to the new default', defaults.normalizeTitleMode('whenExpanded'), 'whenFolded');
+  checker.equals('undefined falls back to the new default', defaults.normalizeTitleMode(undefined), 'whenFolded');
+  checker.equals('custom fallback honoured', defaults.normalizeTitleMode('wat', 'always'), 'always');
 
   // Idempotency: repeated execution does not throw
   let threw = false;

@@ -22,7 +22,7 @@ const DEFAULT_SETTINGS = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFA
   foldRegular: false,
   minimizedFoldMode: false,
   alwaysShowFoldBar: true,
-  showFeedTitle: true,
+  showTitleMode: 'whenFolded',
   restrictFoldScope: true,
   debugProbe: false
 };
@@ -65,6 +65,16 @@ chrome.runtime.onInstalled.addListener(async () => {
     const raw = data.settings;
     if (raw.alwaysShowFoldBar === undefined && raw.alwaysShowFoldTitle !== undefined) {
       raw.alwaysShowFoldBar = raw.alwaysShowFoldTitle;
+    }
+    // Migrate legacy showFeedTitle boolean -> showTitleMode (STRATEGY.md decision #27):
+    // false keeps the deliberate "never"; true rolls forward to the new default
+    // because it is indistinguishable from the old default value. The second branch
+    // upgrades 'whenExpanded' written by an earlier 2.1.0 preview build.
+    if (raw.showTitleMode === undefined) {
+      raw.showTitleMode = raw.showFeedTitle === false ? 'never' : 'whenFolded';
+    }
+    if (raw.showTitleMode === 'whenExpanded') {
+      raw.showTitleMode = 'whenFolded';
     }
     // Ensure all keys exist in case of future updates
     const mergedSettings = { ...DEFAULT_SETTINGS, ...raw };

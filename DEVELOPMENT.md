@@ -151,7 +151,7 @@ graph TD
 ### Shared Defaults Module (`src/shared/`)
 
 - **`defaults.js` (`globalThis.FB_DIET_DEFAULTS`)**: Single source of truth for configuration and stat schema.
-  - Exposes `FB_DIET_DEFAULTS.SETTINGS` (including `restrictFoldScope`, the fold-scope restriction switch), `FB_DIET_DEFAULTS.COUNTS`, the user-facing group layer (`GROUP_BY_CATEGORY`, `SETTING_KEYS_BY_GROUP`, `GROUP_ORDER`; STRATEGY.md decision #8), the pure fold-scope helper `isFoldScopeAllowed(pathname)` (STRATEGY.md decision #26), and `VERSION`.
+  - Exposes `FB_DIET_DEFAULTS.SETTINGS` (including the fold-scope switch `restrictFoldScope` and the three-state fold bar title `showTitleMode`, default `whenFolded`), `FB_DIET_DEFAULTS.COUNTS`, the user-facing group layer (`GROUP_BY_CATEGORY`, `SETTING_KEYS_BY_GROUP`, `GROUP_ORDER`; STRATEGY.md decision #8), the pure helpers `isFoldScopeAllowed(pathname)` (decision #26) and `normalizeTitleMode(value)` (decision #27), and `VERSION`.
   - Loaded before all scripts via `manifest.json` (`content_scripts`), `importScripts` (`background.js`), and `<script>` tags (`popup.html`, `options.html`).
   - Eliminates configuration drift across contexts.
 
@@ -202,6 +202,7 @@ Loaded sequentially at `document_start` before Comet finishes loading:
   - If a unit matches an active filter and is not expanded, renders an inline `FBDietFold` bar and sets the original element container to squash mode (`1x1` container).
   - **Fold scope guard** (STRATEGY.md, decision #26): after the unconditional hooks and the enabled/mode checks, `settings.restrictFoldScope !== false` plus `FB_DIET_DEFAULTS.isFoldScopeAllowed(location.pathname)` decide whether classification runs. Out-of-scope units (e.g. `/groups/...`) return the untouched tree with a null-classify probe — zero classification, zero counters, zero `fbDietLog` entries, no fold bar. Fails open when the defaults module or the pathname is unavailable.
   - Also guards sidebar ad units (`SideAdHidden` and `RightRailUnitWrapper`) with identical commit gates. `SideAdHidden` is a pure visual hide that works on every page (independent of `restrictFoldScope`) and posts no counters (decision #26).
+  - **Three-state fold bar title** (STRATEGY.md, decision #27): `resolveShowTitle(settings, !isFolded)` maps `showTitleMode` (`always` / `whenFolded` / `never`, default `whenFolded`) onto the per-state `showTitle` prop, falling back to the legacy `showFeedTitle` boolean and degrading safely when `FB_DIET_DEFAULTS` is absent. `whenFolded` shows the title while the post is folded (a summary of the hidden content) and hides it once expanded; metadata collection follows the same value, so expanded bars under `whenFolded` skip `FBDietMetadata.collect()`.
   - Tracks diagnostic hydration statistics (`getStatus().hydration`).
   - Preserves Relay query subscriptions and React component identity.
 
@@ -360,20 +361,14 @@ title/snippet (40 chars max), and match reason:
 Use it to diagnose missed folds (`classify.category: null` — check `reason`) and wrong folds
 (`reason` maps back to the rule table in [STRATEGY.md](STRATEGY.md) §3).
 
-### Options Fold Appearance Settings
+### Options Appearance Settings
 
-The Options page includes a **Fold Appearance Settings** section containing:
-- **Always Show Fold Bar** (toggle, default true): When enabled, unfolded or expanded posts retain a top notice bar for identification and re-folding. When disabled, unfolded posts render completely natively without any injected header bar.
-- **Show Feed Title** (toggle, default true): Controls whether the fold bar renders the group, author, and message/media snippet. When disabled, the bar keeps only the group badge and the `[+]` / `[-]` toggle at the same height; metadata collection and DOM enrichment are skipped for performance ([STRATEGY.md](STRATEGY.md) decision #25).
-- **Minimized Fold Bar** (toggle, default false): Switches fold bars between 36px and 18px. When enabled, folded posts and retained notice bars render as an 18px compact bar (`FBDietBar`) instead of the 36px title bar (`FBDietTitleBar`). Changes sync immediately to all open Facebook tabs.
-- **Fold Only On Home & Search** (toggle `restrictFoldScope`, default true): Restricts classification and folding to the allowlist (`/`, `/home.php`, `/search*`, `/marketplace*`) via `FB_DIET_DEFAULTS.isFoldScopeAllowed`. Groups, profiles, and other pages render natively with zero counters and log entries; right-rail ad hiding stays active on every page and is never counted (STRATEGY.md decision #26).
-
-### Options Debug Card (Feed Probe Buttons)
-
-The Options page has a **DEBUG** card below Fold Appearance Settings. It hosts the **Show Feed Probe Buttons**
-toggle: when enabled, each feed unit displays a 🔍 button on hover/focus to copy its diagnostic JSON
-and inspect the classification, enrichment details, and Relay reads directly via tooltip.
-(The previous in-page JSON analyzer textarea has been removed in favor of direct tooltip inspection.)
+The Options page includes an **Appearance Settings** section with a **Defaults** button in its header that restores exactly the five keys below from `FB_DIET_DEFAULTS.SETTINGS` (no confirmation, mirroring the stats Reset button). Rows, in order:
+- **Only Fold on the Whitelist** (toggle `restrictFoldScope`, default true): Restricts classification and folding to the allowlist (`/`, `/home.php`, `/search*`, `/marketplace*`) via `FB_DIET_DEFAULTS.isFoldScopeAllowed` — Home, Search and Marketplace only; all other pages render natively with zero counters and log entries, while right-rail ad hiding stays active everywhere and is never counted (STRATEGY.md decision #26).
+- **Keep Fold Bar When Expanded** (toggle `alwaysShowFoldBar`, default true): When enabled, unfolded or expanded posts retain a top notice bar for identification and re-folding. When disabled, unfolded posts render completely natively without any injected header bar.
+- **Fold Bar Title** (select `showTitleMode`, default `whenFolded`): `Always Show` renders the group, author, and snippet on both folded and expanded bars (the legacy `showFeedTitle: true` behavior); `Only When Folded` — the default — shows the full title while the post is folded (a summary of the hidden content) and keeps expanded bars down to the badge and `[-]`; `Always Hide` renders neither (legacy `false`). Metadata collection and DOM enrichment follow the per-state value, so expanded bars under `whenFolded` skip that work entirely (STRATEGY.md decision #27).
+- **Minimized Fold Bar** (toggle `minimizedFoldMode`, default false): Switches fold bars between 36px and 18px. When enabled, folded posts and retained notice bars render as an 18px compact bar (`FBDietBar`) instead of the 36px title bar (`FBDietTitleBar`). Changes sync immediately to all open Facebook tabs.
+- **Enable Feed Probe (Debug)** (toggle `debugProbe`, default false): when enabled, each feed unit displays a 🔍 button that copies its diagnostic JSON and shows classification, enrichment, Relay reads, and fold-scope context in a tooltip. (The former standalone DEBUG card was folded into this section; the in-page JSON analyzer textarea was removed earlier in favor of direct tooltip inspection.)
 
 ---
 
