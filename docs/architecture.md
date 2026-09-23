@@ -10,8 +10,11 @@ FB Diet utilizes a **Dual-World Architecture** under Chrome Manifest V3 to balan
 graph TD
     subgraph MAIN World [MAIN World - document_start]
         P[proxy.js<br/>Hook window.__d] --> R[relay.js<br/>Proxy RelayRecordSourceProxy]
-        R --> C[classify.js<br/>Pure Category Rules]
-        P --> F[fold.js<br/>Wrap CometFeedUnit]
+        R --> M[metadata.js<br/>Probe Enrichment & Extractors]
+        M --> C[classify.js<br/>Pure Category Rules]
+        UI[ui.js<br/>React Bars & Group Badges] --> F[fold.js<br/>Wrap CometFeedUnit]
+        PR[probe.js<br/>Probe Tooltips & Diagnostics] --> F
+        P --> F
         C --> F
         F <--> B[bridge.js<br/>Runtime State & Reports]
     end
@@ -19,7 +22,9 @@ graph TD
     subgraph ISOLATED World [ISOLATED World - document_idle]
         CS[content.js<br/>Coordinator & Fallback]
         DET[detector.js<br/>DOM Text Scanner]
+        FALL[fallback.js<br/>DOM Observer Scanner]
         CS --- DET
+        CS --- FALL
     end
 
     subgraph Extension Core [Extension Context]
@@ -75,6 +80,10 @@ Loaded sequentially at `document_start` before Comet finishes loading:
     - `^^list[0].field`: access first item in linked record list.
     - `{$1}` / `{$args}`: dynamic query variables.
     - `*`: wildcard record lookups.
+- **`metadata.js` (`window.FBDietMetadata`)**:
+  - Pure diagnostic enrichment and candidate record extractor.
+  - Extracts author metadata (actor name, id, profile URL, subscribe status), group details (forum join state), post content (snippet, permalinks), media counts, and viewer self-check.
+  - Exposes `extractCandidateRecords(roots)` to recursively walk React element trees, Context Providers, and fragment wrappers without throwing, shared directly with `classify.js`.
 - **`classify.js` (`window.FBDietClassify`)**:
   - Pure deterministic classification functions.
   - Evaluates direct props first, followed by Relay paths.
@@ -97,6 +106,14 @@ Loaded sequentially at `document_start` before Comet finishes loading:
   - Manages deduplication sets (`reportedBlockedSet`, `reportedRegularSet`) to prevent redundant storage writes.
   - Handles `window.postMessage` communication between MAIN and ISOLATED worlds.
   - Accepts immediate settings push via `window.__fbDietSetSettings`.
+- **`ui.js` (`window.FBDietUI`)**:
+  - Pure React UI components and DOM extractors for placeholder bars.
+  - Provides `FBDietTitleBar` (supporting 36px default bar and 18px ultra-slim mini mode, category group badges, and expand/collapse button).
+  - Renders user-facing group badges (`GROUP_META`, `badgeText`) styled for dark and light Comet themes.
+- **`probe.js` (`window.FBDietProbe`)**:
+  - Diagnostic JSON generator and developer inspection layer.
+  - Discovers heuristic signals (keywords, sponsored markers, author names) and generates formatted reports (`formatProbeReport`).
+  - Implements the in-page probe popup, copy-to-clipboard interactions, and tooltip rendering for debugging live feeds.
 - **`fold.js` (`window.FBDietFold`)**:
   - Wraps target feed unit components using `React.createElement`.
   - Folded bars and re-fold bars show the user-facing GROUP badge (`GROUP_META` + local `GROUP_BY_CATEGORY`, resolved via `groupOf(category)`), not the fine-grained category (STRATEGY.md, decision #8).
@@ -124,6 +141,15 @@ Loaded sequentially at `document_start` before Comet finishes loading:
   - DOM fallback scanner used when the MAIN world proxy never reports in (STRATEGY.md, decision #26).
   - `scanPage` honours `restrictFoldScope` with a `wasInFoldScope` transition flag: the scan runs only inside the allowlist; leaving the scope restores all folded elements once and clears stale `data-fb-diet-fingerprint` values (so recycled SPA nodes can re-fold); while out of scope each scan costs a single pathname comparison.
 
+### Background Service Worker (`src/background/`)
+
+- **`background.js`**:
+  - Operates as Chrome Manifest V3 Service Worker.
+  - Manages initial default settings and daily count resets upon extension install or update.
+  - Listens to `chrome.storage.onChanged` and authoritatively pushes updated settings to open Facebook tabs via `chrome.scripting.executeScript` targeting `window.__fbDietSetSettings` in the `MAIN` world.
+  - Re-injects settings upon tab reload/navigation events.
+  - Follows zero-backward-compatibility during rapid development: always merges cleanly with `DEFAULT_SETTINGS` without legacy schema translation overhead.
+
 ### Shared i18n Module (`src/i18n/`)
 
 - **`i18n.js` (`window.FBDietI18N`)**: Dependency-free dictionary module shared by the pages that render UI text.
@@ -146,11 +172,15 @@ Loaded sequentially at `document_start` before Comet finishes loading:
 Tab Navigates to facebook.com
   │
   ├─► [MAIN World: document_start]
-  │     1. proxy.js attaches getter/setter to window.__d
-  │     2. relay.js queues wrapExports for RelayRecordSourceProxy
-  │     3. classify.js binds setRelayReader
-  │     4. bridge.js registers message listener
-  │     5. fold.js registers CometFeedUnitErrorBoundary.react with proxy
+  │     1. defaults.js sets global FB_DIET_DEFAULTS schemas & constants
+  │     2. proxy.js attaches getter/setter to window.__d
+  │     3. relay.js queues wrapExports for RelayRecordSourceProxy
+  │     4. metadata.js exposes diagnostic enrichment & candidate extractors
+  │     5. classify.js binds setRelayReader & pure decision rules
+  │     6. bridge.js registers postMessage listener & in-memory state
+  │     7. ui.js loads React title bars and category group badges
+  │     8. probe.js prepares diagnostic probe styles & copy popup
+  │     9. fold.js registers CometFeedUnitErrorBoundary.react with proxy
   │
   ├─► [Background Service Worker]
   │     Pushes saved settings to tab via chrome.scripting (window.__fbDietSetSettings)
