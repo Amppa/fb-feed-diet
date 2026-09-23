@@ -6,36 +6,8 @@
 
 (() => {
   const DEFAULTS = globalThis.FB_DIET_DEFAULTS || {};
-  const DEFAULT_SETTINGS = DEFAULTS.SETTINGS || {
-    enabled: true,
-    mode: 'proxy',
-    foldSponsored: true,
-    foldSuggested: true,
-    foldSuggestedGroup: true,
-    foldMarketAds: true,
-    foldSearchingAds: true,
-    foldStories: true,
-    foldReels: true,
-    foldRegular: false,
-    minimizedFoldMode: false,
-    alwaysShowFoldBar: true,
-    showTitleMode: 'whenFolded',
-    restrictFoldScope: true,
-    debugProbe: false
-  };
-  const DEFAULT_COUNTS = DEFAULTS.COUNTS || {
-    date: '',
-    total: 0,
-    filtered: 0,
-    sponsored: 0,
-    suggested: 0,
-    suggestedGroup: 0,
-    marketAds: 0,
-    searchingAds: 0,
-    stories: 0,
-    reels: 0,
-    regular: 0
-  };
+  const DEFAULT_SETTINGS = DEFAULTS.SETTINGS || {};
+  const DEFAULT_COUNTS = DEFAULTS.COUNTS || {};
 
   // Runtime configuration state
   let currentSettings = Object.assign({}, DEFAULT_SETTINGS);

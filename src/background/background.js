@@ -9,23 +9,7 @@ try {
   // Ignore in environments where importScripts is not available
 }
 
-const DEFAULT_SETTINGS = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.SETTINGS) || {
-  enabled: true,
-  mode: 'proxy',
-  foldSponsored: true,
-  foldSuggested: true,
-  foldSuggestedGroup: true,
-  foldMarketAds: true,
-  foldSearchingAds: true,
-  foldStories: true,
-  foldReels: true,
-  foldRegular: false,
-  minimizedFoldMode: false,
-  alwaysShowFoldBar: true,
-  showTitleMode: 'whenFolded',
-  restrictFoldScope: true,
-  debugProbe: false
-};
+const DEFAULT_SETTINGS = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.SETTINGS) || {};
 
 const FACEBOOK_URL_PATTERNS = ['*://*.facebook.com/*'];
 

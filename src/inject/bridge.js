@@ -23,23 +23,8 @@ window.FBDietBridge = (() => {
   const VERSION = 1;
 
   // Folding is enabled out of the box; per-category switches stay available for tuning.
-  const DEFAULT_SETTINGS = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.SETTINGS) || {
-    enabled: true,
-    mode: 'proxy',
-    foldSponsored: true,
-    foldSuggested: true,
-    foldSuggestedGroup: true,
-    foldMarketAds: true,
-    foldSearchingAds: true,
-    foldStories: true,
-    foldReels: true,
-    foldRegular: false,
-    minimizedFoldMode: false,
-    alwaysShowFoldBar: true,
-    showTitleMode: 'whenFolded',
-    restrictFoldScope: true,
-    debugProbe: false
-  };
+  const defs = (typeof window !== 'undefined' && window.FB_DIET_DEFAULTS) || (typeof globalThis !== 'undefined' && globalThis.FB_DIET_DEFAULTS) || {};
+  const DEFAULT_SETTINGS = defs.SETTINGS || {};
 
   const STORAGE_CACHE_KEY = 'fb_diet_settings_cache';
 

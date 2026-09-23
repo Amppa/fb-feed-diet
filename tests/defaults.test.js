@@ -20,7 +20,8 @@ function run(checker) {
 
   const defaults = sandbox.globalThis.FB_DIET_DEFAULTS;
   checker.ok('FB_DIET_DEFAULTS is defined on globalThis', Boolean(defaults));
-  checker.equals('VERSION is 1', defaults && defaults.VERSION, 1);
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8'));
+  checker.equals('VERSION matches manifest.json', defaults && defaults.VERSION, manifest.version);
 
   const settings = defaults && defaults.SETTINGS;
   checker.ok('SETTINGS object exists', Boolean(settings));
