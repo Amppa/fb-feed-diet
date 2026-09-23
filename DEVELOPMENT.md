@@ -36,7 +36,7 @@ This hub links the developer documentation for **FB Diet**. Topic files live und
 - **`src/shared/` & `src/i18n/`**: Shared schemas, settings defaults, version constant, and multilingual localization dictionaries (`en`, `zh-TW`).
 - **`tests/`**: Zero-dependency native Node.js test harness covering pure classification, Relay navigation, proxy wrapping, and fallback logic.
 - **`docs/`**: Developer deep-dives covering architecture, debugging, conventions, and external research teardowns.
-- **`scripts/`**: Zero-dependency release packagers producing clean distribution archives.
+- **`scripts/`**: Zero-dependency tooling for single-command version bumping (`bump-version.js`) and release packaging (`package.js`, `package.ps1`).
 
 ---
 

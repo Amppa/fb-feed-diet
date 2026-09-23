@@ -181,7 +181,9 @@ window.FBDietProbe = (() => {
       postUrl = 'https://www.facebook.com/' + authorHandle + '/posts/' + postId;
     }
 
-    const extVersion = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.VERSION) || '2.1.0';
+    const extVersion = (typeof window !== 'undefined' && window.FB_DIET_DEFAULTS && window.FB_DIET_DEFAULTS.VERSION)
+      || (typeof globalThis !== 'undefined' && globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.VERSION)
+      || null;
     const report = {
       version: extVersion,
       at: {

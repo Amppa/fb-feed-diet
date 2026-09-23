@@ -21,6 +21,21 @@ When modifying extension code:
 
 ---
 
+## 🏷️ Version Bumping
+
+To synchronize version updates across `package.json`, `manifest.json`, and `src/shared/defaults.js` in a single command:
+
+```bash
+# Using npm:
+npm run bump-version 2.1.1
+npm run bump-version patch   # or minor / major
+
+# Using Node.js directly:
+node scripts/bump-version.js 2.1.1
+```
+
+---
+
 ## 📦 Packaging for Release
 
 Packagers generate a clean release `.zip` in `release/` and automatically exclude `design/`, `scripts/`, `tests/`, documentation, and git metadata:
