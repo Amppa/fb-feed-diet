@@ -79,7 +79,7 @@ sponsored  >  suggestedGroup  >  suggested  >  stories  >  reels  >  regular
 
 ### [Rules] Decision #6: Complete Retirement of `story_header` Rules
 - *(Supersedes earlier Decision #2)*: Keyed probe logs revealed contextual friend stories (e.g. *"Alice commented on Bob's photo"*) share the exact same record: `client:*:story_header(location:homepage_stream):title`. String matching is unreliable across locales.
-- **Rule**: `story_header` is completely retired as a classification signal. Preserved in `src/inject/classify-retired.js` for historical reference.
+- **Rule**: `story_header` is completely retired as a classification signal (historical analysis preserved in `docs/research/esuit.md`).
 
 ### [Rules] Decision #7: In-Feed Stories Tray `DiscoverFeedUnit`
 - **Symptom**: Stories carousels at feed position 9–10 bypassed decoration because they were wrapped in generic `CometFeedUnitErrorBoundary.react`.

@@ -67,7 +67,6 @@ fb-diet-feed/
 │   │   ├── relay.js           # Intercepts Relay Record Store and evaluates field paths
 │   │   ├── metadata.js        # Probe enrichment: author / group / content / media / viewer
 │   │   ├── classify.js        # Pure functions mapping feed props + Relay to categories
-│   │   ├── classify-retired.js# Retired rules kept for reference (never injected)
 │   │   ├── bridge.js          # In-memory settings, postMessage router, expansion state
 │   │   ├── ui.js              # React placeholder bars (18px/36px), DOM extractors, badges
 │   │   ├── probe.js           # Diagnostic JSON generator, copy probe button, tooltip popup

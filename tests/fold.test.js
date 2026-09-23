@@ -11,6 +11,7 @@ function setup(relayMap) {
 
   win.FB_DIET_DEFAULTS = loadDefaults();
   loadInject(win, 'proxy.js');
+  loadInject(win, 'metadata.js');
   loadInject(win, 'classify.js');
   loadInject(win, 'bridge.js');
   loadInject(win, 'ui.js');

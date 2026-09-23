@@ -155,8 +155,10 @@ window.FBDietMetadata = (() => {
         obj.call_to_action ||
         obj.story_header ||
         obj.sponsored_data ||
+        obj.th_dat_spo ||
         obj.is_sponsored !== undefined ||
         obj.viewer_forum_join_state !== undefined ||
+        obj.viewer_join_state !== undefined ||
         obj.message ||
         obj.post_id ||
         obj.permalink_url ||
@@ -475,5 +477,5 @@ window.FBDietMetadata = (() => {
     }
   }
 
-  return { collect };
+  return { collect, extractCandidateRecords };
 })();

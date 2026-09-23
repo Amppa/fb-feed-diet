@@ -108,80 +108,13 @@ window.FBDietClassify = (() => {
   }
 
   /**
-   * Recursively traverses a React element or prop tree to extract candidate Story/Unit records.
-   * Traverses through Context.Providers, Fragment wrappers, and rendered element trees.
-   * Safe against circular structures and bounded by MAX_DEPTH.
+   * Candidate records extractor delegated to FBDietMetadata to eliminate code duplication.
    */
   function extractCandidateRecords(roots) {
-    const candidates = [];
-    const visited = new Set();
-    const MAX_DEPTH = 10;
-
-    function isRecordLike(obj) {
-      if (!obj || typeof obj !== 'object') return false;
-      return Boolean(
-        obj.comet_sections ||
-        (Array.isArray(obj.actors) && obj.actors.length > 0) ||
-        obj.actor ||
-        obj.action_links ||
-        obj.call_to_action ||
-        obj.story_header ||
-        obj.sponsored_data ||
-        obj.th_dat_spo ||
-        obj.is_sponsored !== undefined ||
-        obj.viewer_forum_join_state !== undefined ||
-        obj.viewer_join_state !== undefined
-      );
+    if (typeof window !== 'undefined' && window.FBDietMetadata && typeof window.FBDietMetadata.extractCandidateRecords === 'function') {
+      return window.FBDietMetadata.extractCandidateRecords(roots);
     }
-
-    function scan(node, depth) {
-      if (!node || depth > MAX_DEPTH || typeof node !== 'object') return;
-      if (visited.has(node)) return;
-      visited.add(node);
-
-      if (isRecordLike(node)) {
-        candidates.push(node);
-      }
-      if (node.story && typeof node.story === 'object' && !visited.has(node.story)) {
-        if (isRecordLike(node.story)) candidates.push(node.story);
-        scan(node.story, depth + 1);
-      }
-      if (node.feedUnit && typeof node.feedUnit === 'object' && !visited.has(node.feedUnit)) {
-        if (isRecordLike(node.feedUnit)) candidates.push(node.feedUnit);
-        scan(node.feedUnit, depth + 1);
-      }
-      if (node.unit && typeof node.unit === 'object' && !visited.has(node.unit)) {
-        if (isRecordLike(node.unit)) candidates.push(node.unit);
-        scan(node.unit, depth + 1);
-      }
-      if (node.edge && node.edge.node && typeof node.edge.node === 'object') {
-        scan(node.edge.node, depth + 1);
-      }
-      if (node.feedEdge && node.feedEdge.node && typeof node.feedEdge.node === 'object') {
-        scan(node.feedEdge.node, depth + 1);
-      }
-
-      if (node.props && typeof node.props === 'object') {
-        scan(node.props, depth + 1);
-      }
-      if (node.value && typeof node.value === 'object') {
-        scan(node.value, depth + 1);
-      }
-      if (node.children) {
-        if (Array.isArray(node.children)) {
-          for (let i = 0; i < Math.min(node.children.length, 10); i++) {
-            scan(node.children[i], depth + 1);
-          }
-        } else {
-          scan(node.children, depth + 1);
-        }
-      }
-    }
-
-    for (const root of roots) {
-      if (root) scan(root, 0);
-    }
-    return candidates;
+    return [];
   }
 
   /**

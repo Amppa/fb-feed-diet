@@ -10,6 +10,7 @@ function makeReader(calls) {
 
 function run(c) {
   const win = createWindow();
+  loadInject(win, 'metadata.js');
   loadInject(win, 'classify.js');
   const C = win.FBDietClassify;
 
