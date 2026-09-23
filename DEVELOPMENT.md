@@ -29,67 +29,14 @@ This hub links the developer documentation for **FB Diet**. Topic files live und
 
 ## 🛠️ Project Structure
 
-```text
-fb-diet-feed/
-├── manifest.json              # MV3 configuration with dual-world content scripts
-├── package.json               # Test script and package metadata
-├── README.md                  # User-facing summary and installation instructions
-├── DEVELOPMENT.md             # Developer hub: contents index & project structure (this file)
-├── AGENTS.md                  # Project-agnostic engineering discipline & AI contract
-├── STRATEGY.md                # Feed classification strategy & decision log
-├── docs/                        # Developer topic files (split from this hub)
-│   ├── conventions.md           # Project conventions & engineering guardrails
-│   ├── workflow.md              # Local workflow, packaging & testing
-│   ├── architecture.md          # Architecture, modules & runtime flows
-│   ├── debugging.md             # Diagnostic consoles & debugging
-│   └── research/                # External projects & algorithm teardown research
-│       ├── README.md            # Cross-project comparison matrix
-│       └── esuit.md             # esuit-suggest-blocker v2.10.0 analysis
-├── design/                    # Source design assets (e.g. Affinity fb-fd.af)
-├── icons/                     # Extension asset icons (16, 32, 48, 128)
-├── scripts/                   # Zero-dependency release packagers (NOT packaged)
-│   ├── package.js             # Node.js packaging script
-│   └── package.ps1            # Windows PowerShell packaging script
-├── src/
-│   ├── shared/
-│   │   └── defaults.js        # Single source of truth for settings & stats schemas
-│   ├── background/
-│   │   └── background.js      # Service Worker: settings sync, tab broadcast
-│   ├── content/
-│   │   ├── content.css        # Responsive styling for inline placeholders
-│   │   ├── content.js         # Isolated world: storage sync, throttled stats, bridge
-│   │   ├── detector.js        # Multilingual regexes & DOM heuristics for fallback
-│   │   └── fallback.js        # Isolated world: DOM fallback scanner & safe placeholders
-│   ├── i18n/
-│   │   └── i18n.js            # Shared en / zh-TW dictionary for options & popup pages
-│   ├── inject/
-│   │   ├── proxy.js           # Hooks window.__d, wraps React components safely
-│   │   ├── relay.js           # Intercepts Relay Record Store and evaluates field paths
-│   │   ├── metadata.js        # Probe enrichment: author / group / content / media / viewer
-│   │   ├── classify.js        # Pure functions mapping feed props + Relay to categories
-│   │   ├── bridge.js          # In-memory settings, postMessage router, expansion state
-│   │   ├── ui.js              # React placeholder bars (18px/36px), DOM extractors, badges
-│   │   ├── probe.js           # Diagnostic JSON generator, copy probe button, tooltip popup
-│   │   └── fold.js            # Lean coordinator: FBDietFold React decorator & registration
-│   ├── options/
-│   │   ├── options.html       # Full dashboard & group toggles
-│   │   ├── options.css        # Dark glassmorphic styles
-│   │   └── options.js         # Live stats breakdown and configuration sync
-│   └── popup/
-│       ├── popup.html         # Compact extension toolbar popup
-│       ├── popup.css          # Minimalist dark popup UI
-│       └── popup.js           # Master toggle and options page navigation
-└── tests/
-    ├── harness.js             # Lightweight Node test assertion framework
-    ├── run.js                 # Test runner discovering *.test.js
-    ├── defaults.test.js       # Unit tests for shared defaults schema
-    ├── fallback.test.js       # Unit tests for DOM fallback placeholder & observation
-    ├── proxy.test.js          # Unit tests for proxy.js registration & hooks
-    ├── relay.test.js          # Unit tests for relay.js path navigation
-    ├── classify.test.js       # Unit tests for feed unit classification
-    ├── i18n.test.js           # Unit tests for language dictionaries & fallback
-    └── fold.test.js           # Unit tests for folding wrapper logic
-```
+- **`src/inject/`**: Injected into Facebook's `MAIN` world (hooks `window.__d`, reads Relay store, extracts probe metadata, evaluates deterministic classification rules, renders React fold placeholders).
+- **`src/content/`**: Runs in the `ISOLATED` extension world (DOM fallback heuristics, storage synchronization, throttled stats reporting, `postMessage` bridge).
+- **`src/background/`**: Chrome MV3 Service Worker (settings storage sync, cross-tab broadcasts, context menu / badges).
+- **`src/options/` & `src/popup/`**: User configuration dashboards and popup toggle UI.
+- **`src/shared/` & `src/i18n/`**: Shared schemas, settings defaults, version constant, and multilingual localization dictionaries (`en`, `zh-TW`).
+- **`tests/`**: Zero-dependency native Node.js test harness covering pure classification, Relay navigation, proxy wrapping, and fallback logic.
+- **`docs/`**: Developer deep-dives covering architecture, debugging, conventions, and external research teardowns.
+- **`scripts/`**: Zero-dependency release packagers producing clean distribution archives.
 
 ---
 
