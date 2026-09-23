@@ -22,6 +22,7 @@ This file is the authoritative home for **FB Diet-specific** conventions. It was
 - **`docs/debugging.md`**: In-browser diagnostic consoles and debugging.
 - **`AGENTS.md`**: Project-agnostic engineering contract — Git workflow, task decomposition, commit granularity, verification discipline, and autonomy boundaries.
 - **`STRATEGY.md`**: Feed classification strategy, Relay field mapping, and the authoritative decision log to consult before touching `classify.js` or `fold.js`.
+- **`docs/research/`**: Reverse engineering notes, algorithm teardowns, and comparison matrices of external/competitor projects (e.g., esuit).
 
 ### Extension Coding Style & Design Discipline
 

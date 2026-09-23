@@ -21,6 +21,9 @@ This hub links the developer documentation for **FB Diet**. Topic files live und
   - [Runtime Data & Control Flows](docs/architecture.md#runtime-data-control-flows)
 - [🔍 Debugging & Diagnostics](docs/debugging.md)
 - [Feed Classification Strategy & Decision Log](STRATEGY.md)
+- [🔬 External Projects & Algorithm Research](docs/research/README.md)
+  - [Cross-Project Comparison Matrix](docs/research/README.md#cross-project-comparison-matrix)
+  - [esuit-suggest-blocker Teardown](docs/research/esuit.md)
 - [Documentation Ownership](#documentation-ownership)
 
 ## 🛠️ Project Structure
@@ -37,7 +40,10 @@ fb-diet-feed/
 │   ├── conventions.md           # Project conventions & engineering guardrails
 │   ├── workflow.md              # Local workflow, packaging & testing
 │   ├── architecture.md          # Architecture, modules & runtime flows
-│   └── debugging.md             # Diagnostic consoles & debugging
+│   ├── debugging.md             # Diagnostic consoles & debugging
+│   └── research/                # External projects & algorithm teardown research
+│       ├── README.md            # Cross-project comparison matrix
+│       └── esuit.md             # esuit-suggest-blocker v2.10.0 analysis
 ├── design/                    # Source design assets (e.g. Affinity fb-fd.af)
 ├── icons/                     # Extension asset icons (16, 32, 48, 128)
 ├── scripts/                   # Zero-dependency release packagers (NOT packaged)
