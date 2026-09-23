@@ -62,6 +62,7 @@ graph TD
   - Exposes `FB_DIET_DEFAULTS.SETTINGS` (including the fold-scope switch `restrictFoldScope` and the three-state fold bar title `showTitleMode`, default `whenFolded`), `FB_DIET_DEFAULTS.COUNTS`, the user-facing group layer (`GROUP_BY_CATEGORY`, `SETTING_KEYS_BY_GROUP`, `GROUP_ORDER`; STRATEGY.md decision #8), the pure helpers `isFoldScopeAllowed(pathname)` (decision #26) and `normalizeTitleMode(value)` (decision #27), and `VERSION`.
   - Loaded before all scripts via `manifest.json` (`content_scripts`), `importScripts` (`background.js`), and `<script>` tags (`popup.html`, `options.html`).
   - Eliminates configuration drift across contexts.
+- **`theme.css`**: Shared UI design tokens, universal resets, switches, badges, and card styles linked across extension pages (`options.html`, `popup.html`).
 
 ### Main World Modules (`src/inject/`)
 

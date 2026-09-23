@@ -1,0 +1,200 @@
+/**
+ * FB Diet - Shared UI Theme & Component Tokens
+ * Single source of truth for design tokens, resets, switches, badges, and cards across extension pages.
+ */
+
+:root {
+  --bg-primary: #121214;
+  --bg-card: #18181c;
+  --bg-stat: #212127;
+  --bg-hover: rgba(255, 255, 255, 0.04);
+  --text-primary: #f0f0f2;
+  --text-secondary: #8e8e99;
+  --text-muted: #5e5e66;
+  --divider: rgba(255, 255, 255, 0.08);
+  --accent-gradient: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+  --accent-glow: rgba(14, 165, 233, 0.25);
+  --active-color: #0ea5e9;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Brand Logo */
+.logo-badge,
+.logo-img {
+  border-radius: 11px;
+  display: block;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.logo-badge {
+  background: var(--accent-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.5px;
+  box-shadow: 0 2px 14px var(--accent-glow);
+}
+
+/* Base Stat Card */
+.stat-card {
+  background: var(--bg-stat);
+  border: 1px solid var(--divider);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--accent-gradient);
+}
+
+/* Reset Button */
+.reset-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--divider);
+  color: var(--text-secondary);
+  font-weight: 600;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+  user-select: none;
+}
+
+.reset-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.reset-btn:focus-visible {
+  outline: 2px solid var(--active-color);
+  outline-offset: 1px;
+}
+
+/* Switch Toggle Component */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #383842;
+  transition: .2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #ffffff;
+  transition: .2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.slider.round {
+  border-radius: 20px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background: var(--active-color);
+}
+
+input:checked + .slider:before {
+  transform: translateX(18px);
+}
+
+/* Main Toggle (Master On/Off) */
+.main-toggle {
+  width: 48px;
+  height: 26px;
+}
+
+.main-toggle .slider:before {
+  height: 20px;
+  width: 20px;
+}
+
+.main-toggle input:checked + .slider:before {
+  transform: translateX(22px);
+}
+
+/* Category Badges (Shared between Options and UI) */
+.fb-diet-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  letter-spacing: 0.2px;
+  user-select: none;
+}
+
+.fb-diet-badge-ads {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.fb-diet-badge-regular {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.fb-diet-badge-suggested {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.fb-diet-badge-media {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+}
+
+.fb-diet-badge-other {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}

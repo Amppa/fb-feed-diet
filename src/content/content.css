@@ -25,32 +25,57 @@
   }
 }
 
-/* Injected Placeholder Bar (18px Ultra-slim, 0-gap clickable strip) */
-.fb-diet-placeholder {
+/* ------------------------------------------------------------------ *
+ * Placeholder Base (Shared layout across 18px and 36px variants)
+ * ------------------------------------------------------------------ */
+.fb-diet-placeholder,
+.fb-diet-titlebar {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
+  width: 100% !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+  box-sizing: border-box !important;
+  user-select: none !important;
+  cursor: pointer !important;
+  overflow: hidden !important;
+}
+
+.fb-diet-placeholder:hover,
+.fb-diet-titlebar:hover {
+  background-color: var(--hover-overlay, rgba(0, 0, 0, 0.05)) !important;
+}
+
+.fb-diet-placeholder.fb-diet-state-expanded,
+.fb-diet-titlebar.fb-diet-state-expanded {
+  margin: 0 !important;
+  border-top-left-radius: 8px !important;
+  border-top-right-radius: 8px !important;
+}
+
+.fb-diet-placeholder.fb-diet-state-expanded:hover,
+.fb-diet-titlebar.fb-diet-state-expanded:hover {
+  background-color: var(--hover-overlay, rgba(0, 0, 0, 0.08)) !important;
+  filter: brightness(0.96) !important;
+}
+
+/* 18px Ultra-slim strip */
+.fb-diet-placeholder {
   margin: 0 0 2px 0 !important;
   padding: 1px 8px !important;
   min-height: 18px !important;
   height: 18px !important;
   background-color: var(--card-background, #ffffff) !important;
-  border: none !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
   font-size: 11px !important;
   line-height: 16px !important;
   color: var(--secondary-text, #65676b) !important;
-  box-sizing: border-box !important;
-  user-select: none !important;
-  cursor: pointer !important;
 }
 
-.fb-diet-placeholder:hover {
-  border: none !important;
-  box-shadow: none !important;
-  background-color: var(--hover-overlay, rgba(0, 0, 0, 0.04)) !important;
+.fb-diet-placeholder.fb-diet-state-expanded {
+  background-color: var(--secondary-button-background, #f0f2f5) !important;
 }
 
 /* Left section of placeholder */
@@ -99,71 +124,16 @@
   color: #3b82f6 !important;
 }
 
-/* Toggle symbol [+] / [-] (no animation, no opacity, instant response) */
-.fb-diet-toggle-symbol {
-  font-size: 11px !important;
-  font-weight: 700 !important;
-  line-height: 16px !important;
-  color: var(--secondary-text, #65676b) !important;
-  padding: 0 4px !important;
-  user-select: none !important;
-}
-
-/* State when expanded (18px strip remains on top with distinct button background) */
-.fb-diet-placeholder.fb-diet-state-expanded {
-  margin: 0 !important;
-  padding: 1px 8px !important;
-  min-height: 18px !important;
-  height: 18px !important;
-  background-color: var(--secondary-button-background, #f0f2f5) !important;
-  border: none !important;
-  border-top-left-radius: 8px !important;
-  border-top-right-radius: 8px !important;
-}
-
-.fb-diet-placeholder.fb-diet-state-expanded:hover {
-  background-color: var(--hover-overlay, rgba(0, 0, 0, 0.08)) !important;
-  filter: brightness(0.96) !important;
-}
-
-/* ------------------------------------------------------------------ *
- * Title mode placeholder bar (36px single line snippet)
- * ------------------------------------------------------------------ */
+/* 36px Title mode placeholder bar */
 .fb-diet-titlebar {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  width: 100% !important;
   height: 36px !important;
   min-height: 36px !important;
   max-height: 36px !important;
   padding: 4px 12px !important;
   background-color: var(--secondary-button-background, #f0f2f5) !important;
-  border: none !important;
-  border-radius: 0 !important;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
   font-size: 13px !important;
   line-height: 24px !important;
   color: var(--primary-text, #050505) !important;
-  box-sizing: border-box !important;
-  user-select: none !important;
-  cursor: pointer !important;
-  overflow: hidden !important;
-}
-
-.fb-diet-titlebar:hover {
-  background-color: var(--hover-overlay, rgba(0, 0, 0, 0.06)) !important;
-}
-
-.fb-diet-titlebar.fb-diet-state-expanded {
-  margin: 0 !important;
-  border-top-left-radius: 8px !important;
-  border-top-right-radius: 8px !important;
-}
-
-.fb-diet-titlebar.fb-diet-state-expanded:hover {
-  background-color: var(--hover-overlay, rgba(0, 0, 0, 0.08)) !important;
-  filter: brightness(0.96) !important;
 }
 
 /* 18px compact variant for Minimized Fold Bar */
@@ -186,31 +156,32 @@
   white-space: nowrap !important;
 }
 
-.fb-diet-title-group {
-  display: inline-block !important;
-  max-width: 140px !important;
+.fb-diet-title-group,
+.fb-diet-title-author,
+.fb-diet-title-snippet {
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
+}
+
+.fb-diet-title-group,
+.fb-diet-title-author {
+  max-width: 140px !important;
+  flex-shrink: 0 !important;
+}
+
+.fb-diet-title-group {
+  display: inline-block !important;
   font-weight: 600 !important;
   color: var(--secondary-text, #65676b) !important;
-  flex-shrink: 0 !important;
 }
 
 .fb-diet-title-author {
   font-weight: 700 !important;
   color: var(--primary-text, #050505) !important;
-  flex-shrink: 0 !important;
-  max-width: 140px !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
 }
 
 .fb-diet-title-snippet {
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
   color: var(--secondary-text, #65676b) !important;
   flex: 1 1 auto !important;
   min-width: 0 !important;
@@ -255,13 +226,9 @@
 }
 
 /* Right sidebar sponsored ads: directly hidden without placeholder bar */
-.CometHomeRightRailUnit:has(.adhidden),
-.CometHomeRightRailUnit:has(.fb-diet-side-ad-hidden) {
-  display: none !important;
-}
-
 .adhidden,
-.fb-diet-side-ad-hidden {
+.fb-diet-side-ad-hidden,
+.CometHomeRightRailUnit:has(.adhidden, .fb-diet-side-ad-hidden) {
   display: none !important;
 }
 
@@ -296,19 +263,7 @@
 
 /* One rectangular box draws the whole frame (bar + post), all corners
    rounded 8px, matching the bar's strip height above the wrapper. */
-.fb-diet-placeholder.fb-diet-state-expanded ~ .fb-diet-expand-body::after {
-  content: '' !important;
-  position: absolute !important;
-  pointer-events: none !important;
-  z-index: 1 !important;
-  left: 0 !important;
-  right: 0 !important;
-  top: calc(-1 * var(--fb-diet-strip-h, 18px)) !important;
-  bottom: 0 !important;
-  border: 2px solid var(--fb-diet-group-border, var(--divider, rgba(0, 0, 0, 0.12))) !important;
-  border-radius: 8px !important;
-}
-
+.fb-diet-placeholder.fb-diet-state-expanded ~ .fb-diet-expand-body::after,
 .fb-diet-titlebar.fb-diet-state-expanded ~ .fb-diet-expand-body::after {
   content: '' !important;
   position: absolute !important;
@@ -316,7 +271,7 @@
   z-index: 1 !important;
   left: 0 !important;
   right: 0 !important;
-  top: calc(-1 * var(--fb-diet-strip-h, 36px)) !important;
+  top: calc(-1 * var(--fb-diet-strip-h, 18px)) !important;
   bottom: 0 !important;
   border: 2px solid var(--fb-diet-group-border, var(--divider, rgba(0, 0, 0, 0.12))) !important;
   border-radius: 8px !important;
