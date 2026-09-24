@@ -81,3 +81,71 @@ Across the 8 analyzed projects, web filtering strategies divide into four distin
 2. **Unanchored Substring Scanning (`outerHTML.includes()`)**: Misclassifies any organic post mentioning ad keywords.
 3. **Static CSP Overwrites (`declarativeNetRequest` header manipulation)**: Introduces fatal white screens when remote CDN clusters rotate.
 4. **Unscoped `data-ad-*` Attributes**: Keying off story template roles kills organic group posts.
+
+---
+
+## 5. Facebook DOM Attributes & Selectors Risk Matrix
+
+Every DOM selector or attribute carries distinct resilience, performance, and false-positive characteristics:
+
+| Selector / Attribute | Primary Use Case | False Positive Risk | Resilience to Meta Updates | Recommendation & Usage Constraints |
+| :--- | :--- | :--- | :--- | :--- |
+| `[attributionsrc*="/privacy_sandbox/comet/register/source/"]` | Pre-paint CSS mask (`:has()`) | **Near Zero** | **Medium** | Safe for immediate visual hiding; breaks if user disables Privacy Sandbox or endpoint path changes. |
+| `[aria-posinset]` | Feed post root container anchor | **Very Low** | **High** | Essential for virtualized feed boundary scoping; stable because accessibility tree requires it. |
+| `[data-ad-rendering-role]` | Ad card detection | **Extremely High (POISONOUS)** | **Low** | **Do Not Use as Primary Filter**. Organic Comet group posts and marketplace items share the same message template. |
+| `[data-ad-rendering-role^="cta"]` | Call-to-action button detection | **Low–Medium** | **Medium** | Viable only when combined with card-level boundary constraints; some organic events also carry CTA roles. |
+| `svg use[*|href^="#Svg"]` / `#gid` | SVG symbol label reconstruction | **Low** | **Low–Medium** | Effective against vector text, but vulnerable to symbol prefix rotation. Requires runtime fallback. |
+| `a[href*="/ads/"]` | Marketplace sponsored item detection | **Low** | **Medium** | Highly accurate for Marketplace cards; must climb parent tree carefully to avoid hiding grid containers. |
+| `/stories/<id>/` permalink | Organic post verification | **High (TRAP)** | **Low** | **Do Not Treat as Organic Whitelist**. Sponsored ads frequently embed `/stories/` permalinks. |
+| `[role="complementary"]` | Right sidebar ad panel filtering | **High (without whitelist)** | **High** | Dangerous unless paired with strict whitelist for Messenger contacts (`CONTACTS_HEADING_RE`). |
+| Computed `order` on leaf spans | Flexbox de-scrambling | **Very Low** | **High** | Layout-agnostic; must be gated by `isCharacterSplit()` (4–120 children) to avoid layout reflow storms. |
+| Computed 2D rects (`getClientRects()`) | Geometry baseline de-scrambling | **Very Low** | **Very High** | Immune to all DOM/CSS tree scrambling; must be gated by viewport bounds to avoid main-thread jank. |
+
+---
+
+## 6. Chronological Evolution of Facebook Ad Obfuscation
+
+Understanding Meta's historical arms race reveals where obfuscation techniques are headed:
+
+```mermaid
+timeline
+    title Evolution of Facebook Ad Obfuscation & Countermeasures
+    2018 - Plaintext Strings : Substring search on "Sponsored" / "贊助" : Direct DOM matching
+    2019 - Zero-Width Characters : Invisible Unicode injection (\u200B, \uFEFF) : Regex character sanitization
+    2020 - Flexbox CSS Order : DOM scrambled; CSS order renders correct visual text : getComputedStyle order sorting
+    2021 - Decoy Class Partitions : Honeypot non-rendering spans with varied class counts : Ternary high/low class partitioning
+    2022 - SVG Vector Symbols : Text rendered as SVG <use> referencing hidden symbols : XPath symbol dictionary reassembly
+    2023 - 2D Layout Geometry : Scrambled spans with absolute/inline-block offsets : getClientRects baseline clustering
+    2024+ - Virtual DOM & Relay Obfuscation : Dynamic class rotations & React 18 Concurrent recycling : Direct Relay Store Proxy trapping
+```
+
+### Phase Details
+
+1. **Phase 1: Plaintext Strings (`Sponsored`, `贊助`)**
+   - *Mechanic*: Standard text inside anchor or span.
+   - *Countermeasure*: Elementary text search (`node.textContent.includes('Sponsored')`). Defeated ~2018.
+
+2. **Phase 2: Split Spans & Invisible Unicode Insertion**
+   - *Mechanic*: Spans split per character (`<span>S</span><span>p</span>`), interleaved with zero-width spaces (`\u200B`, `\u200C`, `\u200D`, `\uFEFF`).
+   - *Countermeasure*: Stripping non-printable characters via regex before matching.
+
+3. **Phase 3: Flexbox CSS `order` Shuffling**
+   - *Mechanic*: DOM order is scrambled (e.g., character 4 placed first), but visual presentation is corrected via CSS flexbox `order: 1`, `order: 2`.
+   - *Countermeasure*: Extracting child leaf spans and sorting by `parseInt(getComputedStyle(span).order)`.
+
+4. **Phase 4: Decoy & Honeypot Character Partitioning**
+   - *Mechanic*: Random decoy characters injected into the DOM tree. Meta periodically alternates between giving decoys high class counts vs. low class counts to break simple filters.
+   - *Countermeasure*: Ternary partitioning (`assemble(all)`, `assemble(high)`, `assemble(low)`) as developed in `F.B. Sponsored Blocker`.
+
+5. **Phase 5: SVG Symbol Vector Stitching**
+   - *Mechanic*: Replacing text nodes with `<svg><use xlink:href="#SvgId"></use></svg>`, rendering characters via reusable vector glyphs.
+   - *Countermeasure*: XPath dynamic queries mapping `<symbol>` definitions to character lookup dictionaries (pioneered by `BlockZilla`).
+
+6. **Phase 6: Geometric 2D Coordinate Projection**
+   - *Mechanic*: Arbitrary inline-block positioning and relative coordinate offsets where neither DOM order nor Flex order reflects visual order.
+   - *Countermeasure*: Measuring physical screen coordinates via `span.getClientRects()`, clustering characters sharing a horizontal baseline (±3px), and sorting by X-coordinate (pioneered by `Web Cleaner`).
+
+7. **Phase 7: Virtualized React 18 Concurrent Rendering & Relay Data Dominance**
+   - *Mechanic*: Nodes are aggressively recycled during scroll; DOM modifications trigger React invariant crashes.
+   - *Countermeasure*: Shifting from DOM reverse-engineering to **in-memory data layer trapping** (Relay Record Store Proxy), completely bypassing visual scrambling.
+
