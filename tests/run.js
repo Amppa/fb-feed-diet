@@ -13,21 +13,28 @@ const files = fs
   .sort();
 
 let failedSuites = 0;
-for (const file of files) {
+
+async function runSuite(file) {
   const checker = new Checker(file);
   const mod = require(path.join(__dirname, file));
   try {
-    mod.run(checker);
+    await mod.run(checker);
   } catch (e) {
     checker.ok('suite did not throw: ' + file, false, e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : String(e));
   }
   if (!checker.report()) failedSuites += 1;
 }
 
-console.log('\n========================================');
-if (failedSuites === 0) {
-  console.log('ALL SUITES PASSED (' + files.join(', ') + ')');
-} else {
-  console.log('FAILED SUITES: ' + failedSuites + '/' + files.length);
-  process.exitCode = 1;
-}
+(async () => {
+  for (const file of files) {
+    await runSuite(file);
+  }
+
+  console.log('\n========================================');
+  if (failedSuites === 0) {
+    console.log('ALL SUITES PASSED (' + files.join(', ') + ')');
+  } else {
+    console.log('FAILED SUITES: ' + failedSuites + '/' + files.length);
+    process.exitCode = 1;
+  }
+})();

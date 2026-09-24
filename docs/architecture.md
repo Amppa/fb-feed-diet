@@ -187,10 +187,10 @@ Tab Navigates to facebook.com
   │     Pushes saved settings to tab via chrome.scripting (window.__fbDietSetSettings)
   │
   └─► [ISOLATED World: document_idle]
-        1. content.js boots, starts 8s fallback timer
+        1. content.js boots, reads settings, and announces the current settings to MAIN
         2. Sends ping { source: 'fb-diet/content', type: 'ping' }
         3. MAIN world replies ready { source: 'fb-diet/main', type: 'ready' }
-        4. content.js marks proxyActive = true and cancels fallback timer
+        4. content.js marks proxyActive = true
 ```
 
 ### 2. Feed Unit Classification & Folding Flow
