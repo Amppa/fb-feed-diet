@@ -73,6 +73,23 @@ window.FBDietClassify = (() => {
   const STORY_TYPE_PATH = 'showcase_story_type';
   const STORY_HEADER_PATH = '^story_header{$1}.^title.text';
 
+  // Fallback chain used only when FBDietMetadata cannot extract candidate records itself.
+  // Order matters: the first truthy value wins (element hierarchies seen in the wild).
+  const NESTED_UNIT_PATHS = [
+    'children.props.story',
+    'children.props.unit',
+    'children.props.feedUnit',
+    'children.0.props.story',
+    'children.0.props.unit',
+    'children.0.props.feedUnit',
+    'children.0.props.children.props.feedUnit',
+    'children.props.children.props.feedUnit',
+    'children.props',
+    'children.0.props',
+    'edge.node',
+    'feedEdge.node'
+  ];
+
   let relayRead = () => null;
   // Every Relay read the classifier performs for the current unit, in order.
   // The probe report replays this list so a mis-detection shows exactly which
@@ -103,6 +120,24 @@ window.FBDietClassify = (() => {
     return current;
   }
 
+  /** First truthy value among an ordered list of prop paths. */
+  function readFirstProp(object, paths) {
+    for (const path of paths) {
+      const value = readProp(object, path);
+      if (value) return value;
+    }
+    return null;
+  }
+
+  /** Ordered, duplicate free list of the given objects (skips falsy entries). */
+  function uniqueObjects(candidates) {
+    const list = [];
+    for (const candidate of candidates) {
+      if (candidate && list.indexOf(candidate) === -1) list.push(candidate);
+    }
+    return list;
+  }
+
   function toStringOrNull(value) {
     return typeof value === 'string' && value ? value : null;
   }
@@ -126,21 +161,9 @@ window.FBDietClassify = (() => {
     const candidateRecords = extractCandidateRecords([payload, lastCmp]);
 
     const feedUnit = readProp(payload, 'feedUnit') || readProp(payload, 'unit') || null;
-    const nestedUnit = candidateRecords.length > 0 ? candidateRecords[0] : (
-      readProp(payload, 'children.props.story') ||
-      readProp(payload, 'children.props.unit') ||
-      readProp(payload, 'children.props.feedUnit') ||
-      readProp(payload, 'children.0.props.story') ||
-      readProp(payload, 'children.0.props.unit') ||
-      readProp(payload, 'children.0.props.feedUnit') ||
-      readProp(payload, 'children.0.props.children.props.feedUnit') ||
-      readProp(payload, 'children.props.children.props.feedUnit') ||
-      readProp(payload, 'children.props') ||
-      readProp(payload, 'children.0.props') ||
-      readProp(payload, 'edge.node') ||
-      readProp(payload, 'feedEdge.node') ||
-      null
-    );
+    const nestedUnit = candidateRecords.length > 0
+      ? candidateRecords[0]
+      : readFirstProp(payload, NESTED_UNIT_PATHS);
     const record = feedUnit || nestedUnit || null;
 
     const ids = [];
@@ -171,11 +194,16 @@ window.FBDietClassify = (() => {
       toStringOrNull(readProp(payload, '__typename'));
     const nestedTypename = toStringOrNull(readProp(nestedUnit, '__typename'));
 
+    // Flattened evidence lookup orders. `sources` is the wide candidate set (record, nested
+    // unit, candidate records) with duplicate references dropped, so no source is scanned
+    // twice. `ownRecords` is the narrow set only the boolean ad flags may read: a nested
+    // candidate record must never sponsor-flag the unit.
+    const sources = uniqueObjects([record, nestedUnit, feedUnit].concat(candidateRecords));
+    const ownRecords = uniqueObjects([record, feedUnit, nestedUnit]);
+
     return {
-      feedUnit,
-      nestedUnit,
-      record,
-      records: candidateRecords,
+      sources,
+      ownRecords,
       ids,
       // Reporting / debug value; prefers the unit's own typename and only falls back to
       // the nested attachment record for diagnostics.
@@ -259,28 +287,41 @@ window.FBDietClassify = (() => {
       idCount: unit.ids ? unit.ids.length : 0
     };
 
-    function readCandidateProp(path) {
-      const direct = toStringOrNull(readProp(unit.record, path)) ||
-        (unit.nestedUnit ? toStringOrNull(readProp(unit.nestedUnit, path)) : null) ||
-        (unit.feedUnit ? toStringOrNull(readProp(unit.feedUnit, path)) : null);
-      if (direct) return direct;
+    const sources = unit.sources || [];
 
-      if (unit.records && unit.records.length) {
-        for (const rec of unit.records) {
-          const val = toStringOrNull(readProp(rec, path));
-          if (val) return val;
-        }
+    /** First string value for a path across the unit's flattened prop sources. */
+    function readCandidateProp(path) {
+      for (const source of sources) {
+        const value = toStringOrNull(readProp(source, path));
+        if (value) return value;
       }
       return null;
     }
 
+    /** First raw value for a path across the unit's own records (record / feedUnit / nested). */
+    function readOwnRaw(path) {
+      for (const own of unit.ownRecords || []) {
+        const value = readProp(own, path);
+        if (value) return value;
+      }
+      return null;
+    }
+
+    /** True when any of the unit's own records carries an explicit boolean flag. */
+    function hasOwnFlag(path) {
+      for (const own of unit.ownRecords || []) {
+        if (readProp(own, path) === true) return true;
+      }
+      return false;
+    }
+
     // 1. Direct props
-    const spoObj = readProp(unit.record, 'th_dat_spo') || (unit.feedUnit && readProp(unit.feedUnit, 'th_dat_spo')) || (unit.nestedUnit && readProp(unit.nestedUnit, 'th_dat_spo'));
+    const spoObj = readOwnRaw('th_dat_spo');
     evidence.adId =
       readCandidateProp('sponsored_data.ad_id') ||
       readCandidateProp('sponsored_data.client_token') ||
       (spoObj ? 'th_dat_spo' : null) ||
-      (readProp(unit.record, 'is_sponsored') === true || (unit.nestedUnit && readProp(unit.nestedUnit, 'is_sponsored') === true) ? 'is_sponsored' : null);
+      (hasOwnFlag('is_sponsored') ? 'is_sponsored' : null);
 
     evidence.subscribeStatus =
       readCandidateProp('actors.0.subscribe_status') ||
@@ -296,20 +337,12 @@ window.FBDietClassify = (() => {
       readCandidateProp('to.viewer_join_state') ||
       readCandidateProp('story.to.viewer_join_state');
 
-    let actionSig = detectActionSignal(unit.record) || (unit.nestedUnit ? detectActionSignal(unit.nestedUnit) : null);
-    let recHdr = detectRecommendationHeader(unit.record) || (unit.nestedUnit ? detectRecommendationHeader(unit.nestedUnit) : null);
-
-    if (!actionSig && unit.records && unit.records.length) {
-      for (const rec of unit.records) {
-        actionSig = detectActionSignal(rec);
-        if (actionSig) break;
-      }
-    }
-    if (!recHdr && unit.records && unit.records.length) {
-      for (const rec of unit.records) {
-        recHdr = detectRecommendationHeader(rec);
-        if (recHdr) break;
-      }
+    let actionSig = null;
+    let recHdr = null;
+    for (const source of sources) {
+      if (!actionSig) actionSig = detectActionSignal(source);
+      if (!recHdr) recHdr = detectRecommendationHeader(source);
+      if (actionSig && recHdr) break;
     }
 
     evidence.actionSignal = actionSig;
@@ -479,49 +512,22 @@ window.FBDietClassify = (() => {
 
   /**
    * Reads a Relay-style field path against a serialized record snapshot.
-   * Supports the subset of syntax used by RELAY_PATHS: direct fields,
-   * ^ linked-record hops (__ref), ^^ linked-list hops (__refs), {$1}
-   * keyed variables. Linked records live outside the snapshot by design,
-   * so any hop through __ref / __refs resolves to null (see the note above).
+   * Only the snapshot's own plain fields can be read: a ^ / ^^ hop, an indexed lookup or
+   * a __ref / __refs value needs a linked record that lives outside the snapshot by
+   * design, so such a path resolves to null (see the note above). This is exactly the
+   * subset the classifier asks for — every RELAY_PATHS entry is keyed by a ^ hop, and the
+   * only plain field it reads is `is_sponsored`.
    */
-  function readSnapshotPath(record, path, options) {
+  function readSnapshotPath(record, path) {
     try {
       if (!record || typeof record !== 'object' || !path) return null;
       let current = record;
-      for (const rawSegment of String(path).split('.')) {
-        let segment = rawSegment;
-        let linkList = false;
-        let index = 0;
-        if (segment.indexOf('^^') === 0) {
-          linkList = true;
-          segment = segment.slice(2);
-        } else if (segment.indexOf('^') === 0) {
-          segment = segment.slice(1);
-        }
-        const bracket = segment.indexOf('[');
-        if (bracket !== -1) {
-          index = parseInt(segment.slice(bracket + 1), 10) || 0;
-          segment = segment.slice(0, bracket);
-          linkList = true;
-        }
-        const variable = segment.indexOf('{$1}');
-        if (variable !== -1) {
-          const vars = options && options.$1;
-          if (!vars || typeof vars !== 'object') return null;
-          const args = Object.keys(vars).map((key) => key + ':' + vars[key]).join(',');
-          segment = segment.slice(0, variable) + '(' + args + ')';
-        }
+      for (const segment of String(path).split('.')) {
+        if (segment.indexOf('^') === 0) return null;
+        if (segment.indexOf('[') !== -1) return null;
         if (current === null || current === undefined || typeof current !== 'object') return null;
-        if (linkList) {
-          const refs = current[segment] && current[segment].__refs;
-          const ref = Array.isArray(refs) ? refs[index] : undefined;
-          if (typeof ref !== 'string') return null;
-          return null; // linked record lives outside the snapshot
-        }
         const field = current[segment];
-        if (field && typeof field === 'object' && typeof field.__ref === 'string') {
-          return null; // linked record lives outside the snapshot
-        }
+        if (field && typeof field === 'object' && typeof field.__ref === 'string') return null;
         current = field;
       }
       if (current && typeof current === 'object') return null;
@@ -554,7 +560,7 @@ window.FBDietClassify = (() => {
       const previousReads = relayReads;
       try {
         relayReads = [];
-        relayRead = (ids, path, options) => readSnapshotPath(relayRecord, path, options);
+        relayRead = (ids, path) => readSnapshotPath(relayRecord, path);
         current = classifyFeedUnit(report.payload, { moduleName: report.moduleName || null });
       } finally {
         // Never leak the snapshot reader into the caller's classifier state.
