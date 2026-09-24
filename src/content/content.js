@@ -16,12 +16,8 @@
   const MAIN_SOURCE = 'fb-diet/main';
   const CONTENT_SOURCE = 'fb-diet/content';
 
-  // How long to wait for the MAIN world proxy before falling back to DOM detection
-  const FALLBACK_DELAY_MS = 8000;
-
   // True once the MAIN world proxy announced itself: it owns folding from then on
   let proxyActive = false;
-  let fallbackTimer = null;
 
   // Ring buffer of reports from the MAIN world proxy (diagnostics)
   const mainReports = [];
@@ -112,11 +108,6 @@
     }
     logBuffer = [];
 
-    if (fallbackTimer) {
-      clearTimeout(fallbackTimer);
-      fallbackTimer = null;
-    }
-
     // Pending stats can no longer be written anywhere, drop them silently.
     countBuffer = createEmptyCounts();
   }
@@ -194,11 +185,6 @@
 
     proxyActive = true;
 
-    if (fallbackTimer) {
-      clearTimeout(fallbackTimer);
-      fallbackTimer = null;
-    }
-
     try {
       window.FBDietDOMFallback?.restoreAllElements?.();
     } catch (e) {
@@ -208,14 +194,6 @@
     window.FBDietDOMFallback?.stopObservation?.();
 
     announceToMain();
-  }
-
-  /**
-   * In pure proxy mode, fallback probing is disabled.
-   * Preserved stub so proxy lifecycle remains unchanged.
-   */
-  function scheduleFallbackProbe() {
-    // Disabled in pure proxy convergence
   }
 
   function storeMainReport(type, payload) {
@@ -276,7 +254,10 @@
   async function flushPersistedLog() {
     logFlushTimer = null;
     if (isShutDown || logBuffer.length === 0) return;
-    if (!isExtensionValid()) return;
+    if (!isExtensionValid()) {
+      shutdown();
+      return;
+    }
 
     const pending = logBuffer.splice(0, logBuffer.length);
     const data = await safeStorageGet(LOG_KEY);
@@ -326,7 +307,7 @@
 
   window.addEventListener('message', handleMainMessage);
 
-  // Initialise settings, then start the proxy handshake / fallback watchdog
+  // Initialise settings, then start the proxy handshake
   (async () => {
     const data = await safeStorageGet('settings');
     if (data?.settings) {
@@ -337,7 +318,6 @@
     if (isShutDown) return;
 
     announceToMain();
-    scheduleFallbackProbe();
   })();
 
   // Listen for real-time toggle changes from Popup
@@ -404,7 +384,6 @@
   // Debug helpers (isolated world): pick the content script context in DevTools to use them
   window.__fbDietStatus = () => ({
     proxyActive,
-    fallbackPending: Boolean(fallbackTimer),
     settings: { ...currentSettings },
     reports: mainReports.slice(-25),
     pendingLogEntries: logBuffer.length
@@ -463,16 +442,10 @@
       }
 
       counts.date = today;
-      counts.total = (counts.total || 0) + delta.total;
-      counts.filtered = (counts.filtered || 0) + (delta.filtered || 0);
-      counts.sponsored = (counts.sponsored || 0) + delta.sponsored;
-      counts.suggested = (counts.suggested || 0) + delta.suggested;
-      counts.suggestedGroup = (counts.suggestedGroup || 0) + (delta.suggestedGroup || 0);
-      counts.marketAds = (counts.marketAds || 0) + delta.marketAds;
-      counts.searchingAds = (counts.searchingAds || 0) + delta.searchingAds;
-      counts.stories = (counts.stories || 0) + (delta.stories || 0);
-      counts.reels = (counts.reels || 0) + (delta.reels || 0);
-      counts.regular = (counts.regular || 0) + (delta.regular || 0);
+      for (const key of Object.keys(DEFAULT_COUNTS)) {
+        if (key === 'date') continue;
+        counts[key] = (counts[key] || 0) + (delta[key] || 0);
+      }
 
       await safeStorageSet({ counts });
     }, 3000);
@@ -508,17 +481,6 @@
     countBuffer.total += 1;
     countBuffer.regular = (countBuffer.regular || 0) + 1;
     scheduleCountFlush();
-  }
-
-  /**
-   * Sets up MutationObserver via DOM fallback to handle dynamic infinite scroll feeds
-   */
-  function startObservation() {
-    if (isShutDown || proxyActive) return;
-    const fallback = window.FBDietDOMFallback;
-    if (fallback && typeof fallback.startObservation === 'function') {
-      fallback.startObservation(() => currentSettings, recordBlock);
-    }
   }
 
   window.__fbDietDebug = () => {

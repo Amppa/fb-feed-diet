@@ -6,7 +6,9 @@
  *   - matched -> a compact notice bar plus the original tree hidden with display:none / 1x1 squash
  *   - expanded by the user -> the original tree is returned with a neutral re-fold bar
  *
- * Public API (window.FBDietFold): install(), FBDietFold, GROUP_META, GROUP_BY_CATEGORY, groupOf, HIDE_MODE, getStatus()
+ * Public API (window.FBDietFold): FEED_UNIT_MODULES, HIDE_MODE, FBDietFold, install(), getStatus()
+ * Group badges, fold bars and probe reports live in their own modules (window.FBDietUI /
+ * window.FBDietProbe) and are always read from there.
  */
 window.FBDietFold = (() => {
   'use strict';
@@ -33,6 +35,11 @@ window.FBDietFold = (() => {
   ];
 
   const HIDE_MODE = 'squash';
+
+  // Full Mode DOM suggestion fallback: retry ladder for streaming Suspense renders and the
+  // hard timeout after which the MutationObserver is disconnected for good.
+  const DOM_SUGGESTED_SCAN_DELAYS = [50, 200, 500, 1200, 2500];
+  const DOM_SUGGESTED_SCAN_TIMEOUT_MS = 4000;
 
   const hydrationStats = {
     count: 0,
@@ -61,21 +68,17 @@ window.FBDietFold = (() => {
 
   /**
    * Resolves whether the fold bar renders its title text for the current state
-   * (STRATEGY.md decision #27). Prefers the shared normalizeTitleMode helper and
-   * degrades to an equivalent local mapping when the defaults module is absent.
-   * 'whenFolded' shows the title while the post is folded (a summary of the
-   * hidden content) and hides it once expanded, where the post itself is visible.
+   * (STRATEGY.md decision #27). `showTitleMode` is the only source; FB_DIET_DEFAULTS owns
+   * its normalization and an unknown/missing value falls back to 'whenFolded'. 'whenFolded'
+   * shows the title while the post is folded (a summary of the hidden content) and hides it
+   * once expanded, where the post itself is visible.
    */
   function resolveShowTitle(settings, expanded) {
-    if (settings && settings.dietMode === 'lite') return false;
-    const raw = settings.showTitleMode !== undefined ? settings.showTitleMode : settings.showFeedTitle;
+    if (!settings || settings.dietMode === 'lite') return false;
     const defaults = window.FB_DIET_DEFAULTS;
-    let mode = raw;
-    if (defaults && typeof defaults.normalizeTitleMode === 'function') {
-      mode = defaults.normalizeTitleMode(raw);
-    } else if (raw !== 'always' && raw !== 'whenFolded' && raw !== 'never') {
-      mode = raw === false ? 'never' : 'whenFolded';
-    }
+    const mode = defaults && typeof defaults.normalizeTitleMode === 'function'
+      ? defaults.normalizeTitleMode(settings.showTitleMode)
+      : (settings.showTitleMode === 'always' || settings.showTitleMode === 'never' ? settings.showTitleMode : 'whenFolded');
     if (mode === 'never') return false;
     if (mode === 'always') return true;
     return !expanded;
@@ -96,6 +99,91 @@ window.FBDietFold = (() => {
       return probe.addProbe(element, props, classifyResult, relayReads);
     }
     return element;
+  }
+
+  /**
+   * Full Mode only: watches a mounted unit for streaming DOM that reveals a suggested post
+   * the Relay props could not classify (Comet renders posts while Suspense resolves them).
+   * Returns the effect cleanup function, or undefined when the first synchronous check
+   * already detected a suggestion and nothing had to be scheduled.
+   */
+  function setupDomSuggestedScanner(containerRef, onDetected) {
+    let observer = null;
+
+    const check = () => {
+      const ui = getUI();
+      const el = containerRef.current;
+      if (ui && typeof ui.detectSuggestedFromDom === 'function' && el) {
+        const detected = ui.detectSuggestedFromDom(el);
+        if (detected && detected.isSuggested) {
+          onDetected(detected);
+          if (observer) {
+            try { observer.disconnect(); } catch (e) {}
+          }
+          return true;
+        }
+      }
+      return false;
+    };
+
+    if (check()) return undefined;
+
+    const el = containerRef.current;
+    const MutationObs = window.MutationObserver || (typeof MutationObserver !== 'undefined' ? MutationObserver : null);
+    if (el && MutationObs) {
+      try {
+        observer = new MutationObs(() => {
+          check();
+        });
+        observer.observe(el, { childList: true, subtree: true, characterData: true });
+      } catch (e) {}
+    }
+
+    // Fallback timer ladder for streaming Suspense
+    const timers = DOM_SUGGESTED_SCAN_DELAYS.map((d) => setTimeout(check, d));
+
+    const cleanupTimer = setTimeout(() => {
+      if (observer) {
+        try { observer.disconnect(); } catch (e) {}
+      }
+    }, DOM_SUGGESTED_SCAN_TIMEOUT_MS);
+
+    return () => {
+      if (observer) {
+        try { observer.disconnect(); } catch (e) {}
+      }
+      timers.forEach((t) => clearTimeout(t));
+      clearTimeout(cleanupTimer);
+    };
+  }
+
+  /** Wraps fold content in the nesting context so a nested unit never folds twice. */
+  function wrapWithFoldContext(React, FoldContext, content) {
+    if (FoldContext && FoldContext.Provider) {
+      return createEl(FoldContext.Provider, { value: true }, content);
+    }
+    const Fragment = React.Fragment || null;
+    return Fragment ? createEl(Fragment, null, content) : content;
+  }
+
+  /** Expanded unit: re-fold bar plus the always mounted original tree. */
+  function renderExpandedView(React, FoldContext, bar, rendered, containerRef) {
+    const expandedBody = createEl('div', { ref: containerRef, className: 'fb-diet-expand-body' }, [rendered]);
+    return wrapWithFoldContext(React, FoldContext, [bar, expandedBody]);
+  }
+
+  /** Folded unit: notice bar plus the original tree squashed into 1x1 (never unmounted). */
+  function renderFoldedView(React, FoldContext, bar, rendered) {
+    const hidden = createEl(
+      'div',
+      {
+        className: 'fb-diet-fold-hidden fb-diet-foldsquash',
+        'aria-hidden': 'true'
+      },
+      [rendered]
+    );
+    if (!bar || !hidden) return null;
+    return wrapWithFoldContext(React, FoldContext, [bar, hidden]);
   }
 
   /**
@@ -139,53 +227,7 @@ window.FBDietFold = (() => {
         if (bridge && typeof bridge.getSettings === 'function') {
           const currentSettings = bridge.getSettings();
           if (currentSettings && currentSettings.dietMode === 'full' && !domSuggested) {
-            let observer = null;
-            const check = () => {
-              const ui = getUI();
-              const el = containerRef.current;
-              if (ui && typeof ui.detectSuggestedFromDom === 'function' && el) {
-                const detected = ui.detectSuggestedFromDom(el);
-                if (detected && detected.isSuggested) {
-                  setDomSuggested(detected);
-                  if (observer) {
-                    try { observer.disconnect(); } catch (e) {}
-                  }
-                  return true;
-                }
-              }
-              return false;
-            };
-
-            if (!check()) {
-              const el = containerRef.current;
-              const MutationObs = window.MutationObserver || (typeof MutationObserver !== 'undefined' ? MutationObserver : null);
-              if (el && MutationObs) {
-                try {
-                  observer = new MutationObs(() => {
-                    check();
-                  });
-                  observer.observe(el, { childList: true, subtree: true, characterData: true });
-                } catch (e) {}
-              }
-
-              // Fallback timer ladder (50ms, 200ms, 500ms, 1200ms, 2500ms) for streaming Suspense
-              const delays = [50, 200, 500, 1200, 2500];
-              const timers = delays.map((d) => setTimeout(check, d));
-
-              const cleanupTimer = setTimeout(() => {
-                if (observer) {
-                  try { observer.disconnect(); } catch (e) {}
-                }
-              }, 4000);
-
-              return () => {
-                if (observer) {
-                  try { observer.disconnect(); } catch (e) {}
-                }
-                timers.forEach((t) => clearTimeout(t));
-                clearTimeout(cleanupTimer);
-              };
-            }
+            return setupDomSuggestedScanner(containerRef, setDomSuggested);
           }
         }
       }, [isHydrated, domSuggested]);
@@ -326,7 +368,7 @@ window.FBDietFold = (() => {
       };
 
       // When unfolded and alwaysShowFoldBar is disabled, return native render cleanly without any bar
-      const keepBar = settings.alwaysShowFoldBar !== undefined ? settings.alwaysShowFoldBar : (settings.alwaysShowFoldTitle !== false);
+      const keepBar = settings.alwaysShowFoldBar !== false;
       if (!isFolded && !keepBar) {
         if (settings.dietMode === 'full' && !domSuggested) {
           const wrapped = createEl('div', { ref: containerRef, className: 'fb-diet-full-container', style: { display: 'contents' } }, [rendered]);
@@ -361,32 +403,19 @@ window.FBDietFold = (() => {
 
       if (!isFolded) {
         // Unfolded with top bar
-        const expandedBody = createEl('div', { ref: containerRef, className: 'fb-diet-expand-body' }, [rendered]);
-        const content = [bar, expandedBody];
-        const Fragment = React.Fragment || null;
-        const output = FoldContext && FoldContext.Provider
-          ? createEl(FoldContext.Provider, { value: true }, content)
-          : (Fragment ? createEl(Fragment, null, content) : content);
-        return addProbe(output, props, effectiveClassifyResult, relayReads);
+        return addProbe(
+          renderExpandedView(React, FoldContext, bar, rendered, containerRef),
+          props,
+          effectiveClassifyResult,
+          relayReads
+        );
       }
 
-      // Folded
-      const hidden = createEl(
-        'div',
-        {
-          className: 'fb-diet-fold-hidden fb-diet-foldsquash',
-          'aria-hidden': 'true'
-        },
-        [rendered]
-      );
-      if (!bar || !hidden) return rendered;
-
-      const foldContent = [bar, hidden];
-      const Fragment = React.Fragment || null;
-      const output = FoldContext && FoldContext.Provider
-        ? createEl(FoldContext.Provider, { value: true }, foldContent)
-        : (Fragment ? createEl(Fragment, null, foldContent) : foldContent);
-      return addProbe(output, props, effectiveClassifyResult, relayReads);
+      // Folded: bar plus the 1x1 squashed original tree, or the untouched render when the
+      // bar / squash container could not be created.
+      const folded = renderFoldedView(React, FoldContext, bar, rendered);
+      if (!folded) return rendered;
+      return addProbe(folded, props, effectiveClassifyResult, relayReads);
     } catch (e) {
       return rendered;
     }
@@ -490,14 +519,8 @@ window.FBDietFold = (() => {
 
   return {
     FEED_UNIT_MODULES,
-    get GROUP_META() { return (window.FBDietUI && window.FBDietUI.GROUP_META) || {}; },
-    get GROUP_BY_CATEGORY() { return (window.FBDietUI && window.FBDietUI.GROUP_BY_CATEGORY) || {}; },
-    get groupOf() { return (window.FBDietUI && window.FBDietUI.groupOf) || ((c) => c); },
     HIDE_MODE,
     FBDietFold,
-    get FBDietBar() { return window.FBDietUI && window.FBDietUI.FBDietBar; },
-    get FBDietTitleBar() { return window.FBDietUI && window.FBDietUI.FBDietTitleBar; },
-    get buildUnitProbeReport() { return window.FBDietProbe && window.FBDietProbe.buildUnitProbeReport; },
     install,
     getStatus: () => ({
       hideMode: HIDE_MODE,

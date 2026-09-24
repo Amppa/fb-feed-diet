@@ -1,5 +1,5 @@
 'use strict';
-const { Checker, createWindow, loadInject } = require('./harness');
+const { Checker, createWindow, loadInject, loadDefaults } = require('./harness');
 
 function makeReader(calls) {
   return (ids, path, options) => {
@@ -10,6 +10,9 @@ function makeReader(calls) {
 
 function run(c) {
   const win = createWindow();
+  // Same load order as the extension: the shared defaults schema is always injected into
+  // the MAIN world before classify.js, which reads its fold-mode normalizer from there.
+  win.FB_DIET_DEFAULTS = loadDefaults();
   loadInject(win, 'metadata.js');
   loadInject(win, 'classify.js');
   const C = win.FBDietClassify;
@@ -361,6 +364,14 @@ function run(c) {
   equals(c, 'default settings regular mode is off', C.getCategoryFoldMode('regular', {}), 'off');
   equals(c, 'custom setting mode is honored', C.getCategoryFoldMode('regular', { foldRegular: 'title' }), 'title');
   equals(c, 'disabled master switch forces off', C.getCategoryFoldMode('sponsored', { enabled: false }), 'off');
+
+  // The shared schema is the single normalization source: without it the classifier fails
+  // closed instead of guessing a fold mode from bare booleans.
+  const savedDefaults = win.FB_DIET_DEFAULTS;
+  win.FB_DIET_DEFAULTS = undefined;
+  equals(c, 'missing defaults schema fails closed', C.getCategoryFoldMode('sponsored', {}), 'off');
+  win.FB_DIET_DEFAULTS = savedDefaults;
+  equals(c, 'defaults schema restored for later checks', C.getCategoryFoldMode('sponsored', {}), 'title');
 
   // 5. Nested Context Provider tree unwrapping: follow button
   r = C.classifyFeedUnit({
