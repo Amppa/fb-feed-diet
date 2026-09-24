@@ -14,7 +14,7 @@ The goal is to benchmark their classification approaches, interception mechanism
 | **[esuit-suggest-blocker](esuit.md)** | Home only (`pathname === '/'`) | CSP relaxation via `declarativeNetRequest` + inline script rewriting `RelayPublishQueue` | Relay store only (`window.___sf`) | `CAN_SUBSCRIBE`, `CAN_JOIN`, `GroupsYouShouldJoinFeedUnit`, keyed `story_header` | `sponsored_data.ad_id` | `showcase_story_type === 'SHOWCASE_SHORT_VIDEO'`, Comet module list (14 components) | Hardcoded CSP breaks page loads when FB CDN domains change; `story_header` and `SHOWCASE_SHORT_VIDEO` cause severe false positives on friend interactions |
 | **[BlockZilla](blockzilla.md)** | Full site (Feed, Marketplace, Right Panel, etc.) | DeclarativeNetRequest network rules + Post-render DOM scanning (`div[aria-posinset]:not([bzParsed])`) | XPath over SVG `<use>` + Symbol text map reconstruction | Multi-language string dictionary matching on reconstructed text | XPath on `//*[local-name()='use' and starts-with(@xlink:href, '#Svg')]` matching assembled keyword | Keyword string comparison on title/content | Heavy CPU cost on scroll (XPath + DOM traversals); breaks silently when FB rotates SVG symbol id patterns; relies on `isEmergencyStopped` circuit breaker |
 | **[F.B. Sponsored Blocker](fb-sponsored-ad-post-blocker.md)** | Feed and right sidebar | Post-render DOM scanning anchored by `aria-posinset` + `requestAnimationFrame` coalescing | Flexbox `order` sorting + Decoy character partitioning (`labelVariants`) | Leaf Follow/Join buttons restricted to author header (`isAuthorLevelLabel`) | De-scrambled label matches `SPONSORED_TEXTS` or SVG `<use>` symbol reference | Separate Reels container matching | DOM styling flushes if `isCharacterSplit` fails to guard; requires `pendingLabels` retry queue for React Suspense; must avoid `data-ad-rendering-role` |
-| *Project D (TBD)* | — | — | — | — | — | — | — |
+| **[Feed Filter for FB (fff)](feed-filter-for-facebook.md)** | Feed and right rail | MV3 dual-world (ISOLATED bridge + MAIN core) + Pre-paint CSS `:has()` rules | Privacy Sandbox `attributionsrc` + CTA role + Two-tier `IntersectionObserver` | Regex on suggested labels + Action buttons | `attributionsrc`, `data-ad-rendering-role^="cta"`, `[aria-label*="sponsored content"]` | Reels container query | `:has()` selectors hide elements before React hydration; `data-ad-rendering-role` carries slight false-positive risk on certain organic pages |
 
 ---
 
@@ -23,7 +23,8 @@ The goal is to benchmark their classification approaches, interception mechanism
 1. **[esuit-suggest-blocker v2.10.0](esuit.md)**: Teardown of the popular MV3 Relay store hook, classification shortcut order, and analysis of its critical false-positive triggers.
 2. **[BlockZilla v2.6.0](blockzilla.md)**: Deep teardown of XPath SVG symbol map reconstruction, multi-stage obfuscation heuristics (V1-V6), and the 3-consecutive-hit emergency circuit breaker.
 3. **[F.B. Sponsored/Ad Post Blocker](fb-sponsored-ad-post-blocker.md)**: Teardown of Flexbox `order` de-obfuscation, decoy class partitioning, and crucial failure lessons (`data-ad-rendering-role` pitfalls).
-4. *Project D* (Upcoming)
+4. **[Feed Filter for Facebook (fff)](feed-filter-for-facebook.md)**: Teardown of dual-world architecture, pre-paint CSS guards (`attributionsrc`), two-tier IntersectionObserver, and contacts rail protection.
+5. *Project E* (Upcoming)
 
 ---
 
