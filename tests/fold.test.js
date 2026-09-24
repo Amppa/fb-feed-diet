@@ -14,6 +14,8 @@ function setup(relayMap) {
   loadInject(win, 'metadata.js');
   loadInject(win, 'classify.js');
   loadInject(win, 'bridge.js');
+  loadInject(win, 'dom-metadata.js');
+  loadInject(win, 'dom-suggested.js');
   loadInject(win, 'ui.js');
   loadInject(win, 'probe.js');
   loadInject(win, 'fold.js');

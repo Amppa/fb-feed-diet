@@ -46,6 +46,8 @@
         "src/inject/metadata.js",
         "src/inject/classify.js",
         "src/inject/bridge.js",
+        "src/inject/dom-metadata.js",
+        "src/inject/dom-suggested.js",
         "src/inject/ui.js",
         "src/inject/probe.js",
         "src/inject/fold.js"

@@ -158,8 +158,9 @@ window.FBDietProbe = (() => {
     const ui = window.FBDietUI;
     const cached = unitKey && ui && ui.titleBarCache ? ui.titleBarCache.get(unitKey) : null;
     const isMediaGroup = classifyResult && (classifyResult.category === 'reels' || classifyResult.category === 'stories');
-    const domLive = container && ui && typeof ui.extractFullDomSnapshot === 'function'
-      ? ui.extractFullDomSnapshot(container, isMediaGroup)
+    const domMetadata = window.FBDietDOMMetadata;
+    const domLive = container && domMetadata && typeof domMetadata.collect === 'function'
+      ? domMetadata.collect(container, isMediaGroup)
       : null;
 
     // Structured context from Props / Relay store (initial)
@@ -188,9 +189,10 @@ window.FBDietProbe = (() => {
     const classifyModule = window.FBDietClassify;
 
     let domSuggestedLive = (classifyResult && classifyResult.domEvidence) || null;
-    if ((!domSuggestedLive || !domSuggestedLive.debug) && container && ui && typeof ui.detectSuggestedFromDom === 'function') {
+    const detector = window.FBDietDOMSuggested;
+    if ((!domSuggestedLive || !domSuggestedLive.debug) && container && detector && typeof detector.detect === 'function') {
       try {
-        const live = ui.detectSuggestedFromDom(container);
+        const live = detector.detect(container);
         if (live) {
           domSuggestedLive = domSuggestedLive ? Object.assign({}, live, domSuggestedLive) : live;
         }

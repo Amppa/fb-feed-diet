@@ -103,16 +103,18 @@ function run(c) {
   loadInject(win, 'metadata.js');
   loadInject(win, 'classify.js');
   loadInject(win, 'bridge.js');
+  loadInject(win, 'dom-metadata.js');
+  loadInject(win, 'dom-suggested.js');
   loadInject(win, 'ui.js');
   loadInject(win, 'probe.js');
   loadInject(win, 'fold.js');
-
-  const UI = win.FBDietUI;
-  c.ok('UI exposed on window', Boolean(UI) && typeof UI.detectSuggestedFromDom === 'function');
+  const detector = win.FBDietDOMSuggested;
+  c.ok('DOM suggested detector exposed on window', Boolean(detector) && typeof detector.detect === 'function');
+  c.ok('UI no longer owns the suggested detector', typeof win.FBDietUI.detectSuggestedFromDom !== 'function');
 
   /* --- Edge cases & empty inputs --- */
-  c.equals('null container returns null', UI.detectSuggestedFromDom(null), null);
-  c.equals('object without querySelector returns null', UI.detectSuggestedFromDom({}), null);
+  c.equals('null container returns null', detector.detect(null), null);
+  c.equals('object without querySelector returns null', detector.detect({}), null);
 
   /* --- Positive 1: Recommendation keyword in top header --- */
   {
@@ -124,7 +126,7 @@ function run(c) {
     ], '為你推薦 Some Page');
     const card = makeNode('div', { role: 'article' }, [header]);
 
-    const res = UI.detectSuggestedFromDom(card);
+    const res = detector.detect(card);
     c.ok('detects 為你推薦 in top header', Boolean(res) && res.isSuggested === true);
     c.equals('reason is dom:header_keyword', res && res.reason, 'dom:header_keyword');
     c.equals('matched text keyword', res && res.text, '為你推薦');
@@ -139,7 +141,7 @@ function run(c) {
     ], 'Suggested for you Popular Page');
     const card = makeNode('div', { role: 'article' }, [header]);
 
-    const res = UI.detectSuggestedFromDom(card);
+    const res = detector.detect(card);
     c.ok('detects Suggested for you in header', Boolean(res) && res.isSuggested === true);
     c.equals('reason is dom:header_keyword', res && res.reason, 'dom:header_keyword');
     c.equals('matched text keyword', res && res.text, 'Suggested for you');
@@ -153,7 +155,7 @@ function run(c) {
     const header = makeNode('header', {}, [heading, followBtn], 'Tech News 追蹤');
     const card = makeNode('div', { role: 'article' }, [header]);
 
-    const res = UI.detectSuggestedFromDom(card);
+    const res = detector.detect(card);
     c.ok('detects Follow button (追蹤) in author header', Boolean(res) && res.isSuggested === true);
     c.equals('signal is Follow', res && res.signal, 'Follow');
     c.equals('reason is dom:follow_button', res && res.reason, 'dom:follow_button');
@@ -168,7 +170,7 @@ function run(c) {
     const msg = makeNode('div', { 'data-ad-preview': 'message' }, [], 'Post text content');
     const card = makeNode('div', { role: 'article' }, [authorRow, msg]);
 
-    const res = UI.detectSuggestedFromDom(card);
+    const res = detector.detect(card);
     c.ok('detects bullet-prefixed Follow button (· 追蹤) in header zone', Boolean(res) && res.isSuggested === true);
     c.equals('signal is Follow', res && res.signal, 'Follow');
     c.equals('reason is dom:follow_button', res && res.reason, 'dom:follow_button');
@@ -181,7 +183,7 @@ function run(c) {
     const header = makeNode('header', {}, [heading, followBtn]);
     const card = makeNode('div', { role: 'article' }, [header]);
 
-    const res = UI.detectSuggestedFromDom(card);
+    const res = detector.detect(card);
     c.ok('detects Follow button with aria-label="追蹤"', Boolean(res) && res.isSuggested === true);
     c.equals('signal is Follow', res && res.signal, 'Follow');
     c.equals('reason is dom:follow_button_aria', res && res.reason, 'dom:follow_button_aria');
@@ -194,7 +196,7 @@ function run(c) {
     const header = makeNode('header', {}, [heading, followBtn], 'Nature Photos + Follow');
     const card = makeNode('div', { role: 'article' }, [header]);
 
-    const res = UI.detectSuggestedFromDom(card);
+    const res = detector.detect(card);
     c.ok('detects English Follow button in author header', Boolean(res) && res.isSuggested === true);
     c.equals('signal is Follow', res && res.signal, 'Follow');
     c.equals('reason is dom:follow_button', res && res.reason, 'dom:follow_button');
@@ -207,7 +209,7 @@ function run(c) {
     const header = makeNode('header', {}, [heading, joinBtn], 'Camping Lovers 加入');
     const card = makeNode('div', { role: 'article' }, [header]);
 
-    const res = UI.detectSuggestedFromDom(card);
+    const res = detector.detect(card);
     c.ok('detects Join button (加入) in author header', Boolean(res) && res.isSuggested === true);
     c.equals('signal is Join', res && res.signal, 'Join');
     c.equals('reason is dom:join_button', res && res.reason, 'dom:join_button');
@@ -219,7 +221,7 @@ function run(c) {
     const header = makeNode('header', {}, [labelSpan]);
     const card = makeNode('div', { role: 'article' }, [header]);
 
-    const res = UI.detectSuggestedFromDom(card);
+    const res = detector.detect(card);
     c.ok('detects aria-label suggestion', Boolean(res) && res.isSuggested === true);
     c.equals('reason is dom:aria_suggested', res && res.reason, 'dom:aria_suggested');
     c.equals('signal is Other for generic recommendation label', res && res.signal, 'Other');
@@ -233,7 +235,7 @@ function run(c) {
     const header = makeNode('header', {}, [heading, customActionBtn]);
     const card = makeNode('div', { role: 'article' }, [header]);
 
-    const res = UI.detectSuggestedFromDom(card);
+    const res = detector.detect(card);
     c.ok('detects extra Action button in author row', Boolean(res) && res.isSuggested === true);
     c.equals('signal is Other', res && res.signal, 'Other');
     c.equals('reason is dom:other_extra_button', res && res.reason, 'dom:other_extra_button');
@@ -249,7 +251,7 @@ function run(c) {
     const header = makeNode('header', {}, [heading, iconOnlyBtn]);
     const card = makeNode('div', { role: 'article' }, [header]);
 
-    const res = UI.detectSuggestedFromDom(card);
+    const res = detector.detect(card);
     c.ok('detects SVG icon button in author row', Boolean(res) && res.isSuggested === true);
     c.equals('signal is Other for svg icon', res && res.signal, 'Other');
     c.equals('reason is dom:other_svg_icon', res && res.reason, 'dom:other_svg_icon');
@@ -263,7 +265,7 @@ function run(c) {
     const msg = makeNode('div', { 'data-ad-preview': 'message' }, [], 'Hello world, had a great coffee today!');
     const card = makeNode('div', { role: 'article' }, [header, msg]);
 
-    const res = UI.detectSuggestedFromDom(card);
+    const res = detector.detect(card);
     c.equals('regular post returns null', res, null);
   }
 
@@ -277,7 +279,7 @@ function run(c) {
     const msg = makeNode('div', { 'data-ad-preview': 'message' }, [], 'Having lunch together!');
     const card = makeNode('div', { role: 'article' }, [header, msg]);
 
-    const res = UI.detectSuggestedFromDom(card);
+    const res = detector.detect(card);
     c.equals('friend post with card menu and timestamp is NOT flagged as suggested', res, null);
   }
 
@@ -297,7 +299,7 @@ function run(c) {
 
     const card = makeNode('div', { role: 'article' }, [bobHeader, bobMessage, attachmentWrapper]);
 
-    const res = UI.detectSuggestedFromDom(card);
+    const res = detector.detect(card);
     c.equals('friend reshare with follow button in nested quote is NOT flagged as suggested', res, null);
   }
 
@@ -310,7 +312,7 @@ function run(c) {
     ], 'Alice 留言回應了為你推薦貼文 Bob');
     const card = makeNode('div', { role: 'article' }, [commentHeader]);
 
-    const res = UI.detectSuggestedFromDom(card);
+    const res = detector.detect(card);
     c.equals('friend comment context is excluded from suggestion match', res, null);
   }
 
@@ -326,7 +328,7 @@ function run(c) {
     const header = makeNode('header', {}, [heading, threeDotMenu, emptyLayoutBtn]);
     const card = makeNode('div', { role: 'article' }, [header]);
 
-    const res = UI.detectSuggestedFromDom(card);
+    const res = detector.detect(card);
     c.equals('verified account with blue badge is NOT flagged as suggested', res, null);
   }
 
@@ -341,6 +343,8 @@ function run(c) {
     loadInject(winTest, 'metadata.js');
     loadInject(winTest, 'classify.js');
     loadInject(winTest, 'bridge.js');
+    loadInject(winTest, 'dom-metadata.js');
+    loadInject(winTest, 'dom-suggested.js');
     loadInject(winTest, 'ui.js');
     loadInject(winTest, 'probe.js');
     loadInject(winTest, 'fold.js');

@@ -111,10 +111,10 @@ window.FBDietFold = (() => {
     let observer = null;
 
     const check = () => {
-      const ui = getUI();
+      const detector = window.FBDietDOMSuggested;
       const el = containerRef.current;
-      if (ui && typeof ui.detectSuggestedFromDom === 'function' && el) {
-        const detected = ui.detectSuggestedFromDom(el);
+      if (detector && typeof detector.detect === 'function' && el) {
+        const detected = detector.detect(el);
         if (detected && detected.isSuggested) {
           onDetected(detected);
           if (observer) {
