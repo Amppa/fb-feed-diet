@@ -415,10 +415,14 @@ function run(c) {
     out = t.render(payloadOf('u-titlemode'));
     c.equals('unit folds again', out.props.children[0].props.isExpanded, false);
 
-    // 'always': title visible even while folded
+    // 'always': title visible even while folded AND when expanded
     t.bridge.setSettings({ showTitleMode: 'always' });
     out = t.render(payloadOf('u-titlemode'));
     c.equals('folded bar shows the title under always', out.props.children[0].props.showTitle, true);
+    out.props.children[0].props.onToggle();
+    out = t.render(payloadOf('u-titlemode'));
+    c.equals('expanded bar shows the title under always', out.props.children[0].props.showTitle, true);
+    out.props.children[0].props.onToggle(); // fold back
 
     // 'never': no title in either state
     t.bridge.setSettings({ showTitleMode: 'never' });
@@ -461,6 +465,31 @@ function run(c) {
       /* must never happen */
     }
     c.ok('hostile payload degrades to the untouched render', Boolean(result) && result.__source === true);
+  }
+
+  /* --- title bar DOM extraction and author/snippet display --- */
+  {
+    const t = setup({});
+    const ui = t.win.FBDietUI;
+    ui.titleBarCache.set('u-dom-title', {
+      actorName: 'Hedy Lamarr',
+      snippetText: 'Spread spectrum technology',
+      groupName: '',
+      adUrl: ''
+    });
+    t.React.resetHooks();
+    const renderedBar = ui.FBDietTitleBar({
+      category: 'suggested',
+      unitId: 'u-dom-title',
+      showTitle: true,
+      isExpanded: true
+    });
+    c.ok('title bar rendered element', Boolean(renderedBar) && renderedBar.props.className.includes('fb-diet-titlebar'));
+    const contentBox = renderedBar.props.children;
+    const kids = contentBox.props.children;
+    c.equals('badge rendered', kids[0].props.className, 'fb-diet-badge fb-diet-badge-suggested');
+    c.equals('author rendered', kids[1].props.children, 'Hedy Lamarr:');
+    c.equals('snippet rendered', kids[2].props.children, 'Spread spectrum technology');
   }
 }
 

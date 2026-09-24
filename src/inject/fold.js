@@ -178,10 +178,11 @@ window.FBDietFold = (() => {
   }
 
   /** Folded unit: notice bar plus the original tree squashed into 1x1 (never unmounted). */
-  function renderFoldedView(React, FoldContext, bar, rendered) {
+  function renderFoldedView(React, FoldContext, bar, rendered, containerRef) {
     const hidden = createEl(
       'div',
       {
+        ref: containerRef,
         className: 'fb-diet-fold-hidden fb-diet-foldsquash',
         'aria-hidden': 'true'
       },
@@ -418,7 +419,7 @@ window.FBDietFold = (() => {
 
       // Folded: bar plus the 1x1 squashed original tree, or the untouched render when the
       // bar / squash container could not be created.
-      const folded = renderFoldedView(React, FoldContext, bar, rendered);
+      const folded = renderFoldedView(React, FoldContext, bar, rendered, containerRef);
       if (!folded) return rendered;
       return addProbe(folded, props, effectiveClassifyResult, relayReads);
     } catch (e) {

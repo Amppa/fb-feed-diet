@@ -88,41 +88,78 @@ window.FBDietUI = (() => {
         : [cached || null, () => {}];
 
       const enrichment = props.enrichment || null;
-      const initialActor = (enrichment && enrichment.actor && enrichment.actor.name) || (domData && domData.actorName) || '';
-      const initialMsg = (enrichment && enrichment.content && (enrichment.content.message || enrichment.content.title)) || (domData && domData.snippetText) || '';
-      const initialGroup = (enrichment && enrichment.group && enrichment.group.name) || (domData && domData.groupName) || '';
+      const initialActor = (enrichment && enrichment.actor && enrichment.actor.name) || (domData && domData.actorName) || (cached && cached.actorName) || '';
+      const initialMsg = (enrichment && enrichment.content && (enrichment.content.message || enrichment.content.title)) || (domData && domData.snippetText) || (cached && cached.snippetText) || '';
+      const initialGroup = (enrichment && enrichment.group && enrichment.group.name) || (domData && domData.groupName) || (cached && cached.groupName) || '';
 
       if (React && typeof React.useEffect === 'function') {
         React.useEffect(() => {
           if (!showTitle) return;
-          if (unitId && titleBarCache.has(unitId)) return;
-          if (initialActor && initialMsg) return;
+          const isMediaGroup = props.category === 'reels' || props.category === 'stories';
+          if (initialActor && (initialMsg || isMediaGroup)) return;
+          if (cached && cached.actorName && (cached.snippetText || isMediaGroup)) return;
           const el = barRef && barRef.current;
           if (!el) return;
-          const container = el.nextElementSibling || (el.parentElement ? el.parentElement.querySelector('.fb-diet-fold-hidden, .fb-diet-expand-body') : null);
+          const container = el.nextElementSibling || (el.parentElement ? el.parentElement.querySelector('.fb-diet-fold-hidden, .fb-diet-expand-body, .fb-diet-full-container') : null);
           if (!container) return;
 
-          const isMediaGroup = props.category === 'reels' || props.category === 'stories';
-          const domMetadata = window.FBDietDOMMetadata && typeof window.FBDietDOMMetadata.collect === 'function'
-            ? window.FBDietDOMMetadata.collect(container, isMediaGroup)
-            : null;
-          const foundActor = initialActor || (domMetadata && domMetadata.actor);
-          const foundMsg = initialMsg || (domMetadata && domMetadata.snippet);
-          const foundGroup = initialGroup || (domMetadata && domMetadata.group);
-          const foundAdUrl = (domMetadata && domMetadata.adUrl) || '';
-          const foundMedia = (!foundMsg && domMetadata && domMetadata.media) || '';
+          let observer = null;
+          let active = true;
 
-          if (foundActor || foundMsg || foundGroup || foundMedia || foundAdUrl) {
-            const newData = {
-              actorName: foundActor || '',
-              snippetText: foundMsg || foundMedia || '',
-              groupName: foundGroup || '',
-              adUrl: foundAdUrl || ''
-            };
-            if (unitId) titleBarCache.set(unitId, newData);
-            setDomData(newData);
+          const scan = () => {
+            if (!active) return false;
+            const domMetadata = window.FBDietDOMMetadata && typeof window.FBDietDOMMetadata.collect === 'function'
+              ? window.FBDietDOMMetadata.collect(container, isMediaGroup)
+              : null;
+            const foundActor = initialActor || (domMetadata && domMetadata.actor);
+            const foundMsg = initialMsg || (domMetadata && domMetadata.snippet);
+            const foundGroup = initialGroup || (domMetadata && domMetadata.group);
+            const foundAdUrl = (domMetadata && domMetadata.adUrl) || '';
+            const foundMedia = (!foundMsg && domMetadata && domMetadata.media) || '';
+
+            if (foundActor || foundMsg || foundGroup || foundMedia || foundAdUrl) {
+              const newData = {
+                actorName: foundActor || '',
+                snippetText: foundMsg || foundMedia || '',
+                groupName: foundGroup || '',
+                adUrl: foundAdUrl || ''
+              };
+              if (unitId) titleBarCache.set(unitId, newData);
+              setDomData(newData);
+              if (foundActor && (foundMsg || foundMedia || isMediaGroup)) {
+                if (observer) {
+                  try { observer.disconnect(); } catch (e) {}
+                  observer = null;
+                }
+                return true;
+              }
+            }
+            return false;
+          };
+
+          if (scan()) return;
+
+          const MutationObs = window.MutationObserver || (typeof MutationObserver !== 'undefined' ? MutationObserver : null);
+          if (MutationObs) {
+            try {
+              observer = new MutationObs(() => {
+                scan();
+              });
+              observer.observe(container, { childList: true, subtree: true, characterData: true });
+            } catch (e) {}
           }
-        }, [unitId, showTitle]);
+
+          const delays = [50, 150, 400, 1000, 2500];
+          const timers = delays.map((d) => setTimeout(scan, d));
+
+          return () => {
+            active = false;
+            if (observer) {
+              try { observer.disconnect(); } catch (e) {}
+            }
+            timers.forEach((t) => clearTimeout(t));
+          };
+        }, [unitId, showTitle, isExpanded]);
       }
 
       const effectiveActor = (domData && domData.actorName) || initialActor;

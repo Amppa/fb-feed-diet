@@ -97,6 +97,19 @@ function run(c) {
   const videoCard = makeNode('article', {}, [makeNode('video')]);
   c.equals('collector returns video label', metadata.collect(videoCard, false).media, '🎬 [影片]');
   c.equals('media groups suppress photo labels', metadata.collect(card, true).media, null);
+
+  // Suggested post with section heading "為你推薦" before author heading
+  const recHeading = makeNode('h3', {}, [], '為你推薦');
+  const realAuthorLink = makeNode('a', { role: 'link' }, [], 'Grace Hopper');
+  const authorHeading = makeNode('h4', { role: 'heading' }, [realAuthorLink]);
+  const followLink = makeNode('a', { role: 'link' }, [], '追蹤');
+  const timeSpan = makeNode('span', { dir: 'auto' }, [], '12 小時');
+  const postMsgSpan = makeNode('span', { dir: 'auto' }, [], 'Compilers are amazing\nSecond line');
+  const suggestedCard = makeNode('article', {}, [recHeading, authorHeading, followLink, timeSpan, postMsgSpan]);
+
+  const suggestedSnapshot = metadata.collect(suggestedCard, false);
+  c.equals('skips 為你推薦 and extracts real author', suggestedSnapshot && suggestedSnapshot.actor, 'Grace Hopper');
+  c.equals('skips timestamp and extracts post message from span[dir=auto]', suggestedSnapshot && suggestedSnapshot.snippet, 'Compilers are amazing');
 }
 
 module.exports = { run };

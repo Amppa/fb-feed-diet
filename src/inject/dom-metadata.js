@@ -8,24 +8,64 @@
 window.FBDietDOMMetadata = (() => {
   'use strict';
 
+  const DEFAULTS = globalThis.FB_DIET_DEFAULTS || {};
+  const NON_AUTHOR_TEXTS = new Set([
+    '為你推薦', '为你推荐', 'Suggested for you', '推薦貼文', '推荐帖子', 'Suggested post',
+    '推薦你加入', '推荐你加入', 'Popular across Facebook', 'Facebook 熱門內容',
+    '贊助', '赞助', 'sponsored', '廣告', '広告',
+    '連續短片', '短视频', 'reels', '限時動態', '限时动态', 'stories',
+    '追蹤', 'follow', '關注', '加入', 'join'
+  ]);
+
+  function isNonAuthor(text) {
+    if (!text || typeof text !== 'string') return true;
+    const clean = text.replace(/^[·•\s+]+/, '').trim();
+    if (clean.length < 2 || clean.length > 80) return true;
+    if (NON_AUTHOR_TEXTS.has(clean)) return true;
+    const lower = clean.toLowerCase();
+    for (const kw of NON_AUTHOR_TEXTS) {
+      if (lower === kw.toLowerCase()) return true;
+    }
+    return false;
+  }
+
   function extractAuthorFromDom(container) {
     if (!container || typeof container.querySelectorAll !== 'function') return null;
     try {
       const headings = container.querySelectorAll('h2, h3, h4, h5, [role="heading"]');
       for (const h of headings) {
         const link = h.querySelector('a[role="link"], a[href]');
-        const text = (link || h).textContent.trim();
-        if (text && text.length > 1 && text.length < 80) return text;
+        if (link) {
+          const text = link.textContent.trim();
+          if (!isNonAuthor(text)) return text;
+        }
+        const text = h.textContent.trim();
+        if (!isNonAuthor(text)) return text;
       }
       const strongLink = container.querySelector('a[role="link"] strong, strong a[role="link"]');
       if (strongLink) {
         const text = strongLink.textContent.trim();
-        if (text && text.length > 1 && text.length < 80) return text;
+        if (!isNonAuthor(text)) return text;
       }
       const headerLink = container.querySelector('header a[role="link"], [data-ad-comet-preview="header"] a');
       if (headerLink) {
         const text = headerLink.textContent.trim();
-        if (text && text.length > 1 && text.length < 80) return text;
+        if (!isNonAuthor(text)) return text;
+      }
+      // Top profile links in card
+      const links = container.querySelectorAll('a[role="link"]');
+      for (const a of links) {
+        const href = (a.getAttribute('href') || a.href || '').toLowerCase();
+        if (
+          href.includes('/posts/') ||
+          href.includes('/groups/') ||
+          href.includes('/videos/') ||
+          href.includes('/watch/') ||
+          href.includes('/ads/') ||
+          href.includes('/photo')
+        ) continue;
+        const text = a.textContent.trim();
+        if (!isNonAuthor(text)) return text;
       }
     } catch (e) {}
     return null;
@@ -39,13 +79,15 @@ window.FBDietDOMMetadata = (() => {
         const text = msgEl.textContent.trim();
         if (text) return text.split('\n')[0].trim();
       }
-      const dirEls = container.querySelectorAll('div[dir="auto"]');
+      const dirEls = container.querySelectorAll('div[dir="auto"], span[dir="auto"]');
       for (const el of dirEls) {
-        if (el.closest && el.closest('h2, h3, h4, h5, [role="heading"], header')) continue;
+        if (el.closest && el.closest('h2, h3, h4, h5, [role="heading"], header, [role="button"], button, [aria-haspopup="menu"]')) continue;
         const text = el.textContent.trim();
-        if (text && text.length > 2) {
-          return text.split('\n')[0].trim();
-        }
+        if (!text || text.length < 2) continue;
+        if (/^[\d·\s]+(分鐘|小時|天|秒|週|年|m|h|d|w|y|hr|min|s)/i.test(text)) continue;
+        if (isNonAuthor(text)) continue;
+        if (['公開', '朋友', '只限本人', 'Public', 'Friends', 'Only me', '讚', '留言', '分享', 'Like', 'Comment', 'Share'].includes(text)) continue;
+        return text.split('\n')[0].trim();
       }
     } catch (e) {}
     return null;
