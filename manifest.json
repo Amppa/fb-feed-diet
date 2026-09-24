@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FB Feed Diet - Clean Feed & Ads Declutter",
-  "version": "2.1.1",
+  "version": "2.5.0",
   "description": "Put your Facebook feed on a healthy diet. Automatically fold sponsored ads, suggestions.",
   "minimum_chrome_version": "111",
   "icons": {

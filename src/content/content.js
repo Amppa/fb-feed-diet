@@ -192,12 +192,6 @@
   function activateProxyMode() {
     if (isShutDown || proxyActive) return;
 
-    if (currentSettings.mode === 'dom') {
-      console.info('[FB Diet] Operating in DOM mode: skipping proxy activation');
-      startObservation();
-      return;
-    }
-
     proxyActive = true;
 
     if (fallbackTimer) {
@@ -217,17 +211,11 @@
   }
 
   /**
-   * Starts the conservative DOM fallback only when the MAIN world proxy never reported in
-   * (older Chrome, blocked injection, Facebook change that defeats the hook).
+   * In pure proxy mode, fallback probing is disabled.
+   * Preserved stub so proxy lifecycle remains unchanged.
    */
   function scheduleFallbackProbe() {
-    if (fallbackTimer || proxyActive || isShutDown) return;
-
-    fallbackTimer = setTimeout(() => {
-      fallbackTimer = null;
-      if (proxyActive || isShutDown) return;
-      startObservation();
-    }, FALLBACK_DELAY_MS);
+    // Disabled in pure proxy convergence
   }
 
   function storeMainReport(type, payload) {

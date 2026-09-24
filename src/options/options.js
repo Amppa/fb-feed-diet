@@ -8,8 +8,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const featuresList = document.getElementById('featuresList');
   const masterToggle = document.getElementById('enabled');
   const masterStatus = document.getElementById('masterStatus');
-  const modeProxy = document.getElementById('modeProxy');
-  const modeDom = document.getElementById('modeDom');
+  const modeLite = document.getElementById('modeLite');
+  const modeFull = document.getElementById('modeFull');
+  const statItemSuggested = document.getElementById('statItemSuggested');
+  const featureItemSuggested = document.getElementById('featureItemSuggested');
+  const featureItemTitleMode = document.getElementById('featureItemTitleMode');
+  const showTitleMode = document.getElementById('showTitleMode');
+  const groupSuggested = document.getElementById('groupSuggested');
 
   const i18n = window.FBDietI18N;
   const langSegments = document.querySelectorAll('.lang-segment');
@@ -102,13 +107,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateHighlighting();
   }
 
-  function updateModeUI(mode) {
-    if (mode === 'dom') {
-      if (modeDom) modeDom.checked = true;
-    } else {
-      if (modeProxy) modeProxy.checked = true;
+  function updateDietModeUI(mode) {
+    const isFull = mode === 'full';
+    if (modeFull) modeFull.checked = isFull;
+    if (modeLite) modeLite.checked = !isFull;
+
+    // In Lite mode, seal / lock Suggested & Header Snippet Display (semi-transparent gray, unclickable)
+    if (statItemSuggested) {
+      statItemSuggested.classList.toggle('is-locked', !isFull);
+    }
+    if (featureItemSuggested) {
+      featureItemSuggested.classList.toggle('is-locked', !isFull);
+      if (groupSuggested) groupSuggested.disabled = !isFull;
+    }
+    if (featureItemTitleMode) {
+      featureItemTitleMode.classList.toggle('is-locked', !isFull);
+      if (showTitleMode) showTitleMode.disabled = !isFull;
     }
   }
+
+
 
   // Applies all data-i18n / data-i18n-title translations for the active language.
   function applyTranslations() {
@@ -146,9 +164,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   currentSettings = { ...SHARED_DEFAULTS, ...settings };
 
-  // Initialize master switch, mode & feature switches
+  // Initialize master switch, diet mode & feature switches
   updateMasterUI(currentSettings.enabled !== false);
-  updateModeUI(currentSettings.mode || 'proxy');
+  updateDietModeUI(currentSettings.dietMode || 'lite');
 
   for (const [key, checkbox] of Object.entries(switches)) {
     if (!checkbox) continue;
@@ -242,20 +260,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Handle Engine Mode toggle
-  async function handleModeSelect(selectedMode) {
+  // Handle Diet Mode toggle
+  async function handleDietModeSelect(selectedMode) {
     const { settings: current } = await chrome.storage.local.get('settings');
-    await saveAndBroadcastSettings({ ...current, mode: selectedMode });
+    await saveAndBroadcastSettings({ ...current, dietMode: selectedMode });
+    updateDietModeUI(selectedMode);
   }
 
-  if (modeProxy) {
-    modeProxy.addEventListener('change', () => {
-      if (modeProxy.checked) handleModeSelect('proxy');
+  if (modeLite) {
+    modeLite.addEventListener('change', () => {
+      if (modeLite.checked) handleDietModeSelect('lite');
     });
   }
-  if (modeDom) {
-    modeDom.addEventListener('change', () => {
-      if (modeDom.checked) handleModeSelect('dom');
+  if (modeFull) {
+    modeFull.addEventListener('change', () => {
+      if (modeFull.checked) handleDietModeSelect('full');
     });
   }
 
@@ -307,7 +326,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const s = changes.settings.newValue;
         if (s) {
           if (s.enabled !== undefined) updateMasterUI(s.enabled !== false);
-          if (s.mode) updateModeUI(s.mode);
+          if (s.dietMode !== undefined) updateDietModeUI(s.dietMode);
           for (const [key, checkbox] of Object.entries(switches)) {
             if (!checkbox) continue;
             const group = GROUP_BY_SWITCH[key];

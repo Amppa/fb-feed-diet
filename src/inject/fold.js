@@ -67,6 +67,7 @@ window.FBDietFold = (() => {
    * hidden content) and hides it once expanded, where the post itself is visible.
    */
   function resolveShowTitle(settings, expanded) {
+    if (settings && settings.dietMode === 'lite') return false;
     const raw = settings.showTitleMode !== undefined ? settings.showTitleMode : settings.showFeedTitle;
     const defaults = window.FB_DIET_DEFAULTS;
     let mode = raw;
@@ -111,6 +112,8 @@ window.FBDietFold = (() => {
 
     const [tick, setTick] = typeof React.useState === 'function' ? React.useState(0) : [0, function noop() {}];
     const [isHydrated, setIsHydrated] = typeof React.useState === 'function' ? React.useState(false) : [true, function noop() {}];
+    const [domSuggested, setDomSuggested] = typeof React.useState === 'function' ? React.useState(null) : [null, function noop() {}];
+    const containerRef = (React && typeof React.useRef === 'function') ? React.useRef(null) : { current: null };
 
     if (typeof React.useEffect === 'function') {
       React.useEffect(() => {
@@ -131,7 +134,61 @@ window.FBDietFold = (() => {
         if (bridge && bridge.isDebugEnabled && bridge.isDebugEnabled()) {
           console.info('[FB Diet][Hydration] #' + hydrationStats.count + ' committed:', mod);
         }
-      }, []);
+
+        // Full Mode: Post-mount DOM Suggested check for unclassified units
+        if (bridge && typeof bridge.getSettings === 'function') {
+          const currentSettings = bridge.getSettings();
+          if (currentSettings && currentSettings.dietMode === 'full' && !domSuggested) {
+            let observer = null;
+            const check = () => {
+              const ui = getUI();
+              const el = containerRef.current;
+              if (ui && typeof ui.detectSuggestedFromDom === 'function' && el) {
+                const detected = ui.detectSuggestedFromDom(el);
+                if (detected && detected.isSuggested) {
+                  setDomSuggested(detected);
+                  if (observer) {
+                    try { observer.disconnect(); } catch (e) {}
+                  }
+                  return true;
+                }
+              }
+              return false;
+            };
+
+            if (!check()) {
+              const el = containerRef.current;
+              const MutationObs = window.MutationObserver || (typeof MutationObserver !== 'undefined' ? MutationObserver : null);
+              if (el && MutationObs) {
+                try {
+                  observer = new MutationObs(() => {
+                    check();
+                  });
+                  observer.observe(el, { childList: true, subtree: true, characterData: true });
+                } catch (e) {}
+              }
+
+              // Fallback timer ladder (50ms, 200ms, 500ms, 1200ms, 2500ms) for streaming Suspense
+              const delays = [50, 200, 500, 1200, 2500];
+              const timers = delays.map((d) => setTimeout(check, d));
+
+              const cleanupTimer = setTimeout(() => {
+                if (observer) {
+                  try { observer.disconnect(); } catch (e) {}
+                }
+              }, 4000);
+
+              return () => {
+                if (observer) {
+                  try { observer.disconnect(); } catch (e) {}
+                }
+                timers.forEach((t) => clearTimeout(t));
+                clearTimeout(cleanupTimer);
+              };
+            }
+          }
+        }
+      }, [isHydrated, domSuggested]);
     }
 
     if (isNested || !isHydrated) return rendered;
@@ -175,18 +232,35 @@ window.FBDietFold = (() => {
         // style wrapper, for example, must never fold as Reels (see STRATEGY.md).
         const result = classify.classifyFeedUnit(props.payload, { moduleName: props.moduleName || null, lastCmp: props.lastCmp });
         classifyResult = result;
-        // The read log belongs to this unit's classification: capture it right
-        // away so later renders cannot pollute the probe report.
         relayReads = typeof classify.getLastRelayReads === 'function' ? classify.getLastRelayReads() : null;
-        if (!result.category) {
-          if (typeof bridge.reportRegular === 'function') bridge.reportRegular(result);
-          return addProbe(rendered, props, classifyResult, relayReads);
-        }
-
         category = result.category;
         reason = result.reason;
         unitId = result.unitId;
         unitTypename = result.unitTypename;
+      }
+
+      let effectiveClassifyResult = classifyResult;
+      if (domSuggested && domSuggested.isSuggested) {
+        category = 'suggested';
+        reason = domSuggested.reason || 'dom:suggested';
+        if (classifyResult) {
+          effectiveClassifyResult = Object.assign({}, classifyResult, {
+            category,
+            reason,
+            signal: domSuggested.signal || 'Other',
+            domEvidence: domSuggested
+          });
+        }
+      }
+
+      if (!category) {
+        if (settings.dietMode !== 'full') {
+          if (typeof bridge.reportRegular === 'function') bridge.reportRegular(classifyResult);
+          return addProbe(rendered, props, classifyResult, relayReads);
+        }
+        const wrapped = createEl('div', { ref: containerRef, className: 'fb-diet-full-container', style: { display: 'contents' } }, [rendered]);
+        if (typeof bridge.reportRegular === 'function') bridge.reportRegular(classifyResult);
+        return addProbe(wrapped || rendered, props, classifyResult, relayReads);
       }
 
       if (!unitId) {
@@ -196,7 +270,8 @@ window.FBDietFold = (() => {
       }
 
       const defaultMode = bridge.getFoldMode ? bridge.getFoldMode(category) : (bridge.isEnabled(category) ? 'mini' : 'off');
-      const activeStyle = settings.minimizedFoldMode ? 'mini' : 'title';
+      const isLite = settings.dietMode === 'lite';
+      const activeStyle = isLite || settings.minimizedFoldMode ? 'mini' : 'title';
       const visual = bridge.getUnitVisualState
         ? bridge.getUnitVisualState(unitId, defaultMode)
         : { isFolded: defaultMode !== 'off', style: activeStyle };
@@ -217,7 +292,7 @@ window.FBDietFold = (() => {
         });
       } else if (category === 'regular') {
         if (typeof bridge.reportRegular === 'function') {
-          bridge.reportRegular(classifyResult || {
+          bridge.reportRegular(effectiveClassifyResult || {
             category,
             unitId,
             reason,
@@ -253,7 +328,11 @@ window.FBDietFold = (() => {
       // When unfolded and alwaysShowFoldBar is disabled, return native render cleanly without any bar
       const keepBar = settings.alwaysShowFoldBar !== undefined ? settings.alwaysShowFoldBar : (settings.alwaysShowFoldTitle !== false);
       if (!isFolded && !keepBar) {
-        return addProbe(rendered, props, classifyResult, relayReads);
+        if (settings.dietMode === 'full' && !domSuggested) {
+          const wrapped = createEl('div', { ref: containerRef, className: 'fb-diet-full-container', style: { display: 'contents' } }, [rendered]);
+          return addProbe(wrapped || rendered, props, effectiveClassifyResult, relayReads);
+        }
+        return addProbe(rendered, props, effectiveClassifyResult, relayReads);
       }
 
       const ui = getUI();
@@ -262,7 +341,7 @@ window.FBDietFold = (() => {
 
       // Only collect metadata if showTitle is enabled to save work
       const enrichment = (showTitle && window.FBDietMetadata)
-        ? window.FBDietMetadata.collect(classifyResult, props)
+        ? window.FBDietMetadata.collect(effectiveClassifyResult, props)
         : null;
 
       const TitleBarComponent = ui.FBDietTitleBar;
@@ -282,13 +361,13 @@ window.FBDietFold = (() => {
 
       if (!isFolded) {
         // Unfolded with top bar
-        const expandedBody = createEl('div', { className: 'fb-diet-expand-body' }, [rendered]);
+        const expandedBody = createEl('div', { ref: containerRef, className: 'fb-diet-expand-body' }, [rendered]);
         const content = [bar, expandedBody];
         const Fragment = React.Fragment || null;
         const output = FoldContext && FoldContext.Provider
           ? createEl(FoldContext.Provider, { value: true }, content)
           : (Fragment ? createEl(Fragment, null, content) : content);
-        return addProbe(output, props, classifyResult, relayReads);
+        return addProbe(output, props, effectiveClassifyResult, relayReads);
       }
 
       // Folded
@@ -307,7 +386,7 @@ window.FBDietFold = (() => {
       const output = FoldContext && FoldContext.Provider
         ? createEl(FoldContext.Provider, { value: true }, foldContent)
         : (Fragment ? createEl(Fragment, null, foldContent) : foldContent);
-      return addProbe(output, props, classifyResult, relayReads);
+      return addProbe(output, props, effectiveClassifyResult, relayReads);
     } catch (e) {
       return rendered;
     }

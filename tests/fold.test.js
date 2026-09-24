@@ -387,7 +387,13 @@ function run(c) {
     const t = setup({ [SPONSORED_PATH]: 'ad-1' });
     t.win.FB_DIET_DEFAULTS = loadDefaults();
 
-    // Default showTitleMode = 'whenFolded': folded bars show the title text...
+    // In Lite mode, title is always disabled regardless of showTitleMode
+    t.bridge.setSettings({ dietMode: 'lite', showTitleMode: 'always' });
+    let outLite = t.render(payloadOf('u-titlemode-lite'));
+    c.equals('lite mode disables title bar even with always', outLite.props.children[0].props.showTitle, false);
+
+    // In Full mode, default showTitleMode = 'whenFolded': folded bars show the title text...
+    t.bridge.setSettings({ dietMode: 'full', showTitleMode: 'whenFolded' });
     let out = t.render(payloadOf('u-titlemode'));
     c.ok('default mode folds the unit', out.type === t.React.Fragment);
     c.equals('folded bar shows the title under whenFolded', out.props.children[0].props.showTitle, true);

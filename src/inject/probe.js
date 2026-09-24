@@ -183,9 +183,45 @@ window.FBDietProbe = (() => {
 
     const extVersion = (typeof window !== 'undefined' && window.FB_DIET_DEFAULTS && window.FB_DIET_DEFAULTS.VERSION)
       || (typeof globalThis !== 'undefined' && globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.VERSION)
-      || null;
+    const bridge = window.FBDietBridge;
+    const currentSettings = bridge && typeof bridge.getSettings === 'function' ? bridge.getSettings() : null;
+    const classifyModule = window.FBDietClassify;
+
+    let domSuggestedLive = (classifyResult && classifyResult.domEvidence) || null;
+    if ((!domSuggestedLive || !domSuggestedLive.debug) && container && ui && typeof ui.detectSuggestedFromDom === 'function') {
+      try {
+        const live = ui.detectSuggestedFromDom(container);
+        if (live) {
+          domSuggestedLive = domSuggestedLive ? Object.assign({}, live, domSuggestedLive) : live;
+        }
+      } catch (e) {}
+    }
+
+    const isDomSuggested = Boolean(domSuggestedLive && domSuggestedLive.isSuggested);
+    const effectiveCategory = isDomSuggested ? 'suggested' : ((classifyResult && classifyResult.category) || (props && props.entryCategory) || 'regular');
+    const effectiveReason = isDomSuggested ? (domSuggestedLive.reason || 'dom:suggested') : (classifyResult ? classifyResult.reason : null);
+
+    const settingKey = (classifyModule && classifyModule.SETTING_BY_CATEGORY && classifyModule.SETTING_BY_CATEGORY[effectiveCategory]) || null;
+    let foldMode = 'off';
+    if (bridge && typeof bridge.getFoldMode === 'function') {
+      foldMode = bridge.getFoldMode(effectiveCategory);
+    } else if (classifyModule && typeof classifyModule.getCategoryFoldMode === 'function') {
+      foldMode = classifyModule.getCategoryFoldMode(effectiveCategory, currentSettings);
+    }
+    const isCategoryOn = foldMode !== 'off';
+
+    const activeMode = currentSettings ? (currentSettings.dietMode || 'lite') : 'lite';
+
     const report = {
       version: extVersion,
+      mode: activeMode,
+      dietMode: activeMode,
+      categorySetting: {
+        category: effectiveCategory,
+        key: settingKey,
+        enabled: isCategoryOn,
+        foldMode: foldMode
+      },
       at: {
         rendered: renderIso,
         probed: nowIso
@@ -206,13 +242,23 @@ window.FBDietProbe = (() => {
     if (normalizedEvidence && normalizedEvidence.id && classifyResult && normalizedEvidence.id === classifyResult.unitId) {
       delete normalizedEvidence.id;
     }
+    if (domSuggestedLive && normalizedEvidence) {
+      normalizedEvidence.domSignal = domSuggestedLive.text || domSuggestedLive.reason;
+    }
+
+    const liveSignal = (domSuggestedLive && domSuggestedLive.signal) ||
+                       (classifyResult && (classifyResult.signal || (classifyResult.domEvidence && classifyResult.domEvidence.signal))) ||
+                       null;
 
     report.classify = classifyResult
       ? {
-          category: classifyResult.category,
+          category: effectiveCategory,
+          signal: liveSignal,
+          categoryEnabled: isCategoryOn,
+          foldMode: foldMode,
           unitId: classifyResult.unitId,
           unitTypename: classifyResult.unitTypename,
-          reason: classifyResult.reason,
+          reason: effectiveReason,
           evidence: normalizedEvidence,
           moduleName: classifyResult.moduleName
         }
@@ -240,7 +286,9 @@ window.FBDietProbe = (() => {
       group: (domLive && domLive.group) || (cached && cached.groupName) || null,
       postUrl: postUrl || null,
       adUrl: adUrl || null,
-      media: (domLive && domLive.media) || null
+      media: (domLive && domLive.media) || null,
+      suggested: domSuggestedLive || null,
+      debug: (domSuggestedLive && domSuggestedLive.debug) || null
     };
 
     const payloadKeys = props.payload && typeof props.payload === 'object' ? Object.keys(props.payload) : null;
@@ -369,8 +417,15 @@ window.FBDietProbe = (() => {
       popup.className = 'fb-diet-probe-popup';
       popup.title = '點擊外部可關閉提示 (Click outside to dismiss)';
 
-      const category = (classifyResult && classifyResult.category) || (props && props.entryCategory) || 'regular';
-      const reason = (classifyResult && classifyResult.reason) || (props && props.moduleName ? 'component:' + props.moduleName : 'no-match');
+      const category = (report && report.classify && report.classify.category)
+        || (report && report.categorySetting && report.categorySetting.category)
+        || (classifyResult && classifyResult.category)
+        || (props && props.entryCategory)
+        || 'regular';
+      const reason = (report && report.classify && report.classify.reason)
+        || (report && report.dom && report.dom.suggested && report.dom.suggested.reason)
+        || (classifyResult && classifyResult.reason)
+        || (props && props.moduleName ? 'component:' + props.moduleName : 'no-match');
 
       const evidence = classifyResult && classifyResult.evidence;
       const source = evidence && evidence.source && evidence.source !== 'none' ? evidence.source : null;
@@ -384,6 +439,16 @@ window.FBDietProbe = (() => {
       const ui = window.FBDietUI;
       const userFacingGroup = ui && typeof ui.groupOf === 'function' ? ui.groupOf(category) : 'regular';
       const groupMeta = (ui && ui.GROUP_META && ui.GROUP_META[userFacingGroup]) || { badgeText: 'Other' };
+
+      // Mode & Category switch status
+      const modeStr = (report && (report.dietMode || report.mode) ? (report.dietMode || report.mode).toUpperCase() : 'LITE');
+      const catSetting = report && report.categorySetting;
+      const statusText = catSetting ? (catSetting.enabled ? 'ON (' + catSetting.foldMode + ')' : 'OFF') : 'OFF';
+
+      const modeRow = document.createElement('div');
+      modeRow.className = 'fb-diet-probe-popup-row';
+      modeRow.textContent = 'Mode: ' + modeStr + ' · Filter: ' + statusText;
+      popup.appendChild(modeRow);
 
       // Category: Ads (sponsored)
       const catRow = document.createElement('div');

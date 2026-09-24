@@ -262,7 +262,7 @@ body {
   margin-bottom: 0;
 }
 
-/* Engine Mode Selection */
+/* Diet Mode Selection (Lite vs Full) */
 .mode-selector {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -276,28 +276,21 @@ body {
   }
 }
 
-.mode-option,
-.feature-item {
+.mode-option {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--divider);
   border-radius: 10px;
-  transition: all 0.15s ease;
-}
-
-.mode-option:hover,
-.feature-item:hover {
-  background: var(--bg-hover);
-}
-
-.mode-option {
   display: flex;
   align-items: flex-start;
   gap: 10px;
   padding: 14px;
   cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
 }
 
 .mode-option:hover {
+  background: var(--bg-hover);
   border-color: rgba(14, 165, 233, 0.3);
 }
 
@@ -340,8 +333,19 @@ body {
 .mode-desc {
   font-size: 12px;
   color: var(--text-secondary);
-  margin-top: 3px;
-  line-height: 1.35;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.feature-item {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--divider);
+  border-radius: 10px;
+  transition: all 0.15s ease;
+}
+
+.feature-item:hover {
+  background: var(--bg-hover);
 }
 
 /* Features List */
@@ -355,6 +359,23 @@ body {
 .features-list.disabled {
   opacity: 0.35;
   pointer-events: none;
+}
+
+/* Locked / Sealed State in Lite Mode */
+.feature-item.is-locked,
+.stat-sub-item.is-locked {
+  opacity: 0.35 !important;
+  filter: grayscale(0.9);
+  pointer-events: none !important;
+  cursor: not-allowed !important;
+  user-select: none;
+}
+
+.feature-item.is-locked input,
+.feature-item.is-locked select,
+.feature-item.is-locked .switch {
+  pointer-events: none !important;
+  cursor: not-allowed !important;
 }
 
 .feature-item {
@@ -437,8 +458,7 @@ body {
 .switch,
 .reset-btn,
 .feature-select,
-.lang-segment,
-.mode-option {
+.lang-segment {
   user-select: none;
 }
 

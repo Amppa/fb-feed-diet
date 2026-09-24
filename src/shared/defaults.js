@@ -7,6 +7,7 @@
 (function () {
   const DEFAULT_SETTINGS = {
     enabled: true,
+    dietMode: 'lite',
     mode: 'proxy',
     foldSponsored: true,
     foldSuggested: true,
@@ -129,7 +130,7 @@
     }
   };
 
-  const EXTENSION_VERSION = '2.1.1';
+  const EXTENSION_VERSION = '2.5.0';
   globalThis.FB_DIET_DEFAULTS = {
     SETTINGS: DEFAULT_SETTINGS,
     COUNTS: DEFAULT_COUNTS,

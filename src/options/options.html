@@ -57,7 +57,7 @@
           <span class="sub-label" data-i18n="groupRegularTitle">Regular posts</span>
           <span class="sub-value" id="regularCount">0</span>
         </div>
-        <div class="stat-sub-item">
+        <div class="stat-sub-item" id="statItemSuggested">
           <span class="sub-label" data-i18n="groupSuggestedTitle">Suggested by Facebook</span>
           <span class="sub-value" id="suggestedCount">0</span>
         </div>
@@ -76,22 +76,21 @@
       </div>
     </div>
 
-    <!-- Engine Mode Selection (Proxy vs DOM) -->
-    <div class="section-label" data-i18n="sectionEngineMode">DETECTION ENGINE MODE</div>
+    <!-- Diet Mode Selection (Lite vs Full) -->
+    <div class="section-label" data-i18n="sectionDietMode">OPERATION MODE</div>
     <div class="mode-selector">
-      <label class="mode-option" id="modeProxyLabel">
-        <input type="radio" name="engineMode" value="proxy" id="modeProxy" checked>
+      <label class="mode-option" id="modeLiteLabel">
+        <input type="radio" name="dietMode" value="lite" id="modeLite" checked>
         <div class="mode-content">
-          <div class="mode-title"><span class="mode-emoji">⚡</span><span data-i18n="modeProxyTitle">Proxy Mode</span> <span class="badge-recommended" data-i18n="modeRecommended">Recommended</span></div>
-          <div class="mode-desc" data-i18n="modeProxyDesc">Direct React & Relay interceptor. Zero CPU overhead.</div>
+          <div class="mode-title"><span class="mode-emoji">⚡</span><span data-i18n="modeLiteTitle">Lite Mode</span> <span class="badge-recommended" data-i18n="modeRecommended">Recommended</span></div>
+          <div class="mode-desc" data-i18n="modeLiteDesc">純記憶體攔截廣告與 Reels。0 閃爍、更省 RAM。</div>
         </div>
       </label>
-      <label class="mode-option" id="modeDomLabel">
-        <input type="radio" name="engineMode" value="dom" id="modeDom">
+      <label class="mode-option" id="modeFullLabel">
+        <input type="radio" name="dietMode" value="full" id="modeFull">
         <div class="mode-content">
-          <div class="mode-title"><span class="mode-emoji">🔍</span><span data-i18n="modeDomTitle">DOM Mode</span></div>
-          <div class="mode-desc" data-i18n="modeDomDesc">Traditional MutationObserver text scanner. Scans on-screen text and attributes
-            directly.</div>
+          <div class="mode-title"><span class="mode-emoji">🎯</span><span data-i18n="modeFullTitle">Full Mode</span></div>
+          <div class="mode-desc" data-i18n="modeFullDesc">深度過濾，折疊後 Header 可顯示作者與貼文。</div>
         </div>
       </label>
     </div>
@@ -118,8 +117,8 @@
         </label>
       </div>
 
-      <!-- 2. Suggested by Facebook group -->
-      <div class="feature-item">
+      <!-- 2. Suggested by Facebook group (Locked in Lite mode) -->
+      <div class="feature-item" id="featureItemSuggested">
         <div class="feature-meta">
           <span class="feature-icon">🤵</span>
           <div>
@@ -229,8 +228,8 @@
         </label>
       </div>
 
-      <!-- 3. Fold Bar Title (3-state dropdown) -->
-      <div class="feature-item">
+      <!-- 3. Fold Bar Title (3-state dropdown, Locked in Lite mode) -->
+      <div class="feature-item" id="featureItemTitleMode">
         <div class="feature-meta">
           <span class="feature-icon">💬</span>
           <div>

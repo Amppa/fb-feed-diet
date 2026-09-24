@@ -59,7 +59,7 @@ class Checker {
  * cursor so hook order can be asserted.
  */
 function createFakeReact() {
-  const state = { values: [], cursor: 0 };
+  const state = { values: [], cursor: 0, refs: [], refCursor: 0 };
 
   const React = {
     Fragment: Symbol.for('react.fragment'),
@@ -83,6 +83,14 @@ function createFakeReact() {
         }
       ];
     },
+    useRef(initial) {
+      const index = state.refCursor;
+      state.refCursor += 1;
+      if (!(index in state.refs)) {
+        state.refs[index] = { current: initial !== undefined ? initial : null };
+      }
+      return state.refs[index];
+    },
     useEffect(cb) {
       try { cb(); } catch (e) {}
     },
@@ -93,6 +101,7 @@ function createFakeReact() {
 
   React.resetHooks = () => {
     state.cursor = 0;
+    state.refCursor = 0;
   };
 
   return React;
