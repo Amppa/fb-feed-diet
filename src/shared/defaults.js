@@ -66,6 +66,32 @@
     return `${year}-${month}-${day}`;
   }
 
+  // Multilingual detection vocabulary shared by MAIN and ISOLATED world consumers.
+  // Keep context-specific lists separate: their matching rules are not interchangeable.
+  const KEYWORDS = {
+    SPONSORED: [
+      'sponsored', '贊助', '赞助', '広告', '스폰서', 'sponsorisé', 'gesponsert', 'patrocinado', 'publicidad'
+    ],
+    SUGGESTED_FALLBACK: [
+      'suggested for you', 'suggested post', 'suggested page', 'people you may know',
+      '為您推薦', '為你推薦', '推薦貼文', '你可能認識的朋友', '为你推荐', '推荐帖子', '可能认识的人',
+      'おすすめ', '知り合いかも'
+    ],
+    SUGGESTED_GROUP: [
+      'suggested group', 'suggested groups', 'groups you might like', 'groups for you', 'suggested groups for you',
+      '建議的社團', '建議社團', '推薦社團', '推荐群组', 'おすすめのグループ'
+    ],
+    STORIES: ['stories', '限時動態', '限时动态', 'ストーリーズ', '스토리', 'storie'],
+    REELS: ['reels', '連續短片', '短视频', 'reels 和短影片', 'reels and short videos', 'リール', '릴스'],
+    SUGGESTED_DOM: [
+      '為你推薦', '为你推荐', 'Suggested for you', '推薦貼文', '推荐帖子', 'Suggested post',
+      '推薦你加入', '推荐你加入', 'Popular across Facebook', 'Facebook 熱門內容'
+    ],
+    FOLLOW_ACTIONS: ['追蹤', 'follow', '關注', '追蹤粉絲專頁', 'follow page'],
+    JOIN_ACTIONS: ['加入', 'join', '加入社團', 'join group'],
+    NEGATIVE_ACTIONS: ['取消追蹤', '已追蹤', 'following', 'unfollow', '已加入', 'joined'],
+    DIAGNOSTIC: ['追蹤', '加入', '推薦', 'SUBSCRIBE', 'JOIN', 'FOLLOW', 'SUGGEST']
+  };
   const DEFAULT_COUNTS = {
     date: getTodayDateString(),
     total: 0,
@@ -134,6 +160,7 @@
   globalThis.FB_DIET_DEFAULTS = {
     SETTINGS: DEFAULT_SETTINGS,
     COUNTS: DEFAULT_COUNTS,
+    KEYWORDS: KEYWORDS,
     GROUP_ORDER: GROUP_ORDER,
     GROUP_BY_CATEGORY: GROUP_BY_CATEGORY,
     SETTING_KEYS_BY_GROUP: SETTING_KEYS_BY_GROUP,

@@ -4,70 +4,13 @@
  */
 
 window.FBDietDetector = (() => {
-  // Multilingual keywords for Sponsored detection
-  const SPONSORED_KEYWORDS = [
-    'sponsored',
-    '贊助',
-    '赞助',
-    '広告',
-    '스폰서',
-    'sponsorisé',
-    'gesponsert',
-    'patrocinado',
-    'publicidad'
-  ];
-
-  // Multilingual keywords for Suggested Groups
-  const SUGGESTED_GROUP_KEYWORDS = [
-    'suggested group',
-    'suggested groups',
-    'groups you might like',
-    'groups for you',
-    'suggested groups for you',
-    '建議的社團',
-    '建議社團',
-    '推薦社團',
-    '推荐群组',
-    'おすすめのグループ'
-  ];
-
-  // Multilingual keywords for Suggested content (posts, pages, people)
-  const SUGGESTED_KEYWORDS = [
-    'suggested for you',
-    'suggested post',
-    'suggested page',
-    'people you may know',
-    '為您推薦',
-    '為你推薦',
-    '推薦貼文',
-    '你可能認識的朋友',
-    '为你推荐',
-    '推荐帖子',
-    '可能认识的人',
-    'おすすめ',
-    '知り合いかも'
-  ];
-
-  // Multilingual keywords for Stories detection
-  const STORIES_KEYWORDS = [
-    'stories',
-    '限時動態',
-    '限时动态',
-    'ストーリーズ',
-    '스토리',
-    'storie'
-  ];
-
-  // Multilingual keywords for Reels detection
-  const REELS_KEYWORDS = [
-    'reels',
-    '連續短片',
-    '短视频',
-    'reels 和短影片',
-    'reels and short videos',
-    'リール',
-    '릴스'
-  ];
+  const defaults = window.FB_DIET_DEFAULTS || globalThis.FB_DIET_DEFAULTS || {};
+  const keywords = defaults.KEYWORDS || {};
+  const SPONSORED_KEYWORDS = Array.isArray(keywords.SPONSORED) ? keywords.SPONSORED : [];
+  const SUGGESTED_GROUP_KEYWORDS = Array.isArray(keywords.SUGGESTED_GROUP) ? keywords.SUGGESTED_GROUP : [];
+  const SUGGESTED_KEYWORDS = Array.isArray(keywords.SUGGESTED_FALLBACK) ? keywords.SUGGESTED_FALLBACK : [];
+  const STORIES_KEYWORDS = Array.isArray(keywords.STORIES) ? keywords.STORIES : [];
+  const REELS_KEYWORDS = Array.isArray(keywords.REELS) ? keywords.REELS : [];
 
   /**
    * Cross-realm safe element check (instanceof HTMLElement fails across documents/iframes)

@@ -10,13 +10,16 @@ window.FBDietProbe = (() => {
   'use strict';
 
   const PROBE_MAX_CHARS = 30000;
+  const defaults = window.FB_DIET_DEFAULTS || globalThis.FB_DIET_DEFAULTS || {};
+  const keywords = defaults.KEYWORDS || {};
+  const DIAGNOSTIC_KEYWORDS = Array.isArray(keywords.DIAGNOSTIC) ? keywords.DIAGNOSTIC : [];
   let activeProbePopup = null;
 
   function findDiagnosticSignals(payload, lastCmp) {
     if ((!payload || typeof payload !== 'object') && (!lastCmp || typeof lastCmp !== 'object')) return null;
     const matches = [];
     const visited = new Set();
-    const keywords = ['追蹤', '加入', '推薦', 'SUBSCRIBE', 'JOIN', 'FOLLOW', 'SUGGEST'];
+    const keywords = DIAGNOSTIC_KEYWORDS;
 
     function walk(current, path, depth) {
       if (depth > 14 || current === null || current === undefined) return;

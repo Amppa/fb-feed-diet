@@ -7,22 +7,12 @@
 window.FBDietDOMSuggested = (() => {
   'use strict';
 
-  const SUGGESTED_TEXT_KEYWORDS = [
-    '為你推薦',
-    '为你推荐',
-    'Suggested for you',
-    '推薦貼文',
-    '推荐帖子',
-    'Suggested post',
-    '推薦你加入',
-    '推荐你加入',
-    'Popular across Facebook',
-    'Facebook 熱門內容'
-  ];
-
-  const FOLLOW_EXACT_WORDS = ['追蹤', 'follow', '關注', '追蹤粉絲專頁', 'follow page'];
-  const JOIN_EXACT_WORDS = ['加入', 'join', '加入社團', 'join group'];
-  const NEGATIVE_FOLLOW_WORDS = ['取消追蹤', '已追蹤', 'following', 'unfollow', '已加入', 'joined'];
+  const defaults = window.FB_DIET_DEFAULTS || globalThis.FB_DIET_DEFAULTS || {};
+  const keywords = defaults.KEYWORDS || {};
+  const SUGGESTED_TEXT_KEYWORDS = Array.isArray(keywords.SUGGESTED_DOM) ? keywords.SUGGESTED_DOM : [];
+  const FOLLOW_EXACT_WORDS = Array.isArray(keywords.FOLLOW_ACTIONS) ? keywords.FOLLOW_ACTIONS : [];
+  const JOIN_EXACT_WORDS = Array.isArray(keywords.JOIN_ACTIONS) ? keywords.JOIN_ACTIONS : [];
+  const NEGATIVE_FOLLOW_WORDS = Array.isArray(keywords.NEGATIVE_ACTIONS) ? keywords.NEGATIVE_ACTIONS : [];
 
   const MENU_OR_DISMISS_LABELS = [
     '操作', '動作', '採取的動作', '更多', '貼文選項', 'actions', 'more', 'post options',

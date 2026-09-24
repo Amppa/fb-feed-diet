@@ -76,6 +76,20 @@ function run(checker) {
   checker.equals('media badge text is Reels & Stories', groupMeta && groupMeta.media && groupMeta.media.badgeText, 'Reels & Stories');
   checker.equals('other badge text is Other', groupMeta && groupMeta.other && groupMeta.other.badgeText, 'Other');
 
+  /* --- shared keyword schema --- */
+  const keywords = defaults && defaults.KEYWORDS;
+  checker.ok('KEYWORDS object exists', Boolean(keywords));
+  for (const key of [
+    'SPONSORED', 'SUGGESTED_FALLBACK', 'SUGGESTED_GROUP', 'STORIES', 'REELS',
+    'SUGGESTED_DOM', 'FOLLOW_ACTIONS', 'JOIN_ACTIONS', 'NEGATIVE_ACTIONS', 'DIAGNOSTIC'
+  ]) {
+    checker.ok('keyword matrix exists: ' + key, Boolean(keywords && Array.isArray(keywords[key])));
+  }
+  checker.ok('sponsored matrix includes English', keywords && keywords.SPONSORED.indexOf('sponsored') !== -1);
+  checker.ok('fallback matrix includes Traditional Chinese', keywords && keywords.SUGGESTED_FALLBACK.indexOf('為你推薦') !== -1);
+  checker.ok('DOM matrix includes English follow label', keywords && keywords.FOLLOW_ACTIONS.indexOf('follow') !== -1);
+  checker.ok('negative action matrix includes following', keywords && keywords.NEGATIVE_ACTIONS.indexOf('following') !== -1);
+
   // normalizeFoldMode helper
   checker.ok('normalizeFoldMode exists', typeof defaults.normalizeFoldMode === 'function');
   checker.equals('normalizeFoldMode true + mini:false -> title', defaults.normalizeFoldMode(true, 'off', false), 'title');
