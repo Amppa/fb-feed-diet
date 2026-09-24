@@ -107,15 +107,13 @@ Loaded sequentially at `document_start` before Comet finishes loading:
   - Manages deduplication sets (`reportedBlockedSet`, `reportedRegularSet`) to prevent redundant storage writes.
   - Handles `window.postMessage` communication between MAIN and ISOLATED worlds.
   - Accepts immediate settings push via `window.__fbDietSetSettings`.
-- **`dom-metadata.js` (`window.FBDietDOMMetadata`)**:
-  - MAIN-world best-effort extraction of author, message, group, URL, and media fields from a mounted feed-unit container.
-  - Shared by the title bar and probe report; kept separate from `metadata.js`, which reads props and Relay records.
 - **`dom-suggested.js` (`window.FBDietDOMSuggested`)**:
   - MAIN-world Full Mode suggested-post detector for rendered DOM, including action buttons, recommendation headers, reshare exclusions, and verified/menu/privacy guards.
   - Uses the named `FB_DIET_DEFAULTS.KEYWORDS` matrices and remains separate from the ISOLATED-world `detector.js`.
-- **`ui.js` (`window.FBDietUI`)**:
-  - Pure React UI components and group badges for placeholder bars.
-  - Provides `FBDietTitleBar` (36px default / 18px mini modes, category group badges, and expand/collapse control).
+- **`ui.js` (`window.FBDietUI`, `window.FBDietDOMMetadata`)**:
+  - React UI components and group badges for placeholder bars.
+  - Embeds mounted-DOM metadata extraction (`window.FBDietDOMMetadata`) directly to eliminate multi-script injection ordering and reload desync risks.
+  - Provides `FBDietTitleBar` (36px default / 18px mini modes, streaming Suspense observer, and expand/collapse control).
 - **`probe.js` (`window.FBDietProbe`)**:
   - Diagnostic JSON generator and developer inspection layer.
   - Discovers heuristic signals (keywords, sponsored markers, author names) and generates formatted reports (`formatProbeReport`).
@@ -184,11 +182,10 @@ Tab Navigates to facebook.com
   │     4. metadata.js exposes diagnostic enrichment & candidate extractors
   │     5. classify.js binds setRelayReader & pure decision rules
   │     6. bridge.js registers postMessage listener & in-memory state
-  │     7. dom-metadata.js exposes mounted-DOM metadata extraction
-  │     8. dom-suggested.js exposes Full Mode suggested detection
-  │     9. ui.js loads React title bars and category group badges
-  │     10. probe.js prepares diagnostic reports and copy popup
-  │     11. fold.js registers CometFeedUnitErrorBoundary.react with proxy
+  │     7. dom-suggested.js exposes Full Mode suggested detection
+  │     8. ui.js embeds DOM metadata extraction (FBDietDOMMetadata) & loads title bars
+  │     9. probe.js prepares diagnostic reports and copy popup
+  │     10. fold.js registers CometFeedUnitErrorBoundary.react with proxy
   │
   ├─► [Background Service Worker]
   │     Pushes saved settings to tab via chrome.scripting (window.__fbDietSetSettings)

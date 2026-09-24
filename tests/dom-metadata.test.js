@@ -70,7 +70,7 @@ function makeNode(tag, attrs = {}, children = [], text = '') {
 
 function run(c) {
   const win = createWindow();
-  loadInject(win, 'dom-metadata.js');
+  loadInject(win, 'ui.js');
   const metadata = win.FBDietDOMMetadata;
 
   c.ok('DOM metadata API is exposed', Boolean(metadata) && typeof metadata.collect === 'function');

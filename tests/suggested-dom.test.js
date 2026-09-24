@@ -103,7 +103,6 @@ function run(c) {
   loadInject(win, 'metadata.js');
   loadInject(win, 'classify.js');
   loadInject(win, 'bridge.js');
-  loadInject(win, 'dom-metadata.js');
   loadInject(win, 'dom-suggested.js');
   loadInject(win, 'ui.js');
   loadInject(win, 'probe.js');
@@ -343,7 +342,6 @@ function run(c) {
     loadInject(winTest, 'metadata.js');
     loadInject(winTest, 'classify.js');
     loadInject(winTest, 'bridge.js');
-    loadInject(winTest, 'dom-metadata.js');
     loadInject(winTest, 'dom-suggested.js');
     loadInject(winTest, 'ui.js');
     loadInject(winTest, 'probe.js');
