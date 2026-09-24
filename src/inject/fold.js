@@ -6,7 +6,9 @@
  *   - matched -> a compact notice bar plus the original tree hidden with display:none / 1x1 squash
  *   - expanded by the user -> the original tree is returned with a neutral re-fold bar
  *
- * Public API (window.FBDietFold): install(), FBDietFold, GROUP_META, GROUP_BY_CATEGORY, groupOf, HIDE_MODE, getStatus()
+ * Public API (window.FBDietFold): FEED_UNIT_MODULES, HIDE_MODE, FBDietFold, install(), getStatus()
+ * Group badges, fold bars and probe reports live in their own modules (window.FBDietUI /
+ * window.FBDietProbe) and are always read from there.
  */
 window.FBDietFold = (() => {
   'use strict';
@@ -66,21 +68,17 @@ window.FBDietFold = (() => {
 
   /**
    * Resolves whether the fold bar renders its title text for the current state
-   * (STRATEGY.md decision #27). Prefers the shared normalizeTitleMode helper and
-   * degrades to an equivalent local mapping when the defaults module is absent.
-   * 'whenFolded' shows the title while the post is folded (a summary of the
-   * hidden content) and hides it once expanded, where the post itself is visible.
+   * (STRATEGY.md decision #27). `showTitleMode` is the only source; FB_DIET_DEFAULTS owns
+   * its normalization and an unknown/missing value falls back to 'whenFolded'. 'whenFolded'
+   * shows the title while the post is folded (a summary of the hidden content) and hides it
+   * once expanded, where the post itself is visible.
    */
   function resolveShowTitle(settings, expanded) {
-    if (settings && settings.dietMode === 'lite') return false;
-    const raw = settings.showTitleMode !== undefined ? settings.showTitleMode : settings.showFeedTitle;
+    if (!settings || settings.dietMode === 'lite') return false;
     const defaults = window.FB_DIET_DEFAULTS;
-    let mode = raw;
-    if (defaults && typeof defaults.normalizeTitleMode === 'function') {
-      mode = defaults.normalizeTitleMode(raw);
-    } else if (raw !== 'always' && raw !== 'whenFolded' && raw !== 'never') {
-      mode = raw === false ? 'never' : 'whenFolded';
-    }
+    const mode = defaults && typeof defaults.normalizeTitleMode === 'function'
+      ? defaults.normalizeTitleMode(settings.showTitleMode)
+      : (settings.showTitleMode === 'always' || settings.showTitleMode === 'never' ? settings.showTitleMode : 'whenFolded');
     if (mode === 'never') return false;
     if (mode === 'always') return true;
     return !expanded;
@@ -370,7 +368,7 @@ window.FBDietFold = (() => {
       };
 
       // When unfolded and alwaysShowFoldBar is disabled, return native render cleanly without any bar
-      const keepBar = settings.alwaysShowFoldBar !== undefined ? settings.alwaysShowFoldBar : (settings.alwaysShowFoldTitle !== false);
+      const keepBar = settings.alwaysShowFoldBar !== false;
       if (!isFolded && !keepBar) {
         if (settings.dietMode === 'full' && !domSuggested) {
           const wrapped = createEl('div', { ref: containerRef, className: 'fb-diet-full-container', style: { display: 'contents' } }, [rendered]);
@@ -521,14 +519,8 @@ window.FBDietFold = (() => {
 
   return {
     FEED_UNIT_MODULES,
-    get GROUP_META() { return (window.FBDietUI && window.FBDietUI.GROUP_META) || {}; },
-    get GROUP_BY_CATEGORY() { return (window.FBDietUI && window.FBDietUI.GROUP_BY_CATEGORY) || {}; },
-    get groupOf() { return (window.FBDietUI && window.FBDietUI.groupOf) || ((c) => c); },
     HIDE_MODE,
     FBDietFold,
-    get FBDietBar() { return window.FBDietUI && window.FBDietUI.FBDietBar; },
-    get FBDietTitleBar() { return window.FBDietUI && window.FBDietUI.FBDietTitleBar; },
-    get buildUnitProbeReport() { return window.FBDietProbe && window.FBDietProbe.buildUnitProbeReport; },
     install,
     getStatus: () => ({
       hideMode: HIDE_MODE,

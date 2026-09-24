@@ -74,13 +74,14 @@ function run(c) {
   /* --- two-layer classification: category -> user-facing group --- */
   {
     const t = setup({});
-    c.equals('sponsored belongs to ads group', t.fold.groupOf('sponsored'), 'ads');
-    c.equals('marketplace ad belongs to ads group', t.fold.groupOf('marketAds'), 'ads');
-    c.equals('reels belongs to media group', t.fold.groupOf('reels'), 'media');
-    c.equals('stories belongs to media group', t.fold.groupOf('stories'), 'media');
-    c.equals('suggested group belongs to other group', t.fold.groupOf('suggestedGroup'), 'other');
-    c.equals('unknown category falls back to regular group', t.fold.groupOf('nope'), 'regular');
-    c.equals('group meta covers every group', ['ads', 'regular', 'suggested', 'media', 'other'].every((g) => Boolean(t.fold.GROUP_META[g])), true);
+    const ui = t.win.FBDietUI;
+    c.equals('sponsored belongs to ads group', ui.groupOf('sponsored'), 'ads');
+    c.equals('marketplace ad belongs to ads group', ui.groupOf('marketAds'), 'ads');
+    c.equals('reels belongs to media group', ui.groupOf('reels'), 'media');
+    c.equals('stories belongs to media group', ui.groupOf('stories'), 'media');
+    c.equals('suggested group belongs to other group', ui.groupOf('suggestedGroup'), 'other');
+    c.equals('unknown category falls back to regular group', ui.groupOf('nope'), 'regular');
+    c.equals('group meta covers every group', ['ads', 'regular', 'suggested', 'media', 'other'].every((g) => Boolean(ui.GROUP_META[g])), true);
   }
 
   /* --- regular payload: unfolded with regular header bar + reported once --- */
@@ -90,7 +91,7 @@ function run(c) {
     const result = t.render(payloadOf('u-regular'));
     c.ok('regular unit renders unfolded with header bar', result.type === t.React.Fragment && Array.isArray(result.props.children));
     const [headerBar, body] = result.props.children;
-    c.equals('header bar is FBDietTitleBar', headerBar.type, t.fold.FBDietTitleBar);
+    c.equals('header bar is FBDietTitleBar', headerBar.type, t.win.FBDietUI.FBDietTitleBar);
     c.equals('header bar isExpanded is true', headerBar.props.isExpanded, true);
     const headerBarRender = headerBar.type(headerBar.props);
     c.ok('header bar has expanded state class', headerBarRender.props.className.indexOf('fb-diet-state-expanded') !== -1);
@@ -107,16 +108,16 @@ function run(c) {
     headerBar.props.onToggle();
     c.ok('toggling regular folds it', t.bridge.isUnitFolded('u-regular', false) === true);
     const foldedRegular = t.render(payloadOf('u-regular'));
-    c.equals('folded regular has FBDietTitleBar', foldedRegular.props.children[0].type, t.fold.FBDietTitleBar);
+    c.equals('folded regular has FBDietTitleBar', foldedRegular.props.children[0].type, t.win.FBDietUI.FBDietTitleBar);
     c.equals('folded regular has isMini true', foldedRegular.props.children[0].props.isMini, true);
   }
 
   /* --- regular payload with default settings: 36px title bar when unfolded --- */
   {
     const t = setup({});
-    // minimizedFoldMode is false by default, alwaysShowFoldTitle is true by default
+    // minimizedFoldMode is false by default, alwaysShowFoldBar is true by default
     const result = t.render(payloadOf('u-regular-default'));
-    c.ok('regular default renders FBDietTitleBar (36px)', result.type === t.React.Fragment && result.props.children[0].type === t.fold.FBDietTitleBar);
+    c.ok('regular default renders FBDietTitleBar (36px)', result.type === t.React.Fragment && result.props.children[0].type === t.win.FBDietUI.FBDietTitleBar);
     c.equals('title bar isExpanded is true', result.props.children[0].props.isExpanded, true);
   }
 
@@ -152,7 +153,7 @@ function run(c) {
     c.equals('fragment holds bar + hidden container', children.length, 2);
     const bar = children[0];
     const hidden = children[1];
-    c.equals('bar is FBDietTitleBar', bar.type, t.fold.FBDietTitleBar);
+    c.equals('bar is FBDietTitleBar', bar.type, t.win.FBDietUI.FBDietTitleBar);
     c.equals('bar isMini is true', bar.props.isMini, true);
     c.equals('bar gets the category', bar.props.category, 'sponsored');
     c.ok('bar carries the toggle callback', typeof bar.props.onToggle === 'function');
@@ -191,10 +192,10 @@ function run(c) {
 
     t.bridge.setSettings({ foldSponsored: false, minimizedFoldMode: false, alwaysShowFoldBar: true });
     const unfoldedTitleBar = t.render(payloadOf('u1'));
-    c.ok('alwaysShowFoldBar on + mini off renders unfolded with title bar', unfoldedTitleBar.type === t.React.Fragment && unfoldedTitleBar.props.children[0].type === t.fold.FBDietTitleBar);
+    c.ok('alwaysShowFoldBar on + mini off renders unfolded with title bar', unfoldedTitleBar.type === t.React.Fragment && unfoldedTitleBar.props.children[0].type === t.win.FBDietUI.FBDietTitleBar);
 
     t.bridge.setSettings({ foldSponsored: true, minimizedFoldMode: true, alwaysShowFoldBar: true });
-    c.ok('category restored folds again', t.render(payloadOf('u1')).type === t.React.Fragment && t.render(payloadOf('u1')).props.children[0].type === t.fold.FBDietTitleBar);
+    c.ok('category restored folds again', t.render(payloadOf('u1')).type === t.React.Fragment && t.render(payloadOf('u1')).props.children[0].type === t.win.FBDietUI.FBDietTitleBar);
     c.equals('category restored has isMini true', t.render(payloadOf('u1')).props.children[0].props.isMini, true);
   }
 
@@ -245,7 +246,7 @@ function run(c) {
       reason: 'sponsored_data.ad_id',
       evidence: { ownTypename: 'FeedUnitRoot', adId: 'ad-1', id: 'u1', idCount: 1 }
     };
-    const reportWithoutEntry = t.fold.buildUnitProbeReport({ payload: { feedUnit: { id: 'u1', __typename: 'FeedUnitRoot', post_id: 'p123' } } }, classifyRes, []).report;
+    const reportWithoutEntry = t.win.FBDietProbe.buildUnitProbeReport({ payload: { feedUnit: { id: 'u1', __typename: 'FeedUnitRoot', post_id: 'p123' } } }, classifyRes, []).report;
     c.equals('entryCategory omitted when null', reportWithoutEntry.entryCategory, undefined);
     c.equals('settings omitted from report', reportWithoutEntry.settings, undefined);
     c.equals('top-level unitTypename removed', reportWithoutEntry.unitTypename, undefined);
@@ -262,7 +263,7 @@ function run(c) {
     c.ok('url object present', Boolean(reportWithoutEntry.url));
     c.equals('outer enrichment removed', reportWithoutEntry.enrichment, undefined);
 
-    const reportWithSignals = t.fold.buildUnitProbeReport({
+    const reportWithSignals = t.win.FBDietProbe.buildUnitProbeReport({
       payload: {
         feedUnit: {
           comet_sections: {
@@ -279,7 +280,7 @@ function run(c) {
     c.equals('signal path matches', reportWithSignals.signals[0].path, 'feedUnit.comet_sections.header.story.title.text');
     c.equals('signal value matches', reportWithSignals.signals[0].value, '為你推薦');
 
-    const reportWithEntry = t.fold.buildUnitProbeReport({ entryCategory: 'marketAds', payload: { feedUnit: {} } }, classifyRes, []).report;
+    const reportWithEntry = t.win.FBDietProbe.buildUnitProbeReport({ entryCategory: 'marketAds', payload: { feedUnit: {} } }, classifyRes, []).report;
     c.equals('entryCategory present when provided', reportWithEntry.entryCategory, 'marketAds');
 
     /* --- probe report scope fields (STRATEGY.md decision #26) --- */
@@ -290,11 +291,11 @@ function run(c) {
     const tScope = setup({});
     tScope.win.FB_DIET_DEFAULTS = loadDefaults();
     tScope.win.location.pathname = '/groups/feed';
-    const outOfScopeReport = tScope.fold.buildUnitProbeReport({ payload: { feedUnit: {} } }, classifyRes, []).report;
+    const outOfScopeReport = tScope.win.FBDietProbe.buildUnitProbeReport({ payload: { feedUnit: {} } }, classifyRes, []).report;
     c.equals('scope.path captures the page pathname', outOfScopeReport.scope.path, '/groups/feed');
     c.equals('scope.allowed is false on /groups', outOfScopeReport.scope.allowed, false);
     tScope.bridge.setSettings({ restrictFoldScope: false });
-    const unrestrictedReport = tScope.fold.buildUnitProbeReport({ payload: { feedUnit: {} } }, classifyRes, []).report;
+    const unrestrictedReport = tScope.win.FBDietProbe.buildUnitProbeReport({ payload: { feedUnit: {} } }, classifyRes, []).report;
     c.equals('scope.restricted false when the toggle is off', unrestrictedReport.scope.restricted, false);
     c.equals('scope.allowed true when the toggle is off', unrestrictedReport.scope.allowed, true);
   }
@@ -308,7 +309,7 @@ function run(c) {
     const folded = t.render(payloadOf('u-title'));
     c.ok('title mode render is a Fragment', folded.type === t.React.Fragment);
     const [titleBar, body] = folded.props.children;
-    c.equals('title bar is FBDietTitleBar', titleBar.type, t.fold.FBDietTitleBar);
+    c.equals('title bar is FBDietTitleBar', titleBar.type, t.win.FBDietUI.FBDietTitleBar);
     c.ok('title bar is collapsed', titleBar.props.isExpanded === false);
     c.ok('body is hidden container', body.props.className.indexOf('fb-diet-fold-hidden') !== -1);
     const titleBarRender = titleBar.type(titleBar.props);
@@ -318,7 +319,7 @@ function run(c) {
     titleBar.props.onToggle();
     const expanded = t.render(payloadOf('u-title'));
     const [expandedTitleBar, expandedBody] = expanded.props.children;
-    c.equals('expanded title bar stays FBDietTitleBar', expandedTitleBar.type, t.fold.FBDietTitleBar);
+    c.equals('expanded title bar stays FBDietTitleBar', expandedTitleBar.type, t.win.FBDietUI.FBDietTitleBar);
     c.ok('expanded title bar isExpanded is true', expandedTitleBar.props.isExpanded === true);
     const expandedTitleRender = expandedTitleBar.type(expandedTitleBar.props);
     c.ok('expanded title bar has expanded state class', expandedTitleRender.props.className.indexOf('fb-diet-state-expanded') !== -1);
@@ -421,19 +422,21 @@ function run(c) {
     out = t.render(payloadOf('u-titlemode'));
     c.equals('expanded bar hides the title under never', out.props.children[0].props.showTitle, false);
 
-    // Legacy boolean fallback (missing showTitleMode): false keeps never...
+    // Zero-compat policy: the legacy showFeedTitle boolean has no influence at all — a
+    // missing showTitleMode falls back to the schema default ('whenFolded').
+    t.bridge.toggle('u-titlemode'); // fold again
     t.bridge.setSettings({ showTitleMode: undefined, showFeedTitle: false });
     out = t.render(payloadOf('u-titlemode'));
-    c.equals('legacy showFeedTitle:false hides the title', out.props.children[0].props.showTitle, false);
+    c.equals('missing showTitleMode falls back to whenFolded while folded', out.props.children[0].props.showTitle, true);
+    c.equals('legacy showFeedTitle:false no longer hides the folded title', out.props.children[0].props.showTitle, true);
 
-    // ...and true rolls forward to the new default (decision #27 migration policy)
-    t.bridge.toggle('u-titlemode');
-    t.bridge.setSettings({ showTitleMode: undefined, showFeedTitle: true });
+    // The legacy key is ignored in both directions: true behaves exactly like false.
+    t.bridge.setSettings({ showFeedTitle: true });
     out = t.render(payloadOf('u-titlemode'));
-    c.equals('legacy showFeedTitle:true rolls forward while folded', out.props.children[0].props.showTitle, true);
+    c.equals('legacy showFeedTitle:true changes nothing while folded', out.props.children[0].props.showTitle, true);
     out.props.children[0].props.onToggle();
     out = t.render(payloadOf('u-titlemode'));
-    c.equals('legacy showFeedTitle:true hides the title when expanded', out.props.children[0].props.showTitle, false);
+    c.equals('legacy showFeedTitle:true changes nothing when expanded', out.props.children[0].props.showTitle, false);
   }
 
   /* --- hostile payload never crashes the feed --- */
