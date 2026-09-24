@@ -31,13 +31,16 @@
  * ------------------------------------------------------------------ */
 :root {
   /*
-   * feed 收縮後的間隔大小 (可在此修改數值，例如 6px, 8px, 12px 等)
+   * gap between feed (folded)
    */
   --fb-diet-collapsed-gap: 8px;
-  /*
-   * 展開前 header 的 pill 倒角半徑 (9999px 為完整藥丸/膠囊形狀，亦可自訂如 12px, 16px)
-   */
-  --fb-diet-pill-radius: 9999px;
+  --fb-diet-collapsed-gap-mini: 2px;
+  --fb-diet-pill-radius: 8px;
+}
+
+.fb-diet-titlebar.fb-diet-titlebar-mini,
+.fb-diet-placeholder {
+  --fb-diet-collapsed-gap: var(--fb-diet-collapsed-gap-mini, 2px);
 }
 
 .fb-diet-placeholder,
