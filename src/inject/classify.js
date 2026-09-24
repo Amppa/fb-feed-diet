@@ -573,23 +573,26 @@ window.FBDietClassify = (() => {
     }
   }
 
+  /** Shared defaults module: loaded before the MAIN world scripts in every context. */
+  function getDefaults() {
+    if (typeof window !== 'undefined' && window.FB_DIET_DEFAULTS) return window.FB_DIET_DEFAULTS;
+    return (typeof globalThis !== 'undefined' && globalThis.FB_DIET_DEFAULTS) || null;
+  }
+
+  /**
+   * Resolves one category's fold mode from the shared settings schema. FB_DIET_DEFAULTS
+   * owns the single normalization of stored values onto 'off' / 'mini' / 'title'; without
+   * that module the classifier fails closed instead of guessing a fold mode.
+   */
   function getCategoryFoldMode(category, settings) {
     if (!settings || settings.enabled === false) return 'off';
     const key = SETTING_BY_CATEGORY[category];
     if (!key) return 'off';
-    const defaultVal = (typeof globalThis !== 'undefined' && globalThis.FB_DIET_DEFAULTS?.SETTINGS?.[key] !== undefined)
-      ? globalThis.FB_DIET_DEFAULTS.SETTINGS[key]
-      : (key !== 'foldRegular');
-    const val = settings[key] !== undefined ? settings[key] : defaultVal;
-    const isMini = Boolean(settings.minimizedFoldMode);
-    if (typeof globalThis !== 'undefined' && globalThis.FB_DIET_DEFAULTS && typeof globalThis.FB_DIET_DEFAULTS.normalizeFoldMode === 'function') {
-      return globalThis.FB_DIET_DEFAULTS.normalizeFoldMode(val, 'off', isMini);
-    }
-    if (val === false || val === 'off') return 'off';
-    if (val === true || val === 'mini' || val === 'title') {
-      return isMini ? 'mini' : 'title';
-    }
-    return 'off';
+    const defaults = getDefaults();
+    if (!defaults || typeof defaults.normalizeFoldMode !== 'function') return 'off';
+    const schema = defaults.SETTINGS || {};
+    const val = settings[key] !== undefined ? settings[key] : (schema[key] !== undefined ? schema[key] : false);
+    return defaults.normalizeFoldMode(val, 'off', Boolean(settings.minimizedFoldMode));
   }
 
   function isCategoryEnabled(category, settings) {
