@@ -23,6 +23,11 @@ window.FBDietDOMSuggested = (() => {
     '公開', '朋友', '只限本人', '自訂', 'public', 'friends', 'only me', 'custom', 'shared with'
   ];
 
+  const CAROUSEL_OR_NAV_LABELS = [
+    '上一個項目', '下一個項目', '上一個', '下一個',
+    'previous', 'next', 'previous item', 'next item'
+  ];
+
   function matchFollowOrJoin(str) {
     if (!str || typeof str !== 'string') return null;
     const clean = str.replace(/^[·•\s+]+/, '').trim().toLowerCase();
@@ -77,6 +82,9 @@ window.FBDietDOMSuggested = (() => {
       if (aria.indexOf(label) !== -1) return true;
     }
     for (const label of PRIVACY_OR_TIME_LABELS) {
+      if (aria.indexOf(label) !== -1) return true;
+    }
+    for (const label of CAROUSEL_OR_NAV_LABELS) {
       if (aria.indexOf(label) !== -1) return true;
     }
     const href = (el.getAttribute && el.getAttribute('href')) || el.href || '';

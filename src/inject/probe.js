@@ -114,8 +114,10 @@ window.FBDietProbe = (() => {
       } catch (e) {}
     }
 
-    const isDomSuggested = Boolean(domSuggestedLive && domSuggestedLive.isSuggested);
-    const effectiveCategory = isDomSuggested ? 'suggested' : ((classifyResult && classifyResult.category) || (props && props.entryCategory) || 'regular');
+    const baseCategory = (classifyResult && classifyResult.category) || (props && props.entryCategory) || 'regular';
+    const isAlreadyClassified = baseCategory && baseCategory !== 'regular';
+    const isDomSuggested = !isAlreadyClassified && Boolean(domSuggestedLive && domSuggestedLive.isSuggested);
+    const effectiveCategory = isDomSuggested ? 'suggested' : baseCategory;
     const effectiveReason = isDomSuggested ? (domSuggestedLive.reason || 'dom:suggested') : (classifyResult ? classifyResult.reason : null);
 
     const settingKey = (classifyModule && classifyModule.SETTING_BY_CATEGORY && classifyModule.SETTING_BY_CATEGORY[effectiveCategory]) || null;

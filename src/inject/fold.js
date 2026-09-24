@@ -288,7 +288,8 @@ window.FBDietFold = (() => {
       }
 
       let effectiveClassifyResult = classifyResult;
-      if (domSuggested && domSuggested.isSuggested) {
+      const isAlreadyClassified = category && category !== 'regular';
+      if (!isAlreadyClassified && domSuggested && domSuggested.isSuggested) {
         category = 'suggested';
         reason = domSuggested.reason || 'dom:suggested';
         if (classifyResult) {

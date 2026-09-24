@@ -414,6 +414,25 @@ function run(c) {
     c.equals('unclassified relay unit has Follow signal via DOM', liveProbeResult.report.classify.signal, 'Follow');
     c.equals('unclassified relay unit categorySetting is suggested', liveProbeResult.report.categorySetting.category, 'suggested');
     c.equals('unclassified relay unit categorySetting enabled is false when foldSuggested is false', liveProbeResult.report.categorySetting.enabled, false);
+
+    // 6. Classified unit (stories) is NOT overridden by DOM suggested in probe report
+    const storiesRelay = { category: 'stories', unitId: 'u-stories', unitTypename: 'DiscoverFeedUnit', reason: 'unitTypename:DiscoverFeedUnit' };
+    const storiesProbeResult = winTest.FBDietProbe.buildUnitProbeReport(
+      { payload: { feedUnit: { id: 'u-stories', unitTypename: 'DiscoverFeedUnit' } } },
+      storiesRelay,
+      null,
+      mockContainer
+    );
+    c.equals('stories unit retains stories category despite DOM buttons', storiesProbeResult.report.classify.category, 'stories');
+    c.equals('stories unit categorySetting is stories', storiesProbeResult.report.categorySetting.category, 'stories');
+
+    // 7. Carousel navigation buttons (上一個項目, 下一個項目) are excluded from being matched as suggested buttons
+    const carouselContainer = makeNode('div', { role: 'article' }, [
+      makeNode('div', { role: 'button', 'aria-label': '上一個項目' }, [makeNode('svg')]),
+      makeNode('div', { role: 'button', 'aria-label': '下一個項目' }, [makeNode('svg')])
+    ]);
+    const carouselDetection = winTest.FBDietDOMSuggested.detect(carouselContainer);
+    c.equals('carousel navigation buttons are not detected as suggested', carouselDetection, null);
   }
 }
 
