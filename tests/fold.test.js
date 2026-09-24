@@ -68,6 +68,10 @@ function run(c) {
     const t = setup({});
     c.ok('fold API exposed', Boolean(t.fold) && typeof t.fold.FBDietFold === 'function');
     c.equals('fold registered its module', t.proxy.listRegistered()[FEED_MODULE][0], '[6].default');
+    c.equals('fold exposes every feed module', t.fold.FEED_UNIT_MODULES.length, 15);
+    c.ok('every feed module has a definer path', t.fold.FEED_UNIT_MODULES.every((item) => typeof item.definerPath === 'string' && item.definerPath));
+    c.equals('right rail keeps its render definer path', t.fold.FEED_UNIT_MODULES.find((item) => item.name === 'CometHomeRightRailUnit.react').definerPath, '[6].default.render');
+    c.ok('every feed module is registered', t.fold.FEED_UNIT_MODULES.every((item) => Boolean(t.proxy.listRegistered()[item.name])));
     c.equals('detectOnly removed from defaults', 'detectOnly' in t.bridge.getSettings(), false);
     c.equals('ready message announced at load', countMessages(t.win, 'ready'), 1);
     c.equals('HIDE_MODE is squash', t.fold.HIDE_MODE, 'squash');

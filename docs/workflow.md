@@ -75,8 +75,11 @@ node tests/run.js
 - **`tests/proxy.test.js`**: Validates `window.__d` interception, factory patching, error recovery, and multiple registration handling.
 - **`tests/relay.test.js`**: Mocks Relay record stores and tests path query features (`^`, `^^`, `{$var}`, wildcards).
 - **`tests/classify.test.js`**: Tests feed unit payloads against all classification rules (sponsored ads, suggestions, groups, reels, stories).
+- **`tests/dom-metadata.test.js`**: Tests the MAIN-world DOM metadata collector contract and fallback behavior.
+- **`tests/probe-css.test.js`**: Verifies probe styles live in the declarative content stylesheet and are not injected by JavaScript.
+- **`tests/suggested-dom.test.js`**: Tests the MAIN-world suggested-post detector, including false-positive guards and module wiring.
 - **`tests/i18n.test.js`**: Loads `src/i18n/i18n.js` into a VM sandbox and validates language detection/normalization, dictionary lookups, unknown-key fallback, and the `setLang` round-trip.
-- **`tests/fold.test.js`**: Tests wrapper generation, React element creation, and category metadata binding.
+- **`tests/fold.test.js`**: Tests wrapper generation, React element creation, category metadata binding, and feed-module registration paths.
 
 ### Adding New Classification Rules
 

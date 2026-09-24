@@ -13,26 +13,31 @@
 window.FBDietFold = (() => {
   'use strict';
 
+  const DEFAULT_DEFINER_PATH = '[6].default';
   const FEED_UNIT_MODULES = [
-    { name: 'CometFeedUnitErrorBoundary.react', category: null, definerPath: '[6].default' },
-    { name: 'CometAdsSideFeedUnitItem.react', category: 'sponsored', definerPath: '[6].default' },
+    { name: 'CometFeedUnitErrorBoundary.react', category: null },
+    { name: 'CometAdsSideFeedUnitItem.react', category: 'sponsored' },
     { name: 'CometHomeRightRailUnit.react', category: 'sponsored', definerPath: '[6].default.render' },
-    { name: 'FBReelsTopOfFeedTrayTile.react', category: 'reels', definerPath: '[6].default' },
-    { name: 'FBReelsRootWrapper.react', category: 'reels', definerPath: '[6].default' },
+    { name: 'FBReelsTopOfFeedTrayTile.react', category: 'reels' },
+    { name: 'FBReelsRootWrapper.react', category: 'reels' },
     // A Story with a Reels attachment style is used for BOTH the Reels rail and a
     // friend's share of a reel. Routing it through the classifier keeps real reels
     // feed units foldable while friend shares stay visible.
-    { name: 'CometFeedStoryFBReelsAttachmentStyle.react', category: null, definerPath: '[6].default' },
-    { name: 'StoriesTrayRectangularRoot.react', category: 'stories', definerPath: '[6].default' },
-    { name: 'StoriesTray.react', category: 'stories', definerPath: '[6].default' },
-    { name: 'StoriesTrayRoot.react', category: 'stories', definerPath: '[6].default' },
-    { name: 'CometStoriesTray.react', category: 'stories', definerPath: '[6].default' },
-    { name: 'FriendingCometPYMKGrid.react', category: 'suggested', definerPath: '[6].default' },
-    { name: 'FriendingCometFeedPYMKHScroll.react', category: 'suggested', definerPath: '[6].default' },
-    { name: 'FriendingCometPYMKPanel.react', category: 'suggested', definerPath: '[6].default' },
-    { name: 'CometMarketplaceAdCard.react', category: 'marketAds', definerPath: '[6].default' },
-    { name: 'SearchCometResultsAd.react', category: 'searchingAds', definerPath: '[6].default' }
+    { name: 'CometFeedStoryFBReelsAttachmentStyle.react', category: null },
+    { name: 'StoriesTrayRectangularRoot.react', category: 'stories' },
+    { name: 'StoriesTray.react', category: 'stories' },
+    { name: 'StoriesTrayRoot.react', category: 'stories' },
+    { name: 'CometStoriesTray.react', category: 'stories' },
+    { name: 'FriendingCometPYMKGrid.react', category: 'suggested' },
+    { name: 'FriendingCometFeedPYMKHScroll.react', category: 'suggested' },
+    { name: 'FriendingCometPYMKPanel.react', category: 'suggested' },
+    { name: 'CometMarketplaceAdCard.react', category: 'marketAds' },
+    { name: 'SearchCometResultsAd.react', category: 'searchingAds' }
   ];
+
+  function withDefaultDefinerPath() {
+    return FEED_UNIT_MODULES.map((item) => Object.assign({ definerPath: DEFAULT_DEFINER_PATH }, item));
+  }
 
   const HIDE_MODE = 'squash';
 
@@ -493,7 +498,7 @@ window.FBDietFold = (() => {
     for (const item of FEED_UNIT_MODULES) {
       const moduleName = item.name;
       const category = item.category;
-      const definerPath = item.definerPath || '[6].default';
+      const definerPath = item.definerPath || DEFAULT_DEFINER_PATH;
 
       let componentToRegister;
       if (moduleName === 'CometAdsSideFeedUnitItem.react') {
@@ -518,13 +523,13 @@ window.FBDietFold = (() => {
   install();
 
   return {
-    FEED_UNIT_MODULES,
+    FEED_UNIT_MODULES: withDefaultDefinerPath(),
     HIDE_MODE,
     FBDietFold,
     install,
     getStatus: () => ({
       hideMode: HIDE_MODE,
-      modules: FEED_UNIT_MODULES,
+      modules: withDefaultDefinerPath(),
       hydration: hydrationStats,
       registered: window.FBDietProxy ? window.FBDietProxy.listRegistered() : null,
       settings: window.FBDietBridge ? window.FBDietBridge.getSettings() : null

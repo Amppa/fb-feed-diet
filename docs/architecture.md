@@ -58,10 +58,10 @@ graph TD
 
 ### Shared Defaults Module (`src/shared/`)
 
-- **`defaults.js` (`globalThis.FB_DIET_DEFAULTS`)**: Single source of truth for configuration and stat schema.
-  - Exposes `FB_DIET_DEFAULTS.SETTINGS` (including the fold-scope switch `restrictFoldScope` and the three-state fold bar title `showTitleMode`, default `whenFolded`), `FB_DIET_DEFAULTS.COUNTS`, the user-facing group layer (`GROUP_BY_CATEGORY`, `SETTING_KEYS_BY_GROUP`, `GROUP_ORDER`; STRATEGY.md decision #8), the pure helpers `isFoldScopeAllowed(pathname)` (decision #26) and `normalizeTitleMode(value)` (decision #27), and `VERSION`.
+- **`defaults.js` (`globalThis.FB_DIET_DEFAULTS`)**: Single source of truth for configuration, statistics, and multilingual keyword schemas.
+  - Exposes `FB_DIET_DEFAULTS.SETTINGS` (including the fold-scope switch `restrictFoldScope` and the three-state fold bar title `showTitleMode`, default `whenFolded`), `FB_DIET_DEFAULTS.COUNTS`, the named `KEYWORDS` matrices, the user-facing group layer (`GROUP_BY_CATEGORY`, `SETTING_KEYS_BY_GROUP`, `GROUP_ORDER`; STRATEGY.md decision #8), the pure helpers `isFoldScopeAllowed(pathname)` (decision #26) and `normalizeTitleMode(value)` (decision #27), and `VERSION`.
   - Loaded before all scripts via `manifest.json` (`content_scripts`), `importScripts` (`background.js`), and `<script>` tags (`popup.html`, `options.html`).
-  - Eliminates configuration drift across contexts.
+  - Eliminates configuration and keyword drift across contexts.
 - **`theme.css`**: Shared UI design tokens, universal resets, switches, badges, and card styles linked across extension pages (`options.html`, `popup.html`).
 
 ### Main World Modules (`src/inject/`)
@@ -107,10 +107,15 @@ Loaded sequentially at `document_start` before Comet finishes loading:
   - Manages deduplication sets (`reportedBlockedSet`, `reportedRegularSet`) to prevent redundant storage writes.
   - Handles `window.postMessage` communication between MAIN and ISOLATED worlds.
   - Accepts immediate settings push via `window.__fbDietSetSettings`.
+- **`dom-metadata.js` (`window.FBDietDOMMetadata`)**:
+  - MAIN-world best-effort extraction of author, message, group, URL, and media fields from a mounted feed-unit container.
+  - Shared by the title bar and probe report; kept separate from `metadata.js`, which reads props and Relay records.
+- **`dom-suggested.js` (`window.FBDietDOMSuggested`)**:
+  - MAIN-world Full Mode suggested-post detector for rendered DOM, including action buttons, recommendation headers, reshare exclusions, and verified/menu/privacy guards.
+  - Uses the named `FB_DIET_DEFAULTS.KEYWORDS` matrices and remains separate from the ISOLATED-world `detector.js`.
 - **`ui.js` (`window.FBDietUI`)**:
-  - Pure React UI components and DOM extractors for placeholder bars.
-  - Provides `FBDietTitleBar` (supporting 36px default bar and 18px ultra-slim mini mode, category group badges, and expand/collapse button).
-  - Renders user-facing group badges (`GROUP_META`, `badgeText`) styled for dark and light Comet themes.
+  - Pure React UI components and group badges for placeholder bars.
+  - Provides `FBDietTitleBar` (36px default / 18px mini modes, category group badges, and expand/collapse control).
 - **`probe.js` (`window.FBDietProbe`)**:
   - Diagnostic JSON generator and developer inspection layer.
   - Discovers heuristic signals (keywords, sponsored markers, author names) and generates formatted reports (`formatProbeReport`).
@@ -136,7 +141,7 @@ Loaded sequentially at `document_start` before Comet finishes loading:
   - Disables DOM scanning as soon as `ready` is received from MAIN world.
   - Implements `shutdown()`: called on context invalidation to gracefully halt observers and timers.
 - **`detector.js` (`window.FBDietDetector`)**:
-  - Fallback text parser with multilingual keyword dictionaries (Sponsored, Suggested, etc.).
+  - Fallback text parser using the shared `FB_DIET_DEFAULTS.KEYWORDS` matrices (Sponsored, Suggested, etc.).
   - Handles SVG text masking, aria-labels, and obfuscated spans.
 - **`fallback.js` (`window.FBDietDOMFallback`)**:
   - DOM fallback scanner used when the MAIN world proxy never reports in (STRATEGY.md, decision #26).
@@ -173,15 +178,17 @@ Loaded sequentially at `document_start` before Comet finishes loading:
 Tab Navigates to facebook.com
   │
   ├─► [MAIN World: document_start]
-  │     1. defaults.js sets global FB_DIET_DEFAULTS schemas & constants
+  │     1. defaults.js sets global FB_DIET_DEFAULTS schemas & keyword matrices
   │     2. proxy.js attaches getter/setter to window.__d
   │     3. relay.js queues wrapExports for RelayRecordSourceProxy
   │     4. metadata.js exposes diagnostic enrichment & candidate extractors
   │     5. classify.js binds setRelayReader & pure decision rules
   │     6. bridge.js registers postMessage listener & in-memory state
-  │     7. ui.js loads React title bars and category group badges
-  │     8. probe.js prepares diagnostic probe styles & copy popup
-  │     9. fold.js registers CometFeedUnitErrorBoundary.react with proxy
+  │     7. dom-metadata.js exposes mounted-DOM metadata extraction
+  │     8. dom-suggested.js exposes Full Mode suggested detection
+  │     9. ui.js loads React title bars and category group badges
+  │     10. probe.js prepares diagnostic reports and copy popup
+  │     11. fold.js registers CometFeedUnitErrorBoundary.react with proxy
   │
   ├─► [Background Service Worker]
   │     Pushes saved settings to tab via chrome.scripting (window.__fbDietSetSettings)
