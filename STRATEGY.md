@@ -9,7 +9,7 @@
   - [Production Rules Table](#production-rules-table)
 - [3. Decision Log & Architectural Rationale](#3-decision-log--architectural-rationale)
   - [Topic Index](#topic-index)
-  - [Decisions Summary (#1 ~ #27)](#decisions-summary-1--27)
+  - [Decisions Summary (#1 ~ #28)](#decisions-summary-1--28)
 - [4. Known Misclassification Pitfalls (False Positives)](#4-known-misclassification-pitfalls-false-positives)
 - [5. Diagnostic Runbook & New Rule Workflow](#5-diagnostic-runbook--new-rule-workflow)
   - [Diagnostic Tools](#diagnostic-tools)
@@ -56,10 +56,10 @@ sponsored  >  suggestedGroup  >  suggested  >  stories  >  reels  >  regular
 ### Topic Index
 - **[Rules & Classification]**: #1, #3, #6, #7, #8, #10, #14, #15, #16, #19
 - **[Probe & Diagnostics]**: #11, #13, #20, #21
-- **[Core & Interception]**: #4, #5, #9, #24, #26
+- **[Core & Interception]**: #4, #5, #9, #24, #26, #28
 - **[UI & Appearance Mode]**: #17, #18, #22, #23, #25, #27
 
-### Decisions Summary (#1 ~ #27)
+### Decisions Summary (#1 ~ #28)
 
 ### [Rules] Decision #1: Restrict `subscribe_status` Strictly to `CAN_SUBSCRIBE`
 - **Attempted & Rejected**: Expanding suggested criteria to include `CAN_FOLLOW` and `NOT_SUBSCRIBED`.
@@ -140,6 +140,12 @@ sponsored  >  suggestedGroup  >  suggested  >  stories  >  reels  >  regular
 ### [UI] Decision #27: Tri-State Title Mode (`showTitleMode`) & Whitelist UI
 - Replaced boolean `showFeedTitle` with `showTitleMode` (`'always'`, `'whenFolded'`, `'never'`, default `'whenFolded'`).
 - Consolidated settings into a unified Appearance section with a dedicated Defaults reset button. Bumped version to `2.1.0`.
+
+### [Core] Decision #28: Legacy Compatibility Purge in the Fold Engine
+- Retired the duplicated compatibility tables inside `classify.js` / `fold.js`: fold modes are normalized only by `FB_DIET_DEFAULTS.normalizeFoldMode` (a missing schema fails closed to `off`), and the fold bar title reads `showTitleMode` alone — `showFeedTitle` is ignored and the dead `alwaysShowFoldTitle` key is gone.
+- `window.FBDietFold` no longer re-exports `FBDietUI` / `FBDietProbe` members (`GROUP_META`, `GROUP_BY_CATEGORY`, `groupOf`, `FBDietBar`, `FBDietTitleBar`, `buildUnitProbeReport`); consumers read those modules directly.
+- `classifyProbeReport` snapshot reading only resolves the snapshot's own plain fields (linked records keep resolving to `null`), and every evidence reader walks one flattened, duplicate-free prop source list.
+- Rollback note: no stored setting is invalidated. The Options page writes `showTitleMode` / `alwaysShowFoldBar`, so a stale `showFeedTitle` value is simply no longer read (no migration needed).
 
 ---
 
