@@ -15,7 +15,7 @@ const vm = require('vm');
 const ROOT = path.resolve(__dirname, '..');
 
 // Manifest loading order of the MAIN world scripts
-const INJECT_ORDER = ['proxy.js', 'relay.js', 'metadata.js', 'classify.js', 'bridge.js', 'dom-metadata.js', 'dom-suggested.js', 'ui.js', 'probe.js', 'fold.js'];
+const INJECT_ORDER = ['proxy.js', 'relay.js', 'metadata.js', 'classify.js', 'bridge.js', 'dom-suggested.js', 'ui.js', 'probe.js', 'fold.js'];
 
 class Checker {
   constructor(title) {
@@ -104,7 +104,91 @@ function createFakeReact() {
     state.refCursor = 0;
   };
 
+  React.setRef = (index, value) => {
+    state.refs[index] = { current: value !== undefined ? value : null };
+  };
+
   return React;
+}
+
+/** Lightweight DOM element double for testing DOM extraction and traversal. */
+function makeNode(tag, attrs = {}, children = [], text = '') {
+  const node = {
+    tagName: tag.toUpperCase(),
+    attributes: Object.assign({}, attrs),
+    href: attrs.href,
+    children: [],
+    parentElement: null,
+    nextElementSibling: null,
+    previousElementSibling: null,
+    textContent: text,
+    getAttribute(name) { return this.attributes[name] === undefined ? null : this.attributes[name]; },
+    hasAttribute(name) { return Object.prototype.hasOwnProperty.call(this.attributes, name); },
+    matches(selector) {
+      if (selector.startsWith('.')) {
+        const cls = selector.slice(1);
+        const curCls = this.attributes.className || this.attributes['class'] || '';
+        return curCls.split(/\s+/).includes(cls);
+      }
+      const parts = selector.match(/^([a-zA-Z0-9-]+)?(\[[^\]]+\])$/);
+      if (parts) {
+        if (parts[1] && parts[1].toUpperCase() !== this.tagName) return false;
+        const attrMatch = parts[2].match(/^\[([^\]=*]+)(?:\*?=)?(.*)\]$/);
+        if (attrMatch) {
+          const name = attrMatch[1];
+          const value = attrMatch[2] === undefined ? null : attrMatch[2].replace(/^["']|["']$/g, '');
+          if (value === null) return this.attributes[name] !== undefined;
+          return this.attributes[name] && this.attributes[name].indexOf(value) !== -1;
+        }
+      }
+      return selector.toUpperCase() === this.tagName;
+    },
+    closest(selector) {
+      let current = this;
+      while (current) {
+        if (current.matches(selector)) return current;
+        current = current.parentElement;
+      }
+      return null;
+    },
+    contains(other) {
+      let current = other;
+      while (current) {
+        if (current === this) return true;
+        current = current.parentElement;
+      }
+      return false;
+    },
+    querySelectorAll(selector) {
+      const selectors = selector.split(',').map((part) => part.trim());
+      const result = [];
+      const walk = (parent) => {
+        for (const child of parent.children) {
+          if (selectors.some((part) => child.matches(part)) && result.indexOf(child) === -1) result.push(child);
+          walk(child);
+        }
+      };
+      walk(this);
+      return result;
+    },
+    querySelector(selector) {
+      const result = this.querySelectorAll(selector);
+      return result.length ? result[0] : null;
+    }
+  };
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
+    if (child) {
+      child.parentElement = node;
+      if (i > 0 && children[i - 1]) {
+        children[i - 1].nextElementSibling = child;
+        child.previousElementSibling = children[i - 1];
+      }
+      node.children.push(child);
+    }
+  }
+  if (!text && node.children.length) node.textContent = node.children.map((child) => child.textContent).join(' ');
+  return node;
 }
 
 /* ------------------------------------------------------------------ *
@@ -218,6 +302,7 @@ function countMessages(win, type) {
 module.exports = {
   Checker,
   createFakeReact,
+  makeNode,
   createWindow,
   loadInject,
   loadDefaults,
