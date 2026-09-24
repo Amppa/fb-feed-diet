@@ -19,6 +19,7 @@
     opacity: 0;
     transform: translateY(-4px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -37,7 +38,7 @@
   margin: 0 0 8px 0 !important;
   border: none !important;
   box-shadow: none !important;
-  border-radius: 4px !important;
+  border-radius: 8px !important;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
   box-sizing: border-box !important;
   user-select: none !important;
@@ -53,7 +54,7 @@
 .fb-diet-placeholder.fb-diet-state-expanded,
 .fb-diet-titlebar.fb-diet-state-expanded {
   margin: 0 !important;
-  border-radius: 4px 4px 0 0 !important;
+  border-radius: 8px 8px 0 0 !important;
 }
 
 .fb-diet-placeholder.fb-diet-state-expanded:hover,
@@ -207,7 +208,7 @@
   overflow: hidden !important;
 }
 
-.fb-diet-foldsquash > * {
+.fb-diet-foldsquash>* {
   position: absolute !important;
   left: 0 !important;
   top: 0 !important;
@@ -250,27 +251,29 @@
  * ------------------------------------------------------------------ */
 
 /* The wrapper anchors the frame pseudo. It carries no border itself. */
-.fb-diet-placeholder.fb-diet-state-expanded ~ .fb-diet-expand-body {
+.fb-diet-placeholder.fb-diet-state-expanded~.fb-diet-expand-body {
   position: relative !important;
   border: none !important;
   --fb-diet-strip-h: 18px;
 }
 
-.fb-diet-titlebar.fb-diet-state-expanded ~ .fb-diet-expand-body {
+.fb-diet-titlebar.fb-diet-state-expanded~.fb-diet-expand-body {
   position: relative !important;
   border: none !important;
   --fb-diet-strip-h: 36px;
 }
 
 /* Expanded state frame: outer border line disabled per user requirement */
-.fb-diet-placeholder.fb-diet-state-expanded ~ .fb-diet-expand-body::after,
-.fb-diet-titlebar.fb-diet-state-expanded ~ .fb-diet-expand-body::after {
+.fb-diet-placeholder.fb-diet-state-expanded~.fb-diet-expand-body::after,
+.fb-diet-titlebar.fb-diet-state-expanded~.fb-diet-expand-body::after {
   display: none !important;
 }
+
 /* Probe diagnostics popup (declarative content-script stylesheet) */
 .fb-diet-probe-holder {
   position: relative;
 }
+
 .fb-diet-probe-btn {
   position: absolute;
   top: 4px;
@@ -291,9 +294,11 @@
   cursor: pointer;
   opacity: 0.55;
 }
+
 .fb-diet-probe-btn:hover {
   opacity: 1;
 }
+
 .fb-diet-probe-popup {
   position: absolute;
   top: 0;
@@ -316,23 +321,28 @@
   user-select: none;
   animation: fb-diet-popup-in 0.2s ease-out forwards;
 }
+
 .fb-diet-probe-popup-row {
   word-break: break-all;
   white-space: pre-wrap;
 }
+
 .fb-diet-probe-popup-spacer {
   height: 10px;
 }
+
 .fb-diet-probe-popup-fadeout {
   opacity: 0;
   transform: translateY(-4px) scale(0.96);
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
+
 @keyframes fb-diet-popup-in {
   from {
     opacity: 0;
     transform: translateY(-4px) scale(0.96);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);

@@ -29,8 +29,12 @@ function run(c) {
   // Feed folding styles contracts
   c.ok('content.css defines 8px gap for standard folded bar', css.includes('margin: 0 0 8px 0 !important;'));
   c.ok('content.css defines 4px gap for mini folded bar', css.includes('margin: 0 0 4px 0 !important;'));
-  c.ok('content.css defines 4px rounded corners for folded bar', css.includes('border-radius: 4px !important;'));
-  c.ok('content.css disables outer frame border when expanded', css.includes('.fb-diet-placeholder.fb-diet-state-expanded ~ .fb-diet-expand-body::after') && css.includes('display: none !important;'));
+  c.ok('content.css defines 8px rounded corners for folded bar', css.includes('border-radius: 8px !important;'));
+  c.ok('content.css disables outer frame border when expanded',
+    (css.includes('.fb-diet-placeholder.fb-diet-state-expanded ~ .fb-diet-expand-body::after') ||
+     css.includes('.fb-diet-placeholder.fb-diet-state-expanded~.fb-diet-expand-body::after')) &&
+    css.includes('display: none !important;')
+  );
 }
 
 module.exports = { run };
