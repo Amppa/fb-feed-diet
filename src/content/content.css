@@ -28,12 +28,21 @@
 /* ------------------------------------------------------------------ *
  * Placeholder Base (Shared layout across 18px and 36px variants)
  * ------------------------------------------------------------------ */
+:root {
+  /* ================================================================== *
+   * [微調設定 / Fine-tune]
+   * feed 收縮後的間隔大小 (可在此修改數值，例如 6px, 8px, 12px 等)
+   * ================================================================== */
+  --fb-diet-collapsed-gap: 8px;
+}
+
 .fb-diet-placeholder,
 .fb-diet-titlebar {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
   width: 100% !important;
+  margin: 0 0 var(--fb-diet-collapsed-gap, 8px) 0 !important;
   border: none !important;
   box-shadow: none !important;
   border-radius: 0 !important;
@@ -64,7 +73,7 @@
 
 /* 18px Ultra-slim strip */
 .fb-diet-placeholder {
-  margin: 0 0 2px 0 !important;
+  margin: 0 0 var(--fb-diet-collapsed-gap, 8px) 0 !important;
   padding: 1px 8px !important;
   min-height: 18px !important;
   height: 18px !important;
@@ -261,28 +270,10 @@
   --fb-diet-strip-h: 36px;
 }
 
-/* One rectangular box draws the whole frame (bar + post), all corners
-   rounded 8px, matching the bar's strip height above the wrapper. */
+/* Expanded state frame: outer border line disabled per user requirement */
 .fb-diet-placeholder.fb-diet-state-expanded ~ .fb-diet-expand-body::after,
 .fb-diet-titlebar.fb-diet-state-expanded ~ .fb-diet-expand-body::after {
-  content: '' !important;
-  position: absolute !important;
-  pointer-events: none !important;
-  z-index: 1 !important;
-  left: 0 !important;
-  right: 0 !important;
-  top: calc(-1 * var(--fb-diet-strip-h, 18px)) !important;
-  bottom: 0 !important;
-  border: 2px solid var(--fb-diet-group-border, var(--divider, rgba(0, 0, 0, 0.12))) !important;
-  border-radius: 8px !important;
-}
-
-/* Dark-theme fallback when Facebook does not provide --divider on this scope. */
-@media (prefers-color-scheme: dark) {
-  .fb-diet-placeholder.fb-diet-state-expanded ~ .fb-diet-expand-body,
-  .fb-diet-titlebar.fb-diet-state-expanded ~ .fb-diet-expand-body {
-    --fb-diet-group-border: rgba(255, 255, 255, 0.16);
-  }
+  display: none !important;
 }
 /* Probe diagnostics popup (declarative content-script stylesheet) */
 .fb-diet-probe-holder {
