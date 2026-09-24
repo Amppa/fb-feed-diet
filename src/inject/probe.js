@@ -12,94 +12,6 @@ window.FBDietProbe = (() => {
   const PROBE_MAX_CHARS = 30000;
   let activeProbePopup = null;
 
-  // Autonomously inject probe CSS styles into the page
-  function injectProbeStyles() {
-    try {
-      if (typeof document === 'undefined') return;
-      if (document.getElementById('fb-diet-probe-styles')) return;
-
-      const style = document.createElement('style');
-      style.id = 'fb-diet-probe-styles';
-      style.textContent = `
-        .fb-diet-probe-holder {
-          position: relative;
-        }
-        .fb-diet-probe-btn {
-          position: absolute;
-          top: 4px;
-          left: -26px;
-          z-index: 9999;
-          width: 22px;
-          height: 22px;
-          line-height: 20px;
-          padding: 0;
-          border-radius: 50%;
-          border: 1px solid rgba(255, 255, 255, 0.4);
-          background: rgba(0, 0, 0, 0.5);
-          color: #fff;
-          font-size: 11px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          opacity: 0.55;
-        }
-        .fb-diet-probe-btn:hover {
-          opacity: 1;
-        }
-        .fb-diet-probe-popup {
-          position: absolute;
-          top: 0;
-          left: 2px;
-          z-index: 10000;
-          min-width: 240px;
-          max-width: 480px;
-          padding: 12px 16px;
-          background: rgba(20, 21, 23, 0.95);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          border-radius: 8px;
-          box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
-          color: #e4e6eb;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-          font-size: 16px;
-          line-height: 1.55;
-          cursor: pointer;
-          user-select: none;
-          animation: fb-diet-popup-in 0.2s ease-out forwards;
-        }
-        .fb-diet-probe-popup-row {
-          word-break: break-all;
-          white-space: pre-wrap;
-        }
-        .fb-diet-probe-popup-spacer {
-          height: 10px;
-        }
-        .fb-diet-probe-popup-fadeout {
-          opacity: 0;
-          transform: translateY(-4px) scale(0.96);
-          transition: opacity 0.25s ease, transform 0.25s ease;
-        }
-        @keyframes fb-diet-popup-in {
-          from {
-            opacity: 0;
-            transform: translateY(-4px) scale(0.96);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-      `;
-      (document.head || document.documentElement).appendChild(style);
-    } catch (e) {
-      // Non-fatal
-    }
-  }
-
-  injectProbeStyles();
-
   function findDiagnosticSignals(payload, lastCmp) {
     if ((!payload || typeof payload !== 'object') && (!lastCmp || typeof lastCmp !== 'object')) return null;
     const matches = [];
@@ -586,7 +498,6 @@ window.FBDietProbe = (() => {
     copyProbeReport,
     closeActiveProbePopup,
     showProbePopup,
-    addProbe,
-    injectProbeStyles
+    addProbe
   };
 })();
