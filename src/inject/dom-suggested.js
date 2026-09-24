@@ -351,4 +351,3 @@ window.FBDietDOMSuggested = (() => {
 
   return { detect: detectSuggestedFromDom };
 })();
-
