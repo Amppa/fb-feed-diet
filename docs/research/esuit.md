@@ -1,29 +1,52 @@
-# Case Study: esuit-suggest-blocker (v2.10.0)
+# ESUIT Facebook Suggest Blocker — Architectural Teardown & Reverse Engineering
 
-> Reference and benchmark teardown of `esuit-suggest-blocker` v2.10.0.
-
-## 📌 Overview
-
-`esuit-suggest-blocker` is a Chrome extension designed to block Facebook feed suggestions and ads. It pioneered extracting classification signals from Facebook's client-side Relay Store rather than parsing fragile DOM text.
+- **Project**: `esuit-suggest-blocker` (Chrome Extension ID: `jkbklfkombochacjoeagggbiohipcbaj`)
+- **Analyzed Version**: `v2.10.0`
+- **Source Artifact**: CRX unpacked / Web Store distribution
 
 ---
 
-## ⚙️ Architecture & Hooking Mechanism
+## 1. Overview
 
-### 1. CSP Relaxation & Relay Store Interception
-- **Technique**: Uses MV3 `declarativeNetRequest` to replace Facebook's native `Content-Security-Policy` header with a static hardcoded header containing `'unsafe-eval'`.
-- **Injection**: Injects an inline `<script>` into the MAIN world that hooks `window.__d`.
-- **Store Capture**: Performs string substitution (`toString().replace(...)`) on the `RelayPublishQueue` module factory, recompiling it via `eval` / `new Function` to capture the Relay Record Store instance into `window.___rs`.
-- **Relay Read Helper**: Exposes `window.___sf(id, path)` to traverse records and follow pointers (paths with `^` prefixes).
+`esuit-suggest-blocker` is a Chrome extension designed to filter Facebook feed recommendations and ads. It represents an early pioneer in extracting classification signals directly from Facebook's client-side Relay Store in the `MAIN` execution world, rather than parsing fragile DOM text.
+
+---
+
+## 2. Architecture & Hooking Mechanism
+
+```mermaid
+graph TD
+    A[declarativeNetRequest<br/>rules_1.json] -->|Overwrites CSP to allow unsafe-eval| B[Facebook Page Load]
+    B --> C[injects/proxy.js<br/>Define Object.defineProperty getter/setter on window.__d]
+    C -->|String replace on factory| D[relay-runtime/store/RelayPublishQueue]
+    D -->|Global Store Assignment| E[window.___rs = RelayRecordSourceProxy instance]
+    C -->|Factory Proxying on 14 Comet Modules| F[injects/index.js<br/>Component Wrapping]
+    E -->|Traverse via window.___sf helper| F
+    F -->|Replace ad with 1x1 invisible container| G[Final Rendered DOM]
+```
+
+### 1. CSP Relaxation & Code Injection
+- **Technique**: Uses MV3 `declarativeNetRequest` with `rules_1.json` to overwrite Facebook's response `content-security-policy` header with a static header containing `'unsafe-eval'` and `'unsafe-inline'`.
+- **Loader Interception**: Defines a `getter/setter` on `window.__d` before Facebook's loader initializes, wrapping `window.__d` with a `Proxy`.
+- **Store Capture via String Manipulation**:
+  Performs regex string substitution on the `RelayPublishQueue` module factory:
+  ```javascript
+  sourceCode.replace(
+    /,(\w+)=new\((\w+)\("relay-runtime\/mutations\/RelayRecordSourceProxy"/,
+    ',$1=window["___rs"]=new($2("relay-runtime/mutations/RelayRecordSourceProxy"'
+  );
+  ```
+  The modified code string is re-compiled into an executable function via dynamic `<script>` tag injection (`window['__fnCache']`).
+- **Relay Read Helper**: Exposes `window.___sf(id, path)` to traverse records and follow pointers (paths with `^` and `^^` prefixes).
 
 ### 2. Operational Scope
-- Only runs when `location.pathname === '/'` (Strictly limited to the homepage). Does not handle search, marketplace, or permalink pages.
+- Only runs when `location.pathname === '/'` (Strictly limited to the homepage root). Unhandled on search, marketplace, or permalink routes.
 
 ---
 
-## 🎯 Feed Classification Logic (`classifyFeedUnit`)
+## 3. Feed Classification Logic (`classifyFeedUnit`)
 
-esuit extracts the root Relay unit ID and evaluates a series of short-circuiting `if` branches in the following exact order:
+esuit extracts the root Relay unit ID and evaluates short-circuiting conditions in fixed order:
 
 ```text
 Groups You Might Like  -->  Suggested  -->  Sponsored  -->  Reels / Story Header
@@ -40,34 +63,60 @@ Groups You Might Like  -->  Suggested  -->  Sponsored  -->  Reels / Story Header
 | **SUGGESTED** *(Header variant)* | `title.text` exists under `story_header{"location":"homepage_stream"}` | Nested unit `story_header` |
 
 ### Non-Feed Component Decoration
-Apart from `classifyFeedUnit`, esuit hides or decorates 14 fixed Comet component names via `window.__d` factory wrapping:
+Apart from `classifyFeedUnit`, esuit wraps 14 fixed Comet component names via `window.__d`:
 - Stories trays (`StoriesTray*.react`, `CometStoriesTray.react`)
-- Marketplace side units
-- Search ads
-- Right rail units
+- Marketplace side units (`CometMarketplaceAdCard.react`)
+- Search ads (`SearchCometResultsAd.react`)
+- Right rail units (`CometHomeRightRailUnit.react`, `CometAdsSideFeedUnitItem.react`)
+- People You May Know grids (`FriendingCometPYMK*.react`)
+
+### 1x1 Squash Container
+To avoid triggering Facebook's internal `IntersectionObserver` exceptions when `display: none` is applied to active feed items, esuit encapsulates filtered units in a 1x1 invisible container:
+```javascript
+function renderHidden(child) {
+  return t.jsx("div", {
+    style: { position: "relative" },
+    children: t.jsx("div", {
+      style: {
+        position: "absolute",
+        left: 0,
+        top: 0,
+        opacity: 0,
+        pointerEvents: "none",
+        userSelect: "none",
+        zIndex: -1,
+        maxWidth: 1,
+        maxHeight: 1,
+        width: 1,
+        height: 1,
+        overflow: "hidden"
+      },
+      children: child
+    })
+  });
+}
+```
 
 ---
 
-## ⚠️ Critical Flaws & Lessons Learned
+## 4. Architecture Evaluation & Vulnerabilities
 
-FB Diet's empirical testing and diagnostic probe logs revealed severe architectural and algorithmic flaws in esuit's approach:
+### Critical Vulnerabilities & Flaws
 
-### 1. Stability: White Screens from Hardcoded CSP (Decision #9)
-- **Problem**: esuit's `rules.json` completely overwrote Facebook's response CSP with a hardcoded domain whitelist just to inject `'unsafe-eval'`.
-- **Failure Mode**: Whenever Facebook introduces or migrates static CDN domains (e.g. `*.fbcdn.net`), browser network requests fail with CSP violations, causing intermittent white screens on page load.
-- **FB Diet Solution**: Capture `RelayRecordSourceProxy` using a safe Proxy construct trap in `proxy.js` / `relay.js`—pure object wrapping without `eval`, inline scripts, or CSP modifications.
+#### 1. Page Instability from Static CSP Overwrite
+- **Problem**: Overwriting Facebook's dynamic CSP with a static domain whitelist breaks whenever Meta provisions new CDN origins (`*.fbcdn.net`, regional media clusters).
+- **Consequence**: Users suffer intermittent white screens and failed resource fetches due to browser-level CSP rejections.
+- **Architectural Risk**: Violates Chrome Web Store security guidelines by re-introducing `'unsafe-eval'`.
 
-### 2. False Positives: Contextual Story Header Collision (Decisions #2 & #6)
-- **Problem**: esuit checks if `story_header(location:homepage_stream)` has a non-empty `title.text`.
-- **Failure Mode**: Facebook uses the **identical** keyed record `client:*:story_header(location:homepage_stream):title` for contextual friend activities (e.g. *"Alice commented on Bob's photo"*).
-- **Consequence**: Users' genuine friend interactions are falsely classified as suggestions and collapsed.
-- **FB Diet Solution**: Retired the `story_header` heuristic completely (archived in `classify-retired.js`). Rely on relationship state (`CAN_SUBSCRIBE`, `CAN_JOIN`) and unpeeled `action_links`.
+#### 2. False Positives: Contextual Story Header Collision
+- **Problem**: Checks if `story_header(location:homepage_stream)` contains a non-empty `title.text`.
+- **Failure Mode**: Facebook reuses the exact same keyed record (`client:*:story_header(location:homepage_stream):title`) for contextual organic friend stories (e.g., *"Alice commented on Bob's photo"*).
+- **Consequence**: Genuine interactions between friends are misclassified as algorithmic suggestions and hidden.
 
-### 3. False Positives: Shared Reels (Decision #3)
-- **Problem**: Testing for `showcase_story_type === 'SHOWCASE_SHORT_VIDEO'`.
-- **Failure Mode**: When a friend shares a video Reel as an attachment in a standard `Story`, the attachment record contains `SHOWCASE_SHORT_VIDEO`.
-- **Consequence**: Regular friend posts with shared reels are aggressively hidden.
-- **FB Diet Solution**: Only flag reels when the feed unit **itself** has `__typename === 'ShowcaseFeedUnit'`, and explicitly ignore attachments decorated by `CometFeedStoryFBReelsAttachmentStyle.react`.
+#### 3. False Positives: Shared Reels
+- **Problem**: Checks if any attachment unit carries `showcase_story_type === 'SHOWCASE_SHORT_VIDEO'`.
+- **Failure Mode**: When a friend reshares an organic video Reel as an attachment inside a standard `Story`, the attachment record matches this criteria.
+- **Consequence**: Friends' organic posts containing shared reels are aggressively hidden.
 
-### 4. Display Mechanism: 1x1 Squash vs Element Zeroing (Decision #5)
-- esuit injects a 1x1 invisible container to avoid breaking Facebook's `IntersectionObserver`. FB Diet adopted a similar squash container, but augmented it with non-destructive, reversible two-way toggle bars (`FBDietFold` / `FBDietTitleBar`).
+#### 4. Scope Limitations
+- Bound strictly to `pathname === '/'`. Any SPA navigation to search or sub-feeds leaves ads unfiltered.
