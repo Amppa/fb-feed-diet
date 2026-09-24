@@ -1,5 +1,5 @@
 'use strict';
-const { Checker, createFakeReact, createWindow, loadInject, loadDefaults, createFakeComet, countMessages } = require('./harness');
+const { Checker, createFakeReact, makeNode, createWindow, loadInject, loadDefaults, createFakeComet, countMessages } = require('./harness');
 
 const FEED_MODULE = 'CometFeedUnitErrorBoundary.react';
 const SPONSORED_PATH = '^sponsored_data.ad_id';
@@ -489,6 +489,92 @@ function run(c) {
     c.equals('badge rendered', kids[0].props.className, 'fb-diet-badge fb-diet-badge-suggested');
     c.equals('author rendered', kids[1].props.children, 'Hedy Lamarr:');
     c.equals('snippet rendered', kids[2].props.children, 'Spread spectrum technology');
+  }
+
+  /* --- full mode, always show title, folded state displays title extracted from DOM --- */
+  {
+    const t = setup({ '^^actors[0].subscribe_status': 'CAN_SUBSCRIBE' });
+    t.bridge.setSettings({
+      enabled: true,
+      dietMode: 'full',
+      showTitleMode: 'always',
+      foldSuggested: true
+    });
+
+    const unitId = 'u-full-always-fold';
+    const payload = payloadOf(unitId);
+
+    // 1. Initial render of FBDietFold in folded state
+    t.React.resetHooks();
+    const foldOut = t.render(payload);
+    c.ok('full mode folded output is Fragment', foldOut.type === t.React.Fragment);
+
+    const [barEl, hiddenContainerEl] = foldOut.props.children;
+    c.equals('notice bar receives category suggested', barEl.props.category, 'suggested');
+    c.equals('notice bar receives unitId', barEl.props.unitId, unitId);
+    c.equals('folded bar has showTitle: true under always mode', barEl.props.showTitle, true);
+    c.equals('folded bar has isExpanded: false in folded state', barEl.props.isExpanded, false);
+    c.equals('squash container has fb-diet-fold-hidden class', hiddenContainerEl.props.className, 'fb-diet-fold-hidden fb-diet-foldsquash');
+
+    // 2. Construct simulated DOM inside the folded container:
+    // Recommendation header (should be skipped), Real Author heading, Action buttons, Timestamp (should be skipped), Real Message
+    const recHeader = makeNode('h3', {}, [], '為你推薦');
+    const realAuthorLink = makeNode('a', { role: 'link' }, [], 'Marie Curie');
+    const authorHeading = makeNode('h4', { role: 'heading' }, [realAuthorLink]);
+    const followBtn = makeNode('div', { role: 'button' }, [], '追蹤');
+    const timeSpan = makeNode('span', { dir: 'auto' }, [], '3 小時');
+    const msgSpan = makeNode('span', { dir: 'auto' }, [], 'Discovered Polonium and Radium\nNobel Prize laureate');
+
+    const domFoldContainer = makeNode('div', { className: 'fb-diet-fold-hidden fb-diet-foldsquash' }, [
+      recHeader,
+      authorHeading,
+      followBtn,
+      timeSpan,
+      msgSpan
+    ]);
+
+    const domBarNode = makeNode('div', { className: 'fb-diet-titlebar' });
+    makeNode('div', {}, [domBarNode, domFoldContainer]);
+
+    // 3. Connect React ref to the bar DOM element and render FBDietTitleBar
+    t.React.resetHooks();
+    t.React.setRef(0, domBarNode);
+
+    const renderedBar = t.win.FBDietUI.FBDietTitleBar(barEl.props);
+    c.ok('title bar component renders', Boolean(renderedBar));
+    c.ok('title bar has base class fb-diet-titlebar', renderedBar.props.className.includes('fb-diet-titlebar'));
+    c.ok('folded title bar does NOT have fb-diet-state-expanded', !renderedBar.props.className.includes('fb-diet-state-expanded'));
+
+    // Cache should be populated from DOM scan
+    const cached = t.win.FBDietUI.titleBarCache.get(unitId);
+    c.ok('titleBarCache populated for folded unit', Boolean(cached));
+    c.equals('author extracted skips 為你推薦', cached.actorName, 'Marie Curie');
+    c.equals('snippet extracted skips timestamp', cached.snippetText, 'Discovered Polonium and Radium');
+
+    // Re-render (or inspect rendered element children)
+    t.React.resetHooks();
+    const finalBar = t.win.FBDietUI.FBDietTitleBar(barEl.props);
+    const contentBox = finalBar.props.children;
+    const kids = contentBox.props.children;
+
+    c.equals('badge displayed in folded state', kids[0].props.className, 'fb-diet-badge fb-diet-badge-suggested');
+    c.equals('author displayed with colon in folded state', kids[1].props.children, 'Marie Curie:');
+    c.equals('snippet displayed in folded state', kids[2].props.children, 'Discovered Polonium and Radium');
+
+    // 4. Also verify toggle to expanded keeps title under 'always'
+    t.bridge.toggle(unitId);
+    t.React.resetHooks();
+    const expandedFoldOut = t.render(payload);
+    const [expandedBarEl] = expandedFoldOut.props.children;
+    c.equals('expanded bar keeps showTitle: true under always mode', expandedBarEl.props.showTitle, true);
+    c.equals('expanded bar has isExpanded: true', expandedBarEl.props.isExpanded, true);
+
+    t.React.resetHooks();
+    const renderedExpandedBar = t.win.FBDietUI.FBDietTitleBar(expandedBarEl.props);
+    c.ok('expanded title bar has fb-diet-state-expanded class', renderedExpandedBar.props.className.includes('fb-diet-state-expanded'));
+    const expandedKids = renderedExpandedBar.props.children.props.children;
+    c.equals('author still displayed in expanded state', expandedKids[1].props.children, 'Marie Curie:');
+    c.equals('snippet still displayed in expanded state', expandedKids[2].props.children, 'Discovered Polonium and Radium');
   }
 }
 
