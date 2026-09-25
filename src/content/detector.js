@@ -104,6 +104,23 @@ window.FBDietDetector = (() => {
     return visibleChars.trim();
   }
 
+  // Facebook's own /ads/ path (relative or facebook.com absolute) is the
+  // "Why am I seeing this ad?" byline link; ad_id must be an actual query
+  // parameter. The bare substring forms folded organic posts: thread_id /
+  // load_id contain "ad_id", and any external site's "/ads/about" page
+  // matched as well.
+  const AD_LINK_HREF_RE = /^(?:https?:\/\/(?:[a-z0-9-]+\.)?facebook\.com)?\/ads\//;
+  const AD_ID_PARAM_RE = /[?&]ad_id=/;
+
+  function hasAdMarkerLink(scope) {
+    const candidates = scope.querySelectorAll('a[href*="/ads/"], a[href*="ad_id"]');
+    for (const link of candidates) {
+      const href = link.getAttribute('href') || '';
+      if (AD_LINK_HREF_RE.test(href) || AD_ID_PARAM_RE.test(href)) return true;
+    }
+    return false;
+  }
+
   /**
    * Checks if an element represents a Sponsored post or unit.
    */
@@ -111,8 +128,7 @@ window.FBDietDetector = (() => {
     if (!isElement(feedUnit)) return false;
 
     // 1. Structural check: Ads transparency / Why am I seeing this ad links
-    const adLinks = feedUnit.querySelectorAll('a[href*="/ads/about"], a[href*="facebook.com/ads/"], a[href*="ad_id"]');
-    if (adLinks.length > 0) return true;
+    if (hasAdMarkerLink(feedUnit)) return true;
 
     // `data-ad-rendering-role` is also used on ordinary Comet feed nodes, so
     // never use it as advertising evidence.  An actual ad id is specific.
@@ -217,7 +233,7 @@ window.FBDietDetector = (() => {
     }
 
     // Ad indicator in attributes
-    if (element.querySelector('[data-ad-id], a[href*="/ads/about"]')) {
+    if (element.querySelector('[data-ad-id]') || hasAdMarkerLink(element)) {
       return true;
     }
 
@@ -236,7 +252,7 @@ window.FBDietDetector = (() => {
       if (visibleText.includes(kw)) return true;
     }
 
-    if (element.querySelector('a[href*="/ads/about"]')) {
+    if (hasAdMarkerLink(element)) {
       return true;
     }
 
