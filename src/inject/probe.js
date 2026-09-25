@@ -64,6 +64,26 @@ window.FBDietProbe = (() => {
     return matches.length ? matches : null;
   }
 
+  function resolveProbeScope() {
+    let scopePath = null;
+    let scopeRestricted = false;
+    let scopeAllowed = true;
+    try {
+      scopePath = (typeof window !== 'undefined' && window.location && window.location.pathname) || null;
+      const bridge = typeof window !== 'undefined' ? window.FBDietBridge : null;
+      const scopeSettings = bridge && bridge.getSettings ? bridge.getSettings() : null;
+      scopeRestricted = Boolean(scopeSettings && scopeSettings.restrictFoldScope !== false);
+      const scopeDefaults = (typeof window !== 'undefined' && window.FB_DIET_DEFAULTS) || (typeof globalThis !== 'undefined' && globalThis.FB_DIET_DEFAULTS);
+      const isScopeAllowed = scopeDefaults && typeof scopeDefaults.isFoldScopeAllowed === 'function'
+        ? scopeDefaults.isFoldScopeAllowed
+        : null;
+      scopeAllowed = !scopeRestricted || !isScopeAllowed || isScopeAllowed(scopePath);
+    } catch (e) {
+      // Diagnostics must never break the report
+    }
+    return { restricted: scopeRestricted, allowed: scopeAllowed, path: scopePath };
+  }
+
   function buildUnitProbeReport(props, classifyResult, relayReads, container, renderedAt) {
     const feedUnit = props.payload && props.payload.feedUnit;
     const nowIso = new Date().toISOString();
@@ -72,7 +92,7 @@ window.FBDietProbe = (() => {
     const unitKey = classifyResult && (classifyResult.unitId || (classifyResult.evidence && classifyResult.evidence.id));
     const ui = window.FBDietUI;
     const cached = unitKey && ui && ui.titleBarCache ? ui.titleBarCache.get(unitKey) : null;
-    const isMediaGroup = classifyResult && (classifyResult.category === 'reels' || classifyResult.category === 'stories');
+    const isMediaGroup = classifyResult && (classifyResult.category === 'reels' || classifyResult.category === 'stories' || classifyResult.category === 'suggestedGroup');
     const domMetadata = window.FBDietDOMMetadata;
     const domLive = container && domMetadata && typeof domMetadata.collect === 'function'
       ? domMetadata.collect(container, isMediaGroup)
@@ -206,6 +226,10 @@ window.FBDietProbe = (() => {
       postUrl: postUrl || null,
       adUrl: adUrl || null,
       media: (domLive && domLive.media) || null,
+      urls: (domLive && domLive.urls) || null,
+      title: (domLive && domLive.title) || null,
+      reshare: (domLive && domLive.reshare) || null,
+      textCandidates: (domLive && domLive.textCandidates) || [],
       suggested: domSuggestedLive || null,
       debug: (domSuggestedLive && domSuggestedLive.debug) || null
     };
@@ -249,22 +273,7 @@ window.FBDietProbe = (() => {
 
     // Fold-scope context (STRATEGY.md decision #26): was folding restricted for this
     // report, what is the runtime verdict, and on which path.
-    let scopePath = null;
-    let scopeRestricted = false;
-    let scopeAllowed = true;
-    try {
-      scopePath = (window.location && window.location.pathname) || null;
-      const scopeSettings = window.FBDietBridge && window.FBDietBridge.getSettings ? window.FBDietBridge.getSettings() : null;
-      scopeRestricted = Boolean(scopeSettings && scopeSettings.restrictFoldScope !== false);
-      const scopeDefaults = window.FB_DIET_DEFAULTS;
-      const isScopeAllowed = scopeDefaults && typeof scopeDefaults.isFoldScopeAllowed === 'function'
-        ? scopeDefaults.isFoldScopeAllowed
-        : null;
-      scopeAllowed = !scopeRestricted || !isScopeAllowed || isScopeAllowed(scopePath);
-    } catch (e) {
-      // Diagnostics must never break the report
-    }
-    report.scope = { restricted: scopeRestricted, allowed: scopeAllowed, path: scopePath };
+    report.scope = resolveProbeScope();
 
     let text = null;
     try {
@@ -274,6 +283,217 @@ window.FBDietProbe = (() => {
     }
     if (text.length > PROBE_MAX_CHARS) text = text.slice(0, PROBE_MAX_CHARS) + '\n…[truncated]';
     return { text, report };
+  }
+
+  function buildProxyProbeReport(props, classifyResult, relayReads, renderedAt) {
+    const full = buildUnitProbeReport(props, classifyResult, relayReads, null, renderedAt);
+    const rep = full.report;
+    const feedUnit = props && props.payload && props.payload.feedUnit;
+    const postId = (feedUnit && (feedUnit.post_id || feedUnit.clip_id || (feedUnit.story && feedUnit.story.post_id) || feedUnit.mf_story_key)) || null;
+    const unitId = classifyResult && (classifyResult.unitId || (classifyResult.evidence && classifyResult.evidence.id));
+    const feedPosition = props && props.payload && typeof props.payload.position === 'number' ? props.payload.position : null;
+
+    let cleanClassify = null;
+    if (rep.classify) {
+      cleanClassify = {
+        category: rep.classify.category,
+        unitTypename: rep.classify.unitTypename,
+        reason: rep.classify.reason
+      };
+      if (rep.classify.signal) {
+        cleanClassify.signal = rep.classify.signal;
+      }
+      if (rep.classify.evidence) {
+        const cleanEvidence = {};
+        for (const [k, v] of Object.entries(rep.classify.evidence)) {
+          if (v !== null && v !== undefined) {
+            cleanEvidence[k] = v;
+          }
+        }
+        if (Object.keys(cleanEvidence).length > 0) {
+          cleanClassify.evidence = cleanEvidence;
+        }
+      }
+    }
+
+    const cleanMemory = {};
+    if (rep.memory) {
+      if (rep.memory.enrichment) {
+        cleanMemory.enrichment = rep.memory.enrichment;
+      }
+      if (rep.memory.relayStatus) {
+        const rs = {
+          isReady: rep.memory.relayStatus.isReady,
+          sourceCount: rep.memory.relayStatus.sourceCount
+        };
+        if (rep.memory.relayStatus.lastError) {
+          rs.lastError = rep.memory.relayStatus.lastError;
+        }
+        cleanMemory.relayStatus = rs;
+      }
+    }
+
+    const cleanPayload = {};
+    if (rep.payload) {
+      if (rep.payload.feedUnit) {
+        const fu = { post_id: postId };
+        if (rep.payload.feedUnit.debug_info) fu.debug_info = rep.payload.feedUnit.debug_info;
+        if (rep.payload.feedUnit.th_dat_spo !== null && rep.payload.feedUnit.th_dat_spo !== undefined) fu.th_dat_spo = rep.payload.feedUnit.th_dat_spo;
+        cleanPayload.feedUnit = fu;
+      }
+      if (rep.payload.payloadKeys && rep.payload.payloadKeys.length) cleanPayload.payloadKeys = rep.payload.payloadKeys;
+      if (rep.payload.feedUnitKeys && rep.payload.feedUnitKeys.length) cleanPayload.feedUnitKeys = rep.payload.feedUnitKeys;
+      if (rep.payload.childrenKeys && rep.payload.childrenKeys.length) cleanPayload.childrenKeys = rep.payload.childrenKeys;
+    }
+
+    let activeRelayReads = null;
+    if (Array.isArray(rep.relayReads) && rep.relayReads.length > 0) {
+      activeRelayReads = rep.relayReads.filter((item) => {
+        if (typeof item === 'string') return true;
+        return item && item.value !== null && item.value !== undefined;
+      });
+    }
+
+    const proxyReport = {
+      // Part 1: 環境 (Environment)
+      version: rep.version,
+      type: 'proxy',
+      dietMode: rep.dietMode,
+      scope: rep.scope,
+      at: rep.at,
+
+      // Part 2: 輸入 (Input Context)
+      feedPosition: feedPosition,
+      postId: postId || null,
+      ...(rep.moduleName ? { moduleName: rep.moduleName } : {}),
+      unitId: unitId || null,
+
+      // Part 3: 分類與策略結果 (Classification & Policy)
+      classify: cleanClassify,
+      categorySetting: rep.categorySetting,
+
+      // Part 4: 底層除錯數據 (Raw Diagnostics)
+      memory: cleanMemory,
+      payload: cleanPayload
+    };
+
+    if (rep.entryCategory !== undefined) proxyReport.entryCategory = rep.entryCategory;
+    if (rep.signals && rep.signals.length) proxyReport.signals = rep.signals;
+    if (activeRelayReads && activeRelayReads.length) proxyReport.relayReads = activeRelayReads;
+    if (rep.recordKeys && rep.recordKeys.length) proxyReport.recordKeys = rep.recordKeys;
+    if (rep.url && (rep.url.post || rep.url.ad)) {
+      proxyReport.url = {};
+      if (rep.url.post) proxyReport.url.post = rep.url.post;
+      if (rep.url.ad) proxyReport.url.ad = rep.url.ad;
+    }
+
+    let text = null;
+    try {
+      text = JSON.stringify(proxyReport, null, 2);
+    } catch (e) {
+      text = '{"error":"proxy probe serialization failed: ' + String(e && e.message ? e.message : e) + '"}';
+    }
+    if (text.length > PROBE_MAX_CHARS) text = text.slice(0, PROBE_MAX_CHARS) + '\n…[truncated]';
+    return { text, report: proxyReport };
+  }
+
+  function buildDomProbeReport(container, props, classifyResult, renderedAt) {
+    const nowIso = new Date().toISOString();
+    const renderIso = renderedAt || nowIso;
+    const feedUnit = props && props.payload && props.payload.feedUnit;
+    const postId = (feedUnit && (feedUnit.post_id || feedUnit.clip_id || (feedUnit.story && feedUnit.story.post_id) || feedUnit.mf_story_key)) || null;
+    const unitId = classifyResult && (classifyResult.unitId || (classifyResult.evidence && classifyResult.evidence.id));
+    const feedPosition = props && props.payload && typeof props.payload.position === 'number' ? props.payload.position : null;
+    const moduleName = (props && props.moduleName) || (classifyResult && classifyResult.moduleName) || null;
+
+    const extVersion = (typeof window !== 'undefined' && window.FB_DIET_DEFAULTS && window.FB_DIET_DEFAULTS.VERSION)
+      || (typeof globalThis !== 'undefined' && globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.VERSION);
+    const bridge = window.FBDietBridge;
+    const currentSettings = bridge && typeof bridge.getSettings === 'function' ? bridge.getSettings() : null;
+    const activeMode = currentSettings ? (currentSettings.dietMode || 'lite') : 'lite';
+    const scope = resolveProbeScope();
+
+    const isMediaGroup = classifyResult && (classifyResult.category === 'reels' || classifyResult.category === 'stories' || classifyResult.category === 'suggestedGroup');
+    const domMetadata = window.FBDietDOMMetadata;
+    const domLive = container && domMetadata && typeof domMetadata.collect === 'function'
+      ? domMetadata.collect(container, isMediaGroup)
+      : null;
+
+    let domSuggestedLive = (classifyResult && classifyResult.domEvidence) || null;
+    const detector = window.FBDietDOMSuggested;
+    if ((!domSuggestedLive || !domSuggestedLive.debug) && container && detector && typeof detector.detect === 'function') {
+      try {
+        const live = detector.detect(container);
+        if (live) {
+          domSuggestedLive = domSuggestedLive ? Object.assign({}, live, domSuggestedLive) : live;
+        }
+      } catch (e) {}
+    }
+
+    const liveUrls = (domLive && domLive.urls) || {};
+    let synthesizedUrl = null;
+    let authorHandle = (domLive && domLive.actor) || null;
+    if (postId && authorHandle) {
+      synthesizedUrl = 'https://www.facebook.com/' + encodeURIComponent(authorHandle) + '/posts/' + postId;
+    }
+    const rawResolvedUrls = Object.assign({
+      primary: (domLive && domLive.postUrl) || synthesizedUrl || null,
+      raw: liveUrls.raw || null,
+      domPermalink: liveUrls.domPermalink || null,
+      synthesized: synthesizedUrl,
+      authorProfile: liveUrls.authorProfile || null,
+      groupUrl: liveUrls.groupUrl || null,
+      adUrl: (domLive && domLive.adUrl) || liveUrls.adUrl || null
+    }, liveUrls);
+
+    let cleanUrls = null;
+    for (const [k, v] of Object.entries(rawResolvedUrls)) {
+      if (v !== null && v !== undefined) {
+        if (!cleanUrls) cleanUrls = {};
+        cleanUrls[k] = v;
+      }
+    }
+
+    const domReport = {
+      // Part 1: 環境 (Environment)
+      version: extVersion,
+      type: 'dom',
+      dietMode: activeMode,
+      scope: scope,
+      at: {
+        rendered: renderIso,
+        probed: nowIso
+      },
+
+      // Part 2: 輸入 (Input Context)
+      feedPosition: feedPosition,
+      postId: postId || null,
+      ...(moduleName ? { moduleName } : {}),
+      unitId: unitId || null,
+
+      // Part 3: DOM 提取結果 (DOM Extraction & Suggested Detection)
+      ...(cleanUrls ? { urls: cleanUrls } : {}),
+      ...((domLive && domLive.actor) ? { actor: domLive.actor } : {}),
+      ...((domLive && domLive.group) ? { group: domLive.group } : {}),
+      ...((domLive && domLive.title) ? { title: domLive.title } : {}),
+      ...((domLive && domLive.snippet) ? { snippet: domLive.snippet } : {}),
+      ...((domLive && domLive.media) ? { media: domLive.media } : {}),
+      ...((domLive && domLive.reshare) ? { reshare: domLive.reshare } : {}),
+      ...(domSuggestedLive ? { suggested: domSuggestedLive } : {}),
+
+      // Part 4: 底層文字候選與偵錯 (Raw Candidates & Debug)
+      textCandidates: (domLive && domLive.textCandidates) || [],
+      ...((domSuggestedLive && domSuggestedLive.debug) ? { debug: domSuggestedLive.debug } : {})
+    };
+
+    let text = null;
+    try {
+      text = JSON.stringify(domReport, null, 2);
+    } catch (e) {
+      text = '{"error":"dom probe serialization failed: ' + String(e && e.message ? e.message : e) + '"}';
+    }
+    if (text.length > PROBE_MAX_CHARS) text = text.slice(0, PROBE_MAX_CHARS) + '\n…[truncated]';
+    return { text, report: domReport };
   }
 
   function promptFallbackCopy(payload) {
@@ -308,10 +528,13 @@ window.FBDietProbe = (() => {
     const popup = activeProbePopup;
     activeProbePopup = null;
     try {
-      if (typeof document !== 'undefined') {
-        document.removeEventListener('click', onOutsideProbeClick, true);
+      const doc = (typeof document !== 'undefined' ? document : null) || (typeof window !== 'undefined' && window.document ? window.document : null);
+      if (doc && typeof doc.removeEventListener === 'function') {
+        doc.removeEventListener('click', onOutsideProbeClick, true);
       }
-      popup.classList.add('fb-diet-probe-popup-fadeout');
+      if (popup.classList && typeof popup.classList.add === 'function') {
+        popup.classList.add('fb-diet-probe-popup-fadeout');
+      }
       setTimeout(() => {
         try { popup.remove(); } catch (e) {}
       }, 200);
@@ -326,102 +549,159 @@ window.FBDietProbe = (() => {
     closeActiveProbePopup();
   }
 
-  function showProbePopup(holder, classifyResult, props, report) {
+  function showProbePopup(holder, classifyResult, props, report, mode) {
     try {
-      if (!holder || typeof document === 'undefined' || typeof document.createElement !== 'function') return;
+      const doc = (typeof document !== 'undefined' ? document : null)
+        || (typeof window !== 'undefined' && window.document ? window.document : null)
+        || (holder && holder.ownerDocument ? holder.ownerDocument : null);
+      if (!holder || !doc || typeof doc.createElement !== 'function') return;
 
       closeActiveProbePopup();
 
-      const popup = document.createElement('div');
+      const popup = doc.createElement('div');
       popup.className = 'fb-diet-probe-popup';
       popup.title = '點擊外部可關閉提示 (Click outside to dismiss)';
 
-      const category = (report && report.classify && report.classify.category)
-        || (report && report.categorySetting && report.categorySetting.category)
-        || (classifyResult && classifyResult.category)
-        || (props && props.entryCategory)
-        || 'regular';
-      const reason = (report && report.classify && report.classify.reason)
-        || (report && report.dom && report.dom.suggested && report.dom.suggested.reason)
-        || (classifyResult && classifyResult.reason)
-        || (props && props.moduleName ? 'component:' + props.moduleName : 'no-match');
-
-      const evidence = classifyResult && classifyResult.evidence;
-      const source = evidence && evidence.source && evidence.source !== 'none' ? evidence.source : null;
-      const mod = (classifyResult && classifyResult.moduleName) || (props && props.moduleName) || null;
-      let evidenceText = source || '';
-      if (mod) {
-        evidenceText = evidenceText ? evidenceText + ' (' + mod + ')' : mod;
-      }
-      if (!evidenceText) evidenceText = 'none';
-
-      const ui = window.FBDietUI;
-      const userFacingGroup = ui && typeof ui.groupOf === 'function' ? ui.groupOf(category) : 'regular';
-      const groupMeta = (ui && ui.GROUP_META && ui.GROUP_META[userFacingGroup]) || { badgeText: 'Other' };
-
-      // Mode & Category switch status
       const modeStr = (report && (report.dietMode || report.mode) ? (report.dietMode || report.mode).toUpperCase() : 'LITE');
-      const catSetting = report && report.categorySetting;
-      const statusText = catSetting ? (catSetting.enabled ? 'ON (' + catSetting.foldMode + ')' : 'OFF') : 'OFF';
 
-      const modeRow = document.createElement('div');
-      modeRow.className = 'fb-diet-probe-popup-row';
-      modeRow.textContent = 'Mode: ' + modeStr + ' · Filter: ' + statusText;
-      popup.appendChild(modeRow);
+      if (mode === 'dom') {
+        // DOM Probe Popup
+        const headerRow = doc.createElement('div');
+        headerRow.className = 'fb-diet-probe-popup-row';
+        headerRow.textContent = 'DOM Probe (' + modeStr + ')';
+        popup.appendChild(headerRow);
 
-      // Category: Ads (sponsored)
-      const catRow = document.createElement('div');
-      catRow.className = 'fb-diet-probe-popup-row';
-      catRow.textContent = 'Category: ' + groupMeta.badgeText + ' (' + category + ')';
-      popup.appendChild(catRow);
+        if (report && report.actor) {
+          const actorRow = doc.createElement('div');
+          actorRow.className = 'fb-diet-probe-popup-row';
+          actorRow.textContent = 'Author: ' + report.actor + (report.group ? ' · Group: ' + report.group : '');
+          popup.appendChild(actorRow);
+        }
 
-      // Signal: th_dat_spo
-      const signalRow = document.createElement('div');
-      signalRow.className = 'fb-diet-probe-popup-row';
-      signalRow.textContent = 'Signal: ' + reason;
-      popup.appendChild(signalRow);
+        if (report && report.title && report.title.text) {
+          const titleRow = doc.createElement('div');
+          titleRow.className = 'fb-diet-probe-popup-row';
+          titleRow.textContent = 'Title: ' + (report.title.text.length > 40 ? report.title.text.slice(0, 40) + '…' : report.title.text);
+          popup.appendChild(titleRow);
+        }
 
-      // Source: props (CometFeedUnitErrorBoundary.react)
-      const sourceRow = document.createElement('div');
-      sourceRow.className = 'fb-diet-probe-popup-row';
-      sourceRow.textContent = 'Source: ' + evidenceText;
-      popup.appendChild(sourceRow);
+        if (report && report.snippet) {
+          const snipRow = doc.createElement('div');
+          snipRow.className = 'fb-diet-probe-popup-row';
+          snipRow.textContent = 'Snippet: ' + (report.snippet.length > 40 ? report.snippet.slice(0, 40) + '…' : report.snippet);
+          popup.appendChild(snipRow);
+        }
 
-      // Scope: fold-scope verdict (STRATEGY.md decision #26)
-      if (report && report.scope) {
-        const scopeRow = document.createElement('div');
-        scopeRow.className = 'fb-diet-probe-popup-row';
-        scopeRow.textContent = 'Scope: ' + (report.scope.allowed ? 'home/search/marketplace' : 'groups/profile');
-        popup.appendChild(scopeRow);
+        if (report && report.media) {
+          const mediaRow = doc.createElement('div');
+          mediaRow.className = 'fb-diet-probe-popup-row';
+          mediaRow.textContent = 'Media: ' + report.media;
+          popup.appendChild(mediaRow);
+        }
+
+        const primaryUrl = report && report.urls && (report.urls.primary || report.urls.raw);
+        if (primaryUrl) {
+          const linkRow = doc.createElement('div');
+          linkRow.className = 'fb-diet-probe-popup-row';
+          linkRow.textContent = 'Link: ' + (primaryUrl.length > 50 ? primaryUrl.slice(0, 50) + '…' : primaryUrl);
+          popup.appendChild(linkRow);
+        }
+
+        const candCount = report && report.textCandidates ? report.textCandidates.length : 0;
+        if (candCount > 0) {
+          const candRow = doc.createElement('div');
+          candRow.className = 'fb-diet-probe-popup-row';
+          candRow.textContent = 'Candidates: ' + candCount + ' items';
+          popup.appendChild(candRow);
+        }
+
+        const spacer = doc.createElement('div');
+        spacer.className = 'fb-diet-probe-popup-spacer';
+        popup.appendChild(spacer);
+
+        const copiedRow = doc.createElement('div');
+        copiedRow.className = 'fb-diet-probe-popup-row';
+        copiedRow.textContent = '已複製 DOM 診斷 JSON 到剪貼簿 (Copied)';
+        popup.appendChild(copiedRow);
+      } else {
+        // Proxy Probe Popup
+        const category = (report && report.classify && report.classify.category)
+          || (report && report.categorySetting && report.categorySetting.category)
+          || (classifyResult && classifyResult.category)
+          || (props && props.entryCategory)
+          || 'regular';
+        const reason = (report && report.classify && report.classify.reason)
+          || (classifyResult && classifyResult.reason)
+          || (props && props.moduleName ? 'component:' + props.moduleName : 'no-match');
+
+        const evidence = classifyResult && classifyResult.evidence;
+        const source = evidence && evidence.source && evidence.source !== 'none' ? evidence.source : null;
+        const mod = (classifyResult && classifyResult.moduleName) || (props && props.moduleName) || null;
+        let evidenceText = source || '';
+        if (mod) {
+          evidenceText = evidenceText ? evidenceText + ' (' + mod + ')' : mod;
+        }
+        if (!evidenceText) evidenceText = 'none';
+
+        const ui = window.FBDietUI;
+        const userFacingGroup = ui && typeof ui.groupOf === 'function' ? ui.groupOf(category) : 'regular';
+        const groupMeta = (ui && ui.GROUP_META && ui.GROUP_META[userFacingGroup]) || { badgeText: 'Other' };
+
+        const catSetting = report && report.categorySetting;
+        const statusText = catSetting ? (catSetting.enabled ? 'ON (' + catSetting.foldMode + ')' : 'OFF') : 'OFF';
+
+        const modeRow = doc.createElement('div');
+        modeRow.className = 'fb-diet-probe-popup-row';
+        modeRow.textContent = 'Mode: ' + modeStr + ' · Filter: ' + statusText;
+        popup.appendChild(modeRow);
+
+        const catRow = doc.createElement('div');
+        catRow.className = 'fb-diet-probe-popup-row';
+        catRow.textContent = 'Category: ' + groupMeta.badgeText + ' (' + category + ')';
+        popup.appendChild(catRow);
+
+        const signalRow = doc.createElement('div');
+        signalRow.className = 'fb-diet-probe-popup-row';
+        signalRow.textContent = 'Signal: ' + reason;
+        popup.appendChild(signalRow);
+
+        const sourceRow = doc.createElement('div');
+        sourceRow.className = 'fb-diet-probe-popup-row';
+        sourceRow.textContent = 'Source: ' + evidenceText;
+        popup.appendChild(sourceRow);
+
+        if (report && report.scope) {
+          const scopeRow = doc.createElement('div');
+          scopeRow.className = 'fb-diet-probe-popup-row';
+          scopeRow.textContent = 'Scope: ' + (report.scope.allowed ? 'home/search/marketplace' : 'groups/profile');
+          popup.appendChild(scopeRow);
+        }
+
+        const postUrl = report && report.url && (report.url.post || report.url.ad);
+        if (postUrl) {
+          const linkRow = doc.createElement('div');
+          linkRow.className = 'fb-diet-probe-popup-row';
+          linkRow.textContent = 'Link: ' + (postUrl.length > 50 ? postUrl.slice(0, 50) + '…' : postUrl);
+          popup.appendChild(linkRow);
+        }
+
+        const spacer = doc.createElement('div');
+        spacer.className = 'fb-diet-probe-popup-spacer';
+        popup.appendChild(spacer);
+
+        const copiedRow = doc.createElement('div');
+        copiedRow.className = 'fb-diet-probe-popup-row';
+        copiedRow.textContent = '已複製 Proxy 診斷 JSON 到剪貼簿 (Copied)';
+        popup.appendChild(copiedRow);
       }
-
-      // Link: article or ad URL (if found)
-      const postUrl = report && report.url && (report.url.post || report.url.ad);
-      if (postUrl) {
-        const linkRow = document.createElement('div');
-        linkRow.className = 'fb-diet-probe-popup-row';
-        linkRow.textContent = 'Link: ' + (postUrl.length > 50 ? postUrl.slice(0, 50) + '…' : postUrl);
-        popup.appendChild(linkRow);
-      }
-
-      // Spacer
-      const spacer = document.createElement('div');
-      spacer.className = 'fb-diet-probe-popup-spacer';
-      popup.appendChild(spacer);
-
-      // Copied notice
-      const copiedRow = document.createElement('div');
-      copiedRow.className = 'fb-diet-probe-popup-row';
-      copiedRow.textContent = '已複製診斷 JSON 到剪貼簿 (Copied)';
-      popup.appendChild(copiedRow);
 
       holder.appendChild(popup);
       activeProbePopup = popup;
 
       // Close on subsequent outside click
       setTimeout(() => {
-        if (activeProbePopup === popup && typeof document !== 'undefined') {
-          document.addEventListener('click', onOutsideProbeClick, true);
+        if (activeProbePopup === popup && doc && typeof doc.addEventListener === 'function') {
+          doc.addEventListener('click', onOutsideProbeClick, true);
         }
       }, 0);
     } catch (e) {
@@ -430,8 +710,8 @@ window.FBDietProbe = (() => {
   }
 
   /**
-   * Wraps the unit's render output in a relative holder; the copy button is only
-   * appended when probe mode is on (debug URL / debugProbe setting).
+   * Wraps the unit's render output in a relative holder; the dual probe buttons
+   * (⚡ Proxy and 🔍 DOM) are appended when probe mode is on.
    */
   function addProbe(element, props, classifyResult, relayReads) {
     try {
@@ -445,15 +725,40 @@ window.FBDietProbe = (() => {
       if (!isProbeOn) return element;
 
       const renderedAt = new Date().toISOString();
-      const onProbeClick = (event) => {
+
+      const onProxyClick = (event) => {
         try {
           if (event) {
             if (typeof event.stopPropagation === 'function') event.stopPropagation();
             if (typeof event.preventDefault === 'function') event.preventDefault();
           }
-        } catch (e) {
-          // Facebook's own handlers must keep working
-        }
+        } catch (e) {}
+
+        const btn = event && (event.currentTarget || event.target);
+        const holder = btn && typeof btn.closest === 'function'
+          ? btn.closest('.fb-diet-probe-holder')
+          : (btn ? btn.parentElement : null);
+
+        const liveProbe = buildProxyProbeReport(props, classifyResult, relayReads, renderedAt);
+        const reportText = liveProbe.text;
+
+        try {
+          console.info('[FB Diet][Probe] Copied PROXY diagnostics to clipboard.');
+        } catch (e) {}
+        copyProbeReport(reportText);
+
+        try {
+          if (holder) showProbePopup(holder, classifyResult, props, liveProbe.report, 'proxy');
+        } catch (e) {}
+      };
+
+      const onDomClick = (event) => {
+        try {
+          if (event) {
+            if (typeof event.stopPropagation === 'function') event.stopPropagation();
+            if (typeof event.preventDefault === 'function') event.preventDefault();
+          }
+        } catch (e) {}
 
         const btn = event && (event.currentTarget || event.target);
         const holder = btn && typeof btn.closest === 'function'
@@ -463,33 +768,35 @@ window.FBDietProbe = (() => {
           ? (holder.querySelector('.fb-diet-fold-hidden, .fb-diet-expand-body') || holder)
           : null;
 
-        const liveProbe = buildUnitProbeReport(props, classifyResult, relayReads, container, renderedAt);
+        const liveProbe = buildDomProbeReport(container, props, classifyResult, renderedAt);
         const reportText = liveProbe.text;
 
         try {
-          console.info('[FB Diet][Probe]', JSON.parse(reportText));
-        } catch (e) {
-          // Cannot happen for our own JSON, but never break the click
-        }
+          console.info('[FB Diet][Probe] Copied DOM diagnostics to clipboard.');
+        } catch (e) {}
         copyProbeReport(reportText);
 
         try {
-          if (holder) showProbePopup(holder, classifyResult, props, liveProbe.report);
-        } catch (e) {
-          // Non-fatal
-        }
+          if (holder) showProbePopup(holder, classifyResult, props, liveProbe.report, 'dom');
+        } catch (e) {}
       };
 
       const createEl = (ui && ui.createEl) || function fallbackCreateEl(type, p, c) {
         return window.FBDietProxy ? window.FBDietProxy.createElement(React, type, p, c) : null;
       };
 
-      const button = createEl(
+      const buttonProxy = createEl(
         'button',
-        { className: 'fb-diet-probe-btn', type: 'button', title: 'FB Diet: copy unit diagnostics (JSON)', onClick: onProbeClick },
+        { className: 'fb-diet-probe-btn fb-diet-probe-btn-proxy', type: 'button', title: 'FB Diet: copy Proxy/Relay diagnostics (JSON)', onClick: onProxyClick },
+        ['⚡']
+      );
+      const buttonDom = createEl(
+        'button',
+        { className: 'fb-diet-probe-btn fb-diet-probe-btn-dom', type: 'button', title: 'FB Diet: copy DOM diagnostics (JSON)', onClick: onDomClick },
         ['🔍']
       );
-      return createEl('div', { className: 'fb-diet-probe-holder' }, [button, element]);
+      const buttonGroup = createEl('div', { className: 'fb-diet-probe-group' }, [buttonProxy, buttonDom]);
+      return createEl('div', { className: 'fb-diet-probe-holder' }, [buttonGroup, element]);
     } catch (e) {
       return element;
     }
@@ -499,6 +806,8 @@ window.FBDietProbe = (() => {
     PROBE_MAX_CHARS,
     findDiagnosticSignals,
     buildUnitProbeReport,
+    buildProxyProbeReport,
+    buildDomProbeReport,
     promptFallbackCopy,
     copyProbeReport,
     closeActiveProbePopup,
