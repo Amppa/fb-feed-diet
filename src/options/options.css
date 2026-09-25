@@ -240,26 +240,14 @@ body {
   text-shadow: 0 0 10px var(--accent-glow);
 }
 
-/* Section label: heading-level text with an accent bar, so 運行模式 / 貼文分類 / 外觀設定
-   read as the start of a section instead of a small caption above the cards. */
+/* Section label: heading-level text, so 運行模式 / 貼文分類 / 外觀設定 read as the
+   start of a section instead of a small caption above the cards. */
 .section-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   font-size: 15px;
-  font-weight: 700;
-  color: var(--text-primary);
+  font-weight: 500;
+  color: var(--text-secondary);
   letter-spacing: 0.3px;
   margin-bottom: 12px;
-}
-
-.section-label::before {
-  content: '';
-  flex-shrink: 0;
-  width: 3px;
-  height: 1em;
-  border-radius: 2px;
-  background: var(--accent-gradient);
 }
 
 /* Section header: label on the left, section-scoped action (Defaults) on the right */
