@@ -6,7 +6,8 @@
  *   - matched -> a compact notice bar plus the original tree hidden with display:none / 1x1 squash
  *   - expanded by the user -> the original tree is returned with a neutral re-fold bar
  *
- * Public API (window.FBDietFold): FEED_UNIT_MODULES, HIDE_MODE, FBDietFold, install(), getStatus()
+ * Public API (window.FBDietFold): FEED_UNIT_MODULES, HIDE_MODE, FBDietFold, install(),
+ * checkModuleDrift(), getStatus()
  * Group badges, fold bars and probe reports live in their own modules (window.FBDietUI /
  * window.FBDietProbe) and are always read from there.
  */
@@ -45,6 +46,16 @@ window.FBDietFold = (() => {
   // hard timeout after which the MutationObserver is disconnected for good.
   const DOM_SUGGESTED_SCAN_DELAYS = [50, 200, 500, 1200, 2500];
   const DOM_SUGGESTED_SCAN_TIMEOUT_MS = 4000;
+
+  // Module drift watchdog. FEED_UNIT_MODULES hard-codes Facebook's internal module
+  // names; when Facebook renames them the proxy silently stops matching and folding
+  // quietly dies. The proxy counts loader activity (dCalls) and matched modules
+  // (seen), so "loader streamed hundreds of modules + Relay data flows + scope
+  // allowed + nothing matched" means drift. Warn once; never debug-gated (the
+  // reference projects keep breakage detection always-on for exactly this reason).
+  const DRIFT_MIN_DCALLS = 300;
+  const DRIFT_CHECK_DELAYS = [15000, 45000];
+  const driftState = { warned: false };
 
   const hydrationStats = {
     count: 0,
@@ -476,6 +487,71 @@ window.FBDietFold = (() => {
     return createEl('div', { className: 'CometHomeRightRailUnit' }, [rendered]);
   }
 
+  /**
+   * Session-level drift verdict built from the proxy's loader counters, the Relay
+   * capture state and the fold scope. `seen === 0` while the loader is streaming
+   * means no registered module name matched anymore.
+   */
+  function computeModuleDrift() {
+    const proxy = window.FBDietProxy;
+    const health = proxy && typeof proxy.getModuleHealth === 'function' ? proxy.getModuleHealth() : null;
+    const relay = window.FBDietRelay;
+    const relayReady = Boolean(relay && typeof relay.isReady === 'function' && relay.isReady());
+
+    let scopeAllowed = true;
+    try {
+      const defaults = window.FB_DIET_DEFAULTS;
+      if (defaults && typeof defaults.isFoldScopeAllowed === 'function') {
+        scopeAllowed = defaults.isFoldScopeAllowed(window.location ? window.location.pathname : undefined);
+      }
+    } catch (e) {}
+
+    const report = {
+      suspected: false,
+      dCalls: health ? health.dCalls : 0,
+      registered: health ? health.registered : 0,
+      seen: health ? health.seen : 0,
+      patched: health ? health.patched : 0,
+      hydration: hydrationStats.count,
+      relayReady,
+      scopeAllowed
+    };
+
+    report.suspected = Boolean(
+      health &&
+      health.dCalls >= DRIFT_MIN_DCALLS &&
+      health.seen === 0 &&
+      relayReady &&
+      scopeAllowed
+    );
+    return report;
+  }
+
+  function checkModuleDrift() {
+    const report = computeModuleDrift();
+    if (report.suspected && !driftState.warned) {
+      driftState.warned = true;
+      try {
+        console.warn(
+          '[FB Diet][Drift] No feed unit module matched after ' + report.dCalls +
+          ' module definitions (Relay active, scope allowed). FEED_UNIT_MODULES looks stale and folding may be inactive.',
+          report
+        );
+      } catch (e) {}
+    }
+    return report;
+  }
+
+  function scheduleDriftChecks() {
+    const schedule = (typeof window !== 'undefined' && typeof window.setTimeout === 'function')
+      ? window.setTimeout
+      : (typeof setTimeout === 'function' ? setTimeout : null);
+    if (!schedule) return;
+    for (const delay of DRIFT_CHECK_DELAYS) {
+      try { schedule(checkModuleDrift, delay); } catch (e) {}
+    }
+  }
+
   function install() {
     try {
       const style = document.createElement('style');
@@ -523,16 +599,19 @@ window.FBDietFold = (() => {
   }
 
   install();
+  scheduleDriftChecks();
 
   return {
     FEED_UNIT_MODULES: withDefaultDefinerPath(),
     HIDE_MODE,
     FBDietFold,
     install,
+    checkModuleDrift,
     getStatus: () => ({
       hideMode: HIDE_MODE,
       modules: withDefaultDefinerPath(),
       hydration: hydrationStats,
+      drift: computeModuleDrift(),
       registered: window.FBDietProxy ? window.FBDietProxy.listRegistered() : null,
       settings: window.FBDietBridge ? window.FBDietBridge.getSettings() : null
     })

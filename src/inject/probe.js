@@ -387,6 +387,26 @@ window.FBDietProbe = (() => {
       if (rep.url.ad) proxyReport.url.ad = rep.url.ad;
     }
 
+    // Session-level module drift snapshot: did the hard-coded FEED_UNIT_MODULES names
+    // still match Facebook's loader? (FBDietProxy.getModuleHealth / FBDietFold.checkModuleDrift)
+    try {
+      const proxy = window.FBDietProxy;
+      if (proxy && typeof proxy.getModuleHealth === 'function') {
+        const health = proxy.getModuleHealth();
+        const fold = window.FBDietFold;
+        const verdict = fold && typeof fold.checkModuleDrift === 'function' ? fold.checkModuleDrift() : null;
+        const snapshot = {
+          dCalls: health.dCalls,
+          registered: health.registered,
+          seen: health.seen,
+          patched: health.patched,
+          suspected: Boolean(verdict && verdict.suspected)
+        };
+        if (health.unseen && health.unseen.length) snapshot.unseen = health.unseen;
+        proxyReport.moduleHealth = snapshot;
+      }
+    } catch (e) {}
+
     let text = null;
     try {
       text = JSON.stringify(proxyReport, null, 2);

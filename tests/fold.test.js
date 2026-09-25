@@ -4,7 +4,7 @@ const { Checker, createFakeReact, makeNode, createWindow, loadInject, loadDefaul
 const FEED_MODULE = 'CometFeedUnitErrorBoundary.react';
 const SPONSORED_PATH = '^sponsored_data.ad_id';
 
-function setup(relayMap) {
+function setup(relayMap, opts) {
   const React = createFakeReact();
   const win = createWindow();
   const comet = createFakeComet(win, React);
@@ -32,9 +32,12 @@ function setup(relayMap) {
     sourceCalls += 1;
     return { type: 'div', props: { children: 'original post' }, __source: true };
   }
-  win.__d(SourceCmp, FEED_MODULE, [], null, null, null, { default: SourceCmp });
-  comet.require(FEED_MODULE);
-  const wrapper = comet.getExport(FEED_MODULE).default;
+  let wrapper = null;
+  if (!(opts && opts.noFeedModule)) {
+    win.__d(SourceCmp, FEED_MODULE, [], null, null, null, { default: SourceCmp });
+    comet.require(FEED_MODULE);
+    wrapper = comet.getExport(FEED_MODULE).default;
+  }
 
   return {
     React,
@@ -663,6 +666,57 @@ function run(c) {
     c.equals('costco group inner span contains group name', groupInnerKids[1].props.children, 'COSTCO 好市多 商品消費心得分享區');
     c.equals('costco group ends with ]', groupInnerKids[2], ']');
     c.equals('costco bar has author span', costcoKids[2].props.className, 'fb-diet-title-author');
+  }
+
+  /* --- module drift watchdog verdict --- */
+  {
+    // Healthy path: the registered feed module matched, so drift is never suspected
+    // (the harness only streams one module definition).
+    const t = setup({});
+    const healthy = t.fold.checkModuleDrift();
+    c.ok('healthy drift report is not suspected', healthy.suspected === false);
+    c.equals('healthy drift report counts matched modules', healthy.seen, 1);
+    c.equals('healthy drift report counts registrations', healthy.registered, t.fold.FEED_UNIT_MODULES.length);
+    c.ok('getStatus exposes the drift verdict', t.fold.getStatus().drift && t.fold.getStatus().drift.suspected === false);
+
+    // Drift path: loader streamed 300+ module definitions, none of ours matched,
+    // Relay ready, fold scope allowed. Warns exactly once per session.
+    const d = setup({}, { noFeedModule: true });
+    d.win.FBDietRelay = { isReady: () => true };
+    for (let i = 0; i < 320; i++) {
+      d.win.__d(function () {}, 'drift/Filler' + i + '.react', [], null, null, null, {});
+    }
+    const origWarn = console.warn;
+    let warnCount = 0;
+    console.warn = () => { warnCount += 1; };
+    let drift;
+    try {
+      drift = d.win.FBDietFold.checkModuleDrift();
+      d.win.FBDietFold.checkModuleDrift();
+    } finally {
+      console.warn = origWarn;
+    }
+    c.ok('drift suspected when loader streamed and nothing matched', drift.suspected === true);
+    c.ok('drift report counts loader definitions', drift.dCalls >= 300);
+    c.equals('drift report seen stays zero', drift.seen, 0);
+    c.equals('drift report patched stays zero', drift.patched, 0);
+    c.equals('drift warns exactly once per session', warnCount, 1);
+
+    // Relay not ready vetoes the verdict (early page state must not warn)
+    const d2 = setup({}, { noFeedModule: true });
+    d2.win.FBDietRelay = { isReady: () => false };
+    for (let i = 0; i < 320; i++) {
+      d2.win.__d(function () {}, 'drift/Filler' + i + '.react', [], null, null, null, {});
+    }
+    c.ok('relay not ready vetoes drift suspicion', d2.win.FBDietFold.checkModuleDrift().suspected === false);
+
+    // Few loader definitions veto the verdict (tiny pages must not warn)
+    const d3 = setup({}, { noFeedModule: true });
+    d3.win.FBDietRelay = { isReady: () => true };
+    for (let i = 0; i < 50; i++) {
+      d3.win.__d(function () {}, 'drift/Filler' + i + '.react', [], null, null, null, {});
+    }
+    c.ok('few loader definitions veto drift suspicion', d3.win.FBDietFold.checkModuleDrift().suspected === false);
   }
 }
 

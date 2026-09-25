@@ -28,6 +28,7 @@ function run(c) {
   win.__d(feedModuleFactory, 'CometFeedUnitErrorBoundary.react', [], null, null, null, { default: SourceCmp });
   c.ok('__d call recorded by the loader', comet.records.has('CometFeedUnitErrorBoundary.react'));
   equals(c, 'registered module factory got intercepted', proxy.getStats().intercepted, 1);
+  equals(c, 'dCalls counts every loader definition', proxy.getStats().dCalls, 1);
 
   comet.require('CometFeedUnitErrorBoundary.react');
   const wrapper = comet.getExport('CometFeedUnitErrorBoundary.react').default;
@@ -54,6 +55,7 @@ function run(c) {
   comet.require('some/OtherModule.react');
   equals(c, 'unregistered module export untouched', comet.getExport('some/OtherModule.react').default, OtherCmp);
   equals(c, 'only registered factories intercepted', proxy.getStats().intercepted, 1);
+  equals(c, 'dCalls counts unregistered modules too', proxy.getStats().dCalls, 2);
 
   /* --- factory hooks (the relay.js integration point) --- */
   const seen = [];
@@ -101,6 +103,16 @@ function run(c) {
   comet.getExport('CometFeedUnitErrorBoundary.react').default({});
   comet.getExport('CometFeedUnitErrorBoundary.react').default({});
   equals(c, 'already wrapped export is not wrapped again', sourceCalls, 4);
+
+  /* --- module health (drift counters) --- */
+  proxy.registerComponent('drift/NeverDefined.react', { component: function T5() {}, definerPath: '[6].default' });
+  const health = proxy.getModuleHealth();
+  equals(c, 'health counts registered modules', health.registered, 5);
+  equals(c, 'health counts seen module factories', health.seen, 4);
+  equals(c, 'health lists never-defined modules', health.unseen.join(','), 'drift/NeverDefined.react');
+  equals(c, 'health lists failed definer paths', health.failed.join(','), 'broken/Broken.react');
+  equals(c, 'health counts patched modules', health.patched, 3);
+  c.ok('health reports loader activity', health.loaderActive === true);
 
   equals(c, 'no stray MAIN messages during proxy tests', countMessages(win, 'blocked'), 0);
 }
