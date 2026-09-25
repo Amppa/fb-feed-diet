@@ -22,7 +22,8 @@
  *   registerFactoryHook(moduleName, cb)
  *   createElement(React, type, props, children)
  *   getReact()
- *   isModuleLoaded(name) / getModuleArgs(name) / listRegistered() / getStats() / getErrors()
+ *   isModuleLoaded(name) / getModuleArgs(name) / listRegistered() / getStats()
+ *   getModuleHealth() / getErrors()
  */
 window.FBDietProxy = (() => {
   'use strict';
@@ -33,8 +34,10 @@ window.FBDietProxy = (() => {
   const registrations = new Map(); // moduleName -> entry[]
   const factoryHooks = new Map(); // moduleName -> cb[]
   const moduleArgs = new Map(); // moduleName -> last seen factory args
+  const patchedModulesSet = new Set(); // moduleNames whose export was successfully replaced
+  const failedModules = new Set(); // moduleNames seen but whose definerPath did not resolve
   const errors = [];
-  const stats = { intercepted: 0, patched: 0, hookRuns: 0, patchedModules: [] };
+  const stats = { intercepted: 0, patched: 0, hookRuns: 0, dCalls: 0, patchedModules: [] };
   let reactCache = null;
 
   /* ------------------------------------------------------------------ *
@@ -274,6 +277,7 @@ window.FBDietProxy = (() => {
   function applyRegistration(moduleName, entry, factoryArgs) {
     const target = findTarget(factoryArgs, entry.definerPath);
     if (!target) {
+      failedModules.add(moduleName);
       recordError('register ' + moduleName, new Error('definerPath not found: ' + entry.definerPath));
       return false;
     }
@@ -284,6 +288,8 @@ window.FBDietProxy = (() => {
     target.container[target.key] = wrapComponent(moduleName, entry, current);
     stats.patched += 1;
     stats.patchedModules.push(moduleName + ' ' + entry.definerPath);
+    patchedModulesSet.add(moduleName);
+    failedModules.delete(moduleName);
     return true;
   }
 function wrapFactory(moduleName, factory) {
@@ -328,6 +334,9 @@ function wrapFactory(moduleName, factory) {
 
   function transformDArgs(args) {
     try {
+      // Loader activity sample: every __d call means Facebook defined one more module.
+      stats.dCalls += 1;
+
       if (registrations.size === 0 && factoryHooks.size === 0) return args;
 
       const info = readDArgs(args);
@@ -458,6 +467,35 @@ function wrapFactory(moduleName, factory) {
         out[moduleName] = entries.map((entry) => entry.definerPath);
       }
       return out;
+    },
+
+    /**
+     * Loader health for module drift detection: how many __d module definitions
+     * streamed past, and which registered names the loader never defined. When
+     * dCalls keeps rising while seen stays 0, Facebook renamed its modules and
+     * every hook silently stopped matching.
+     */
+    getModuleHealth() {
+      const unseen = [];
+      const failed = [];
+      let seen = 0;
+      for (const moduleName of registrations.keys()) {
+        if (moduleArgs.has(moduleName)) {
+          seen += 1;
+          if (failedModules.has(moduleName)) failed.push(moduleName);
+        } else {
+          unseen.push(moduleName);
+        }
+      }
+      return {
+        dCalls: stats.dCalls,
+        loaderActive: stats.dCalls > 0,
+        registered: registrations.size,
+        seen,
+        patched: patchedModulesSet.size,
+        unseen,
+        failed
+      };
     },
 
     getStats() {

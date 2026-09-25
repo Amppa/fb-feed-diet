@@ -486,6 +486,45 @@ window.FBDietUI = (() => {
     return null;
   }
 
+  /**
+   * Resolves what a profile link proves about the author: the URL segment that
+   * identifies them (vanity slug or numeric id) plus the group a group-post author
+   * link proves membership of. A synthesized permalink must never embed a display
+   * name, so unsupported link shapes yield nulls instead of guesses.
+   */
+  function authorIdentityFromProfileUrl(url) {
+    const identity = { handle: null, groupId: null };
+    if (!url || typeof url !== 'string') return identity;
+    try {
+      const withoutOrigin = url.replace(/^https?:\/\/[^/]+/i, '');
+      const query = (withoutOrigin.match(/[?#](.*)$/) || [])[1] || '';
+      const path = withoutOrigin.replace(/[?#].*$/, '').replace(/\/+$/, '');
+
+      const groupMember = path.match(/^\/groups\/([^/]+)\/user\/(\d+)$/);
+      if (groupMember) {
+        identity.groupId = groupMember[1];
+        identity.handle = groupMember[2];
+        return identity;
+      }
+
+      const member = path.match(/^\/user\/(\d+)$/);
+      if (member) {
+        identity.handle = member[1];
+        return identity;
+      }
+
+      if (path === '/profile.php') {
+        identity.handle = (query.match(/(?:^|&)id=(\d+)/) || [])[1] || null;
+        return identity;
+      }
+
+      const RESERVED_PROFILE_SEGMENTS = ['groups', 'pages', 'profile.php', 'stories', 'story.php', 'share', 'watch', 'reel', 'reels', 'events', 'hashtag', 'photos', 'photo.php', 'media', 'policies', 'privacy', 'help', 'settings'];
+      const vanity = path.match(/^\/([A-Za-z0-9._-]{4,})$/);
+      if (vanity && RESERVED_PROFILE_SEGMENTS.indexOf(vanity[1].toLowerCase()) === -1) identity.handle = vanity[1];
+    } catch (e) {}
+    return identity;
+  }
+
   function extractAllUrlsFromDom(container, postId, authorUsername, groupId, author) {
     const urls = {
       primary: null,
@@ -556,15 +595,19 @@ window.FBDietUI = (() => {
         }
       }
 
-      // 4. Synthesized URL
+      // 4. Synthesized URL. Only reachable when the caller knows the unit's post id,
+      //    because no DOM link yielded a permalink.
+      const safePostId = postId !== null && postId !== undefined && /^[A-Za-z0-9_-]{4,}$/.test(String(postId)) ? String(postId) : null;
       const pagePath = typeof window !== 'undefined' && window.location && window.location.pathname ? window.location.pathname : '';
       const pageGroupMatch = pagePath.match(/\/groups\/([^/?]+)/);
-      const effectiveGroup = groupId || (pageGroupMatch ? pageGroupMatch[1] : null) || (urls.groupUrl ? (urls.groupUrl.match(/\/groups\/([^/?]+)/) || [])[1] : null);
+      const authorIdentity = authorIdentityFromProfileUrl(urls.authorProfile);
+      const authorHandle = authorUsername || authorIdentity.handle;
+      const effectiveGroup = groupId || authorIdentity.groupId || (pageGroupMatch ? pageGroupMatch[1] : null);
 
-      if (postId && effectiveGroup) {
-        urls.synthesized = 'https://www.facebook.com/groups/' + effectiveGroup + '/permalink/' + postId + '/';
-      } else if (postId && authorUsername) {
-        urls.synthesized = 'https://www.facebook.com/' + authorUsername + '/posts/' + postId;
+      if (safePostId && effectiveGroup) {
+        urls.synthesized = 'https://www.facebook.com/groups/' + effectiveGroup + '/permalink/' + safePostId + '/';
+      } else if (safePostId && authorHandle) {
+        urls.synthesized = 'https://www.facebook.com/' + authorHandle + '/posts/' + safePostId;
       }
 
       // 5. Timestamp URL (fallback for permalink)
@@ -717,9 +760,16 @@ window.FBDietUI = (() => {
   function extractReshareFromDom(container, mainAuthor) {
     if (!container || typeof container.querySelectorAll !== 'function') return null;
     try {
+      // Structural pre-filter: the quoted original always sits below the sharer's own
+      // header, so a candidate that wraps or lives inside that header is the unit itself,
+      // and comment/probe subtrees carry unrelated author names. Ruling those out keeps
+      // the author-name comparison from firing on them.
+      const unitHeader = container.querySelector ? container.querySelector('header, [data-ad-comet-preview="header"]') : null;
       const quotes = container.querySelectorAll('[role="article"], blockquote, div[class*="quote"]');
       for (const q of quotes) {
         if (q === container) continue;
+        if (isInsideProbeUi(q) || isInsideCommentSection(q)) continue;
+        if (unitHeader && (q === unitHeader || unitHeader.contains(q) || q.contains(unitHeader))) continue;
         const innerAuthor = extractAuthorFromDom(q);
         if (innerAuthor && innerAuthor !== mainAuthor) {
           const innerMsg = extractMessageFromDom(q, innerAuthor);
@@ -765,7 +815,7 @@ window.FBDietUI = (() => {
     return '';
   }
 
-  function collectDomMetadata(container, isMediaGroup) {
+  function collectDomMetadata(container, isMediaGroup, relayContext) {
     if (!container || typeof container.querySelector !== 'function') return null;
     if (isMediaGroup) {
       return {
@@ -785,7 +835,8 @@ window.FBDietUI = (() => {
       const actor = extractAuthorFromDom(container);
       const group = extractGroupFromDom(container);
       const timestamp = extractTimestampFromDom(container);
-      const urls = extractAllUrlsFromDom(container, null, null, null, actor);
+      const context = relayContext || {};
+      const urls = extractAllUrlsFromDom(container, context.postId || null, context.authorUsername || null, context.groupId || null, actor);
       const titleObj = extractPostTitleFromDom(container, actor, group);
       const textCandidates = scanTextCandidates(container, actor, group);
       const reshare = extractReshareFromDom(container, actor);

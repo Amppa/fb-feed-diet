@@ -283,6 +283,9 @@ window.FBDietBridge = (() => {
     proxy: window.FBDietProxy ? window.FBDietProxy.getStats() : null,
     proxyErrors: window.FBDietProxy ? window.FBDietProxy.getErrors() : null,
     registered: window.FBDietProxy ? window.FBDietProxy.listRegistered() : null,
+    moduleHealth: (window.FBDietProxy && typeof window.FBDietProxy.getModuleHealth === 'function')
+      ? window.FBDietProxy.getModuleHealth()
+      : null,
     relay: {
       ready: window.FBDietRelay ? window.FBDietRelay.isReady() : false,
       sources: window.FBDietRelay ? window.FBDietRelay.getSourceCount() : 0,

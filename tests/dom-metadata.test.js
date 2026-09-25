@@ -271,6 +271,75 @@ function run(c) {
   const hashCand = duncanSnapshot2.textCandidates.find((c) => c.text && c.text.startsWith('548ZFPjXt'));
   c.ok('obfuscated hash marked as skipped:obfuscated-hash', Boolean(hashCand) && hashCand.status === 'skipped:obfuscated-hash');
   c.ok('Duncan 2 post url strips __cft__ but keeps comment_id', duncanSnapshot2.urls.primary && duncanSnapshot2.urls.primary.indexOf('comment_id=1111111591482749') !== -1 && duncanSnapshot2.urls.primary.indexOf('__cft__') === -1);
+
+  // Permalink synthesis from a caller-supplied (Relay) post id, for units whose DOM
+  // carries neither a permalink link nor a timestamp link.
+  const adaLink = makeNode('a', { role: 'link', href: '/adalovelace' }, [], 'Ada Lovelace');
+  const adaHeading = makeNode('h3', { role: 'heading' }, [adaLink]);
+  const adaMessage = makeNode('div', { dir: 'auto' }, [], '第一台分析機的筆記');
+  const adaCard = makeNode('article', {}, [adaHeading, adaMessage]);
+
+  c.equals('without a post id nothing is synthesized', metadata.collect(adaCard, false).urls.synthesized, null);
+  c.equals('without a post id postUrl stays null', metadata.collect(adaCard, false).postUrl, null);
+
+  const vanitySynth = metadata.collect(adaCard, false, { postId: '778899001122' });
+  c.equals('vanity author link drives permalink synthesis', vanitySynth.urls.synthesized, 'https://www.facebook.com/adalovelace/posts/778899001122');
+  c.equals('synthesized permalink surfaces as postUrl', vanitySynth.postUrl, 'https://www.facebook.com/adalovelace/posts/778899001122');
+
+  const callerSynth = metadata.collect(adaCard, false, { postId: '778899001122', authorUsername: 'ada' });
+  c.equals('caller author username takes precedence over DOM handle', callerSynth.urls.synthesized, 'https://www.facebook.com/ada/posts/778899001122');
+
+  const groupMemberLink = makeNode('a', { role: 'link', href: '/groups/1752413238230321/user/1000012345678/?__cft__[0]=AZ' }, [], '拾荒小幫手');
+  const groupMemberHeading = makeNode('h3', { role: 'heading' }, [groupMemberLink]);
+  const groupMemberMessage = makeNode('div', { dir: 'auto' }, [], '二手實木餐桌');
+  const groupMemberCard = makeNode('article', {}, [groupMemberHeading, groupMemberMessage]);
+  const groupSynth = metadata.collect(groupMemberCard, false, { postId: '5361557787315830' });
+  c.equals('group membership link drives group permalink synthesis', groupSynth.urls.synthesized, 'https://www.facebook.com/groups/1752413238230321/permalink/5361557787315830/');
+
+  const numericAuthorLink = makeNode('a', { role: 'link', href: '/profile.php?id=61571403715598' }, [], '梧軒廬苑');
+  const numericAuthorHeading = makeNode('h3', { role: 'heading' }, [numericAuthorLink]);
+  const mentionedGroupLink = makeNode('a', { href: '/groups/2469367233335424/' }, [], 'COSTCO 好市多 商品消費心得分享區');
+  const numericMessage = makeNode('div', { dir: 'auto' }, [], '提到某個社團的一般貼文');
+  const numericCard = makeNode('article', {}, [numericAuthorHeading, mentionedGroupLink, numericMessage]);
+  const numericSynth = metadata.collect(numericCard, false, { postId: '4242424242' });
+  c.equals('profile.php id becomes the numeric handle', numericSynth.urls.synthesized, 'https://www.facebook.com/61571403715598/posts/4242424242');
+
+  const noAuthorLinkCard = makeNode('article', {}, [makeNode('h3', { role: 'heading' }, [makeNode('span', {}, [], '無連結作者')]), makeNode('div', { dir: 'auto' }, [], '只有社團連結的貼文'), makeNode('a', { href: '/groups/2469367233335424/' }, [], '某社團')]);
+  c.equals('a stray group link alone is not enough to synthesize', metadata.collect(noAuthorLinkCard, false, { postId: '4242424242' }).urls.synthesized, null);
+  c.equals('unsafe post id is never interpolated into a URL', metadata.collect(adaCard, false, { postId: '../x?v=1' }).urls.synthesized, null);
+
+  // Reshare detection: structural pre-filter before any author-name comparison
+  const reshareSharerHeader = makeNode('header', {}, [
+    makeNode('h4', { role: 'heading' }, [makeNode('a', { role: 'link', href: '/sharer.page' }, [], '轉貼的人')]),
+    makeNode('span', { dir: 'auto' }, [], '分享了')
+  ]);
+  const reshareOriginalHeader = makeNode('header', {}, [
+    makeNode('h4', { role: 'heading' }, [makeNode('a', { role: 'link', href: '/original.author' }, [], '原作者')])
+  ]);
+  const reshareOriginalMessage = makeNode('div', { dir: 'auto' }, [], '被轉貼的原始內容');
+  const reshareQuoted = makeNode('div', { role: 'article' }, [reshareOriginalHeader, reshareOriginalMessage]);
+  const reshareCard = makeNode('article', {}, [reshareSharerHeader, reshareQuoted]);
+
+  const reshareSnapshot = metadata.collect(reshareCard, false);
+  c.equals('reshare reports the quoted author', reshareSnapshot.reshare && reshareSnapshot.reshare.originalActor, '原作者');
+  c.equals('reshare reports the quoted message', reshareSnapshot.reshare && reshareSnapshot.reshare.originalTitle, '被轉貼的原始內容');
+
+  // A commenter's article is nested content with a foreign author name, not a reshare source
+  const commentAuthorHeading = makeNode('h4', { role: 'heading' }, [makeNode('a', { role: 'link', href: '/some.commenter' }, [], '留言者甲')]);
+  const commentArticle = makeNode('div', { role: 'article' }, [commentAuthorHeading, makeNode('div', { dir: 'auto' }, [], '這是一則留言')]);
+  const commentCard = makeNode('article', {}, [
+    makeNode('header', {}, [makeNode('h4', { role: 'heading' }, [makeNode('a', { role: 'link', href: '/sharer.page' }, [], '轉貼的人')])]),
+    makeNode('div', { dir: 'auto' }, [], '我的看法'),
+    makeNode('form', {}, [commentArticle])
+  ]);
+  c.equals('comment subtree is never reported as a reshare', metadata.collect(commentCard, false).reshare, null);
+
+  // A wrapper article that contains the sharer's own header is the unit, not a quoted post
+  const wrappedSharerHeader = makeNode('header', {}, [makeNode('h4', { role: 'heading' }, [makeNode('a', { role: 'link', href: '/sharer.page' }, [], '轉貼的人')])]);
+  const wrappedQuotedHeader = makeNode('header', {}, [makeNode('h4', { role: 'heading' }, [makeNode('a', { role: 'link', href: '/original.author' }, [], '原作者')])]);
+  const unitWrapper = makeNode('div', { role: 'article' }, [wrappedSharerHeader, makeNode('div', { dir: 'auto' }, [], '一般貼文'), wrappedQuotedHeader]);
+  const wrapperCard = makeNode('article', {}, [unitWrapper]);
+  c.equals('a candidate wrapping the unit header is not a reshare', metadata.collect(wrapperCard, false).reshare, null);
 }
 
 module.exports = { run };
