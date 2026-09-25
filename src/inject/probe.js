@@ -443,7 +443,8 @@ window.FBDietProbe = (() => {
       synthesized: synthesizedUrl,
       authorProfile: liveUrls.authorProfile || null,
       groupUrl: liveUrls.groupUrl || null,
-      adUrl: (domLive && domLive.adUrl) || liveUrls.adUrl || null
+      adUrl: (domLive && domLive.adUrl) || liveUrls.adUrl || null,
+      timestamp: liveUrls.timestamp || (domLive && domLive.timestamp && domLive.timestamp.url) || null
     }, liveUrls);
 
     let cleanUrls = null;
@@ -473,6 +474,7 @@ window.FBDietProbe = (() => {
 
       // Part 3: DOM 提取結果 (DOM Extraction & Suggested Detection)
       ...(cleanUrls ? { urls: cleanUrls } : {}),
+      ...((domLive && domLive.timestamp) ? { timestamp: domLive.timestamp } : {}),
       ...((domLive && domLive.actor) ? { actor: domLive.actor } : {}),
       ...((domLive && domLive.group) ? { group: domLive.group } : {}),
       ...((domLive && domLive.title) ? { title: domLive.title } : {}),
@@ -576,6 +578,13 @@ window.FBDietProbe = (() => {
           actorRow.className = 'fb-diet-probe-popup-row';
           actorRow.textContent = 'Author: ' + report.actor + (report.group ? ' · Group: ' + report.group : '');
           popup.appendChild(actorRow);
+        }
+
+        if (report && report.timestamp && report.timestamp.text) {
+          const timeRow = doc.createElement('div');
+          timeRow.className = 'fb-diet-probe-popup-row';
+          timeRow.textContent = 'Time: ' + report.timestamp.text;
+          popup.appendChild(timeRow);
         }
 
         if (report && report.title && report.title.text) {

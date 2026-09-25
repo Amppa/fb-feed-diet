@@ -227,7 +227,7 @@ function createWindow() {
 /** Loads one src/inject script into a fresh vm context that only shares `window`. */
 function loadInject(win, file) {
   const code = fs.readFileSync(path.join(ROOT, 'src', 'inject', file), 'utf8');
-  const sandbox = { window: win, console, CustomEvent: win.CustomEvent };
+  const sandbox = { window: win, console, CustomEvent: win.CustomEvent, URL: global.URL || URL };
   vm.createContext(sandbox);
   vm.runInContext(code, sandbox, { filename: 'src/inject/' + file });
 }

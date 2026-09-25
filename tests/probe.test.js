@@ -105,6 +105,9 @@ function run(c) {
   c.equals('dom report group is Apple 討論社團', dr.group, 'Apple 討論社團');
   c.equals('dom report title text is extracted', dr.title && dr.title.text, 'iPhone 發表會');
   c.equals('dom report media counts images + overlay', dr.media, '[📷 相片 x5]');
+  c.equals('dom report has timestamp text', dr.timestamp && dr.timestamp.text, '剛剛');
+  c.equals('dom report has timestamp url', dr.timestamp && dr.timestamp.url, 'https://www.facebook.com/steve/posts/98765?fbclid=IwAR999');
+  c.equals('dom report urls has timestamp', dr.urls && dr.urls.timestamp, 'https://www.facebook.com/steve/posts/98765?fbclid=IwAR999');
   c.ok('dom report has clean primary url', dr.urls && dr.urls.primary && dr.urls.primary.indexOf('fbclid') === -1);
   c.ok('dom report has raw url with tracking', dr.urls && dr.urls.raw && dr.urls.raw.indexOf('fbclid') !== -1);
   c.ok('dom report has textCandidates array', Array.isArray(dr.textCandidates));
@@ -167,6 +170,7 @@ function run(c) {
     c.ok('dom popup element rendered', Boolean(popupDom));
     c.ok('dom popup contains DOM Probe header', popupDom && popupDom.textContent.indexOf('DOM Probe') !== -1);
     c.ok('dom popup contains Author', popupDom && popupDom.textContent.indexOf('賈伯斯') !== -1);
+    c.ok('dom popup contains Time', popupDom && popupDom.textContent.indexOf('剛剛') !== -1);
     c.ok('dom popup contains Title', popupDom && popupDom.textContent.indexOf('iPhone 發表會') !== -1);
     c.ok('dom popup contains Copied message', popupDom && popupDom.textContent.indexOf('已複製 DOM 診斷 JSON') !== -1);
   } finally {

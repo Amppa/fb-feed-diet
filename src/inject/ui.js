@@ -85,11 +85,66 @@ window.FBDietUI = (() => {
     '所有留言', '最相關', '最新留言', 'All comments', 'Most relevant', 'Newest'
   ]);
 
+  const RELATIVE_TIME_REGEX = /^[\d·\s]+(分鐘|小時|天|秒|週|年|m|h|d|w|y|hr|hrs|min|mins|sec|secs|hour|hours|day|days|week|weeks|year|years)(\s*(前|ago))?(\s*[·•]\s*(已編輯|Edited|Public|公開)?)?[\s·•]*$/i;
+  const DOMAIN_REGEX = /^(?:https?:\/\/|www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(com|net|org|io|me|co|cc|app|ly|gl|tv|tw|cn|jp|us|uk|edu|gov|xyz|info|biz|site|online|live|ai|tech|dev|club|store|vip|pro|top|link|page|be)(\/[^\s]*)?$/i;
+
+  function isRelativeTime(text) {
+    if (!text || typeof text !== 'string') return false;
+    const clean = text.replace(/^[·•\s+]+/, '').trim();
+    if (clean.length < 1 || clean.length > 30) return false;
+    if (/^(剛剛|刚刚|Just now)[\s·•]*$/i.test(clean)) return true;
+    return RELATIVE_TIME_REGEX.test(clean);
+  }
+
+  function isStandaloneDomainOrUrl(text) {
+    if (!text || typeof text !== 'string') return false;
+    const clean = text.replace(/^[·•\s+]+/, '').trim();
+    if (clean.length < 3 || clean.length > 200) return false;
+    if (clean.includes(' ')) return false;
+    return DOMAIN_REGEX.test(clean);
+  }
+
+  function isObfuscatedHash(text) {
+    if (!text || typeof text !== 'string') return false;
+    const clean = text.trim();
+    if (clean.length < 24 || clean.includes(' ')) return false;
+    return /^[A-Za-z0-9_-]{24,}$/.test(clean);
+  }
+
+  function extractTextWithEmojis(node) {
+    if (!node) return '';
+    if (node.nodeType === 3) {
+      return node.nodeValue || '';
+    }
+    if (node.nodeType === 1 || !node.nodeType) {
+      const tag = (node.tagName || '').toUpperCase();
+      if (tag === 'IMG' || (node.getAttribute && node.getAttribute('role') === 'img')) {
+        const alt = (node.getAttribute && (node.getAttribute('alt') || node.getAttribute('aria-label'))) || '';
+        if (alt) return alt;
+      }
+      if (node.classList && (node.classList.contains('fb-diet-probe-group') || node.classList.contains('fb-diet-probe-popup'))) {
+        return '';
+      }
+      const kids = node.childNodes && node.childNodes.length > 0 ? node.childNodes : (node.children || []);
+      if (kids.length > 0) {
+        let text = '';
+        for (const child of kids) {
+          text += extractTextWithEmojis(child);
+        }
+        return text;
+      }
+      return node.textContent || '';
+    }
+    return node.textContent || '';
+  }
+
   function isNonAuthor(text) {
     if (!text || typeof text !== 'string') return true;
     const clean = text.replace(/^[·•\s+]+/, '').replace(/\s+/g, ' ').trim();
     if (clean.length < 2 || clean.length > 80) return true;
     if (clean.startsWith('#')) return true;
+    if (isStandaloneDomainOrUrl(clean)) return true;
+    if (isObfuscatedHash(clean)) return true;
     if (clean.includes('.com') || clean.includes('.net') || clean.includes('.org') || clean.includes('.io') || clean.startsWith('http') || clean.startsWith('www.')) return true;
     if (NON_AUTHOR_TEXTS.has(clean) || UI_KEYWORDS.has(clean)) return true;
     const lower = clean.toLowerCase();
@@ -99,7 +154,7 @@ window.FBDietUI = (() => {
     for (const kw of UI_KEYWORDS) {
       if (lower === kw.toLowerCase()) return true;
     }
-    if (/^[\d·\s]+(分鐘|小時|天|秒|週|年|m|h|d|w|y|hr|min|s)/i.test(clean)) return true;
+    if (isRelativeTime(clean)) return true;
     return false;
   }
 
@@ -115,7 +170,9 @@ window.FBDietUI = (() => {
     for (const kw of NON_AUTHOR_TEXTS) {
       if (lower === kw.toLowerCase()) return true;
     }
-    if (/^[\d·\s]+(分鐘|小時|天|秒|週|年|m|h|d|w|y|hr|min|s)/i.test(clean)) return true;
+    if (isRelativeTime(clean)) return true;
+    if (isStandaloneDomainOrUrl(clean)) return true;
+    if (isObfuscatedHash(clean)) return true;
     if (/^[·•\s]*(追蹤|Follow|關注|加入|Join)[·•\s]*$/i.test(clean)) return true;
     if (/^[·•\s]*(查看原文|為此翻譯評分|See original|Rate this translation)/i.test(clean)) return true;
     return false;
@@ -260,7 +317,7 @@ window.FBDietUI = (() => {
         if (h.closest && h.closest('header, [data-ad-comet-preview="header"], [role="button"], button, [aria-haspopup="menu"]')) continue;
         if (h.querySelector && h.querySelector('[role="button"], button, [aria-haspopup="menu"]')) continue;
 
-        const text = h.textContent.trim();
+        const text = extractTextWithEmojis(h).trim();
         if (isUiOrActionText(text)) continue;
 
         // Skip author headings or group headings
@@ -312,7 +369,7 @@ window.FBDietUI = (() => {
       let postBody = null;
       const msgEl = container.querySelector('[data-ad-preview="message"], [data-ad-comet-preview="message"], [data-testid="post_message"]');
       if (msgEl) {
-        const text = msgEl.textContent.trim();
+        const text = extractTextWithEmojis(msgEl).trim();
         if (text && !isUiOrActionText(text)) {
           const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
           if (lines.length > 0) {
@@ -331,7 +388,7 @@ window.FBDietUI = (() => {
         for (const el of dirEls) {
           if (titleObj && titleObj.node && (titleObj.node === el || (titleObj.node.contains && titleObj.node.contains(el)))) continue;
           if (el.closest && el.closest('header, [data-ad-comet-preview="header"], h2, h3, h4, h5, [role="heading"], [role="button"], button, [aria-haspopup="menu"]')) continue;
-          const text = el.textContent.trim();
+          const text = extractTextWithEmojis(el).trim();
           if (isUiOrActionText(text)) continue;
           if (effectiveAuthor && (text === effectiveAuthor || text.includes(effectiveAuthor))) continue;
           if (effectiveGroup && (text === effectiveGroup || text.includes(effectiveGroup))) continue;
@@ -392,7 +449,44 @@ window.FBDietUI = (() => {
     }
   }
 
-  function extractAllUrlsFromDom(container, postId, authorUsername, groupId) {
+  function extractTimestampFromDom(container) {
+    if (!container || typeof container.querySelectorAll !== 'function') return null;
+    try {
+      // 1. Direct search on links matching relative time
+      const links = container.querySelectorAll('a[role="link"], a[href]');
+      for (const a of links) {
+        if (isInsideProbeUi(a) || isInsideCommentSection(a)) continue;
+        const text = (a.textContent || '').replace(/^[·•\s+]+/, '').replace(/[·•\s+]+$/, '').trim();
+        if (isRelativeTime(text)) {
+          const full = a.href || a.getAttribute('href');
+          const abs = full && full.startsWith('/') ? 'https://www.facebook.com' + full : full;
+          return {
+            text: text,
+            url: abs || null
+          };
+        }
+      }
+
+      // 2. Elements matching relative time, searching for enclosing or descendant link
+      const timeEls = container.querySelectorAll('span, div');
+      for (const el of timeEls) {
+        if (isInsideProbeUi(el) || isInsideCommentSection(el)) continue;
+        const text = (el.textContent || '').replace(/^[·•\s+]+/, '').replace(/[·•\s+]+$/, '').trim();
+        if (isRelativeTime(text)) {
+          const a = (el.tagName === 'A' ? el : (el.closest ? el.closest('a') : null)) || (el.querySelector ? el.querySelector('a') : null);
+          const full = a ? (a.href || a.getAttribute('href')) : null;
+          const abs = full && full.startsWith('/') ? 'https://www.facebook.com' + full : full;
+          return {
+            text: text,
+            url: abs || null
+          };
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function extractAllUrlsFromDom(container, postId, authorUsername, groupId, author) {
     const urls = {
       primary: null,
       raw: null,
@@ -400,7 +494,8 @@ window.FBDietUI = (() => {
       synthesized: null,
       authorProfile: null,
       groupUrl: null,
-      adUrl: null
+      adUrl: null,
+      timestamp: null
     };
     if (!container) return urls;
     try {
@@ -418,15 +513,30 @@ window.FBDietUI = (() => {
 
       // 2. Author Profile URL
       const authorLinks = container.querySelectorAll ? container.querySelectorAll('a[role="link"], a[href]') : [];
+      let bestProfileUrl = null;
+      let fallbackProfileUrl = null;
+
       for (const al of authorLinks) {
         if (isInsideProbeUi(al) || isInsideCommentSection(al)) continue;
         const href = (al.getAttribute('href') || al.href || '').toLowerCase();
         if (href && !isExcludedLinkHref(href)) {
           const full = al.href || al.getAttribute('href');
-          urls.authorProfile = full && full.startsWith('/') ? 'https://www.facebook.com' + full : full;
-          break;
+          const abs = full && full.startsWith('/') ? 'https://www.facebook.com' + full : full;
+          const text = (al.textContent || '').replace(/\s+/g, ' ').trim();
+
+          const isStory = href.includes('/stories/');
+          if (author && text === author) {
+            bestProfileUrl = abs;
+            break;
+          }
+          if (!isStory && !bestProfileUrl) {
+            bestProfileUrl = abs;
+          } else if (!fallbackProfileUrl) {
+            fallbackProfileUrl = abs;
+          }
         }
       }
+      urls.authorProfile = bestProfileUrl || fallbackProfileUrl || null;
 
       // 3. DOM permalink
       const links = container.querySelectorAll ? container.querySelectorAll('a[role="link"], a[href]') : [];
@@ -457,9 +567,24 @@ window.FBDietUI = (() => {
         urls.synthesized = 'https://www.facebook.com/' + authorUsername + '/posts/' + postId;
       }
 
+      // 5. Timestamp URL (fallback for permalink)
+      const tsObj = extractTimestampFromDom(container);
+      if (tsObj && tsObj.url) {
+        urls.timestamp = tsObj.url;
+        if (!urls.domPermalink) {
+          urls.domPermalink = tsObj.url;
+        }
+      }
+
       const best = urls.domPermalink || urls.synthesized || urls.adUrl || null;
       urls.raw = best;
-      urls.primary = best ? stripTrackingParams(best) : null;
+      if (best) {
+        const cleaned = stripTrackingParams(best);
+        const hasSpecificPostPath = /[/](posts|permalink|videos|photos|watch|reel|reels)[/]|permalink\.php|story_fbid=/.test(best);
+        urls.primary = hasSpecificPostPath ? cleaned : best;
+      } else {
+        urls.primary = null;
+      }
     } catch (e) {}
     return urls;
   }
@@ -473,7 +598,7 @@ window.FBDietUI = (() => {
         if (href.includes('/permalink/') || href.includes('/posts/') || href.includes('/user/')) continue;
         const text = groupLink.textContent.trim();
         if (text && text.length > 1 && text.length < 80 && !isNonAuthor(text)) {
-          if (!/^[\d·\s]+(分鐘|小時|天|秒|週|年|m|h|d|w|y|hr|min|s)/i.test(text)) {
+          if (!isRelativeTime(text)) {
             return text;
           }
         }
@@ -542,7 +667,7 @@ window.FBDietUI = (() => {
         if (candidates.length >= 10) break;
         if (isInsideProbeUi(el)) continue;
 
-        const rawText = el.textContent ? el.textContent.trim() : '';
+        const rawText = extractTextWithEmojis(el).trim();
         if (!rawText) continue;
 
         // Deduplicate identical immediate text
@@ -559,6 +684,10 @@ window.FBDietUI = (() => {
           status = 'skipped:in-header';
         } else if (el.closest && el.closest('[role="button"], button, [aria-haspopup="menu"]')) {
           status = 'skipped:ui-button';
+        } else if (isStandaloneDomainOrUrl(rawText)) {
+          status = 'skipped:url-domain';
+        } else if (isObfuscatedHash(rawText)) {
+          status = 'skipped:obfuscated-hash';
         } else if (isUiOrActionText(rawText)) {
           status = 'skipped:ui-branding';
         } else if (author && (rawText === author || rawText.includes(author))) {
@@ -655,7 +784,8 @@ window.FBDietUI = (() => {
     try {
       const actor = extractAuthorFromDom(container);
       const group = extractGroupFromDom(container);
-      const urls = extractAllUrlsFromDom(container);
+      const timestamp = extractTimestampFromDom(container);
+      const urls = extractAllUrlsFromDom(container, null, null, null, actor);
       const titleObj = extractPostTitleFromDom(container, actor, group);
       const textCandidates = scanTextCandidates(container, actor, group);
       const reshare = extractReshareFromDom(container, actor);
@@ -665,6 +795,7 @@ window.FBDietUI = (() => {
         snippet: extractMessageFromDom(container, actor, group),
         title: titleObj ? { tag: titleObj.node ? titleObj.node.tagName : 'H2', text: titleObj.text } : null,
         group,
+        timestamp,
         postUrl: urls.primary || urls.raw || null,
         urls,
         adUrl: urls.adUrl || null,
@@ -683,6 +814,8 @@ window.FBDietUI = (() => {
     extractPostTitleFromDom,
     extractMessageFromDom,
     extractGroupFromDom,
+    extractTimestampFromDom,
+    extractTextWithEmojis,
     extractAdUrlFromDom,
     extractPostUrlFromDom,
     extractAllUrlsFromDom,
