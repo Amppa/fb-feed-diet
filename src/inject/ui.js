@@ -760,9 +760,16 @@ window.FBDietUI = (() => {
   function extractReshareFromDom(container, mainAuthor) {
     if (!container || typeof container.querySelectorAll !== 'function') return null;
     try {
+      // Structural pre-filter: the quoted original always sits below the sharer's own
+      // header, so a candidate that wraps or lives inside that header is the unit itself,
+      // and comment/probe subtrees carry unrelated author names. Ruling those out keeps
+      // the author-name comparison from firing on them.
+      const unitHeader = container.querySelector ? container.querySelector('header, [data-ad-comet-preview="header"]') : null;
       const quotes = container.querySelectorAll('[role="article"], blockquote, div[class*="quote"]');
       for (const q of quotes) {
         if (q === container) continue;
+        if (isInsideProbeUi(q) || isInsideCommentSection(q)) continue;
+        if (unitHeader && (q === unitHeader || unitHeader.contains(q) || q.contains(unitHeader))) continue;
         const innerAuthor = extractAuthorFromDom(q);
         if (innerAuthor && innerAuthor !== mainAuthor) {
           const innerMsg = extractMessageFromDom(q, innerAuthor);

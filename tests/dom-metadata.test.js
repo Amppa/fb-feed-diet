@@ -307,6 +307,39 @@ function run(c) {
   const noAuthorLinkCard = makeNode('article', {}, [makeNode('h3', { role: 'heading' }, [makeNode('span', {}, [], '無連結作者')]), makeNode('div', { dir: 'auto' }, [], '只有社團連結的貼文'), makeNode('a', { href: '/groups/2469367233335424/' }, [], '某社團')]);
   c.equals('a stray group link alone is not enough to synthesize', metadata.collect(noAuthorLinkCard, false, { postId: '4242424242' }).urls.synthesized, null);
   c.equals('unsafe post id is never interpolated into a URL', metadata.collect(adaCard, false, { postId: '../x?v=1' }).urls.synthesized, null);
+
+  // Reshare detection: structural pre-filter before any author-name comparison
+  const reshareSharerHeader = makeNode('header', {}, [
+    makeNode('h4', { role: 'heading' }, [makeNode('a', { role: 'link', href: '/sharer.page' }, [], '轉貼的人')]),
+    makeNode('span', { dir: 'auto' }, [], '分享了')
+  ]);
+  const reshareOriginalHeader = makeNode('header', {}, [
+    makeNode('h4', { role: 'heading' }, [makeNode('a', { role: 'link', href: '/original.author' }, [], '原作者')])
+  ]);
+  const reshareOriginalMessage = makeNode('div', { dir: 'auto' }, [], '被轉貼的原始內容');
+  const reshareQuoted = makeNode('div', { role: 'article' }, [reshareOriginalHeader, reshareOriginalMessage]);
+  const reshareCard = makeNode('article', {}, [reshareSharerHeader, reshareQuoted]);
+
+  const reshareSnapshot = metadata.collect(reshareCard, false);
+  c.equals('reshare reports the quoted author', reshareSnapshot.reshare && reshareSnapshot.reshare.originalActor, '原作者');
+  c.equals('reshare reports the quoted message', reshareSnapshot.reshare && reshareSnapshot.reshare.originalTitle, '被轉貼的原始內容');
+
+  // A commenter's article is nested content with a foreign author name, not a reshare source
+  const commentAuthorHeading = makeNode('h4', { role: 'heading' }, [makeNode('a', { role: 'link', href: '/some.commenter' }, [], '留言者甲')]);
+  const commentArticle = makeNode('div', { role: 'article' }, [commentAuthorHeading, makeNode('div', { dir: 'auto' }, [], '這是一則留言')]);
+  const commentCard = makeNode('article', {}, [
+    makeNode('header', {}, [makeNode('h4', { role: 'heading' }, [makeNode('a', { role: 'link', href: '/sharer.page' }, [], '轉貼的人')])]),
+    makeNode('div', { dir: 'auto' }, [], '我的看法'),
+    makeNode('form', {}, [commentArticle])
+  ]);
+  c.equals('comment subtree is never reported as a reshare', metadata.collect(commentCard, false).reshare, null);
+
+  // A wrapper article that contains the sharer's own header is the unit, not a quoted post
+  const wrappedSharerHeader = makeNode('header', {}, [makeNode('h4', { role: 'heading' }, [makeNode('a', { role: 'link', href: '/sharer.page' }, [], '轉貼的人')])]);
+  const wrappedQuotedHeader = makeNode('header', {}, [makeNode('h4', { role: 'heading' }, [makeNode('a', { role: 'link', href: '/original.author' }, [], '原作者')])]);
+  const unitWrapper = makeNode('div', { role: 'article' }, [wrappedSharerHeader, makeNode('div', { dir: 'auto' }, [], '一般貼文'), wrappedQuotedHeader]);
+  const wrapperCard = makeNode('article', {}, [unitWrapper]);
+  c.equals('a candidate wrapping the unit header is not a reshare', metadata.collect(wrapperCard, false).reshare, null);
 }
 
 module.exports = { run };
