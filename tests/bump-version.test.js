@@ -37,7 +37,7 @@ function run(checker) {
 
   checker.ok('package.json version matches manifest.json', pkg.version === manifest.version);
   checker.ok('defaults.js EXTENSION_VERSION matches manifest.json', defaultsMatch && defaultsMatch[1] === manifest.version);
-  checker.equals('current version is 2.5.0', manifest.version, '2.5.0');
+  checker.equals('current version is 2.5.1', manifest.version, '2.5.1');
 }
 
 module.exports = { run };

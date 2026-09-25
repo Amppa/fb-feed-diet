@@ -127,7 +127,7 @@ function makeNode(tag, attrs = {}, children = [], text = '') {
     matches(selector) {
       if (selector.startsWith('.')) {
         const cls = selector.slice(1);
-        const curCls = this.attributes.className || this.attributes['class'] || '';
+        const curCls = this.className || this.attributes.className || this.attributes['class'] || '';
         return curCls.split(/\s+/).includes(cls);
       }
       const parts = selector.match(/^([a-zA-Z0-9-]+)?(\[[^\]]+\])$/);
