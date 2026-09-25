@@ -38,6 +38,11 @@ function run(c) {
   );
   c.ok('content.css defines .fb-diet-title-group-name', css.includes('.fb-diet-title-group-name'));
   c.ok('content.css defines non-bold for group title', css.includes('.fb-diet-title-group') && css.includes('font-weight: normal !important;'));
+
+  // Right rail pre-hydration ad suppression contracts
+  c.ok('content.css defines attributionsrc ad suppression', css.includes('a[attributionsrc]'));
+  c.ok('content.css defines rhcad target ad suppression', css.includes('a[target^="rhcad"]'));
+  c.ok('content.css defines fbclid ad suppression', css.includes('a[href*="fbclid="]'));
 }
 
 module.exports = { run };

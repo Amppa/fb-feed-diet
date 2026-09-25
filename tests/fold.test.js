@@ -718,6 +718,52 @@ function run(c) {
     }
     c.ok('few loader definitions veto drift suspicion', d3.win.FBDietFold.checkModuleDrift().suspected === false);
   }
+
+  /* --- pre-hydration right rail ad suppression style injection & settings lifecycle --- */
+  {
+    const t = setup({});
+    let appendedStyle = null;
+    const fakeHead = {
+      appendChild(el) {
+        appendedStyle = el;
+      }
+    };
+    const fakeDoc = {
+      head: fakeHead,
+      getElementById(id) {
+        if (appendedStyle && appendedStyle.id === id) return appendedStyle;
+        return null;
+      },
+      createElement(tag) {
+        return {
+          tagName: tag.toUpperCase(),
+          textContent: '',
+          parentNode: fakeHead
+        };
+      }
+    };
+    fakeHead.removeChild = (el) => {
+      if (appendedStyle === el) appendedStyle = null;
+    };
+
+    const res = t.fold.install(fakeDoc);
+    c.ok('install() returns truthy after component registration and style injection', Boolean(res));
+    c.ok('install() appends style with id fb-diet-right-rail-style', Boolean(appendedStyle) && appendedStyle.id === 'fb-diet-right-rail-style');
+    c.ok('injected style suppresses ads with attributionsrc', appendedStyle.textContent.includes('a[attributionsrc]'));
+    c.ok('injected style suppresses ads with target^=rhcad', appendedStyle.textContent.includes('a[target^="rhcad"]'));
+    c.ok('injected style suppresses ads with fbclid', appendedStyle.textContent.includes('a[href*="fbclid="]'));
+    c.ok('injected style retains .adhidden and .fb-diet-side-ad-hidden', appendedStyle.textContent.includes('.CometHomeRightRailUnit:has(') && appendedStyle.textContent.includes('.fb-diet-side-ad-hidden'));
+
+    // Dynamic sync: when foldSponsored is disabled, style is removed
+    t.bridge.setSettings({ foldSponsored: false });
+    t.fold.syncRightRailStyle(fakeDoc);
+    c.ok('syncRightRailStyle removes stylesheet when foldSponsored is false', appendedStyle === null);
+
+    // Dynamic sync: re-enabling foldSponsored restores the style
+    t.bridge.setSettings({ foldSponsored: true });
+    t.fold.syncRightRailStyle(fakeDoc);
+    c.ok('syncRightRailStyle restores stylesheet when foldSponsored is re-enabled', Boolean(appendedStyle));
+  }
 }
 
 module.exports = { run, FEED_MODULE };

@@ -552,22 +552,61 @@ window.FBDietFold = (() => {
     }
   }
 
-  function install() {
+  const RIGHT_RAIL_STYLE_ID = 'fb-diet-right-rail-style';
+  const RIGHT_RAIL_PREHIDE_CSS = `
+    /* Pre-hydration first-frame right rail ad suppression (SSR markup) */
+    :is(div[role="complementary"], aside, [data-pagelet*="RightRail"]) :is(
+      a[attributionsrc],
+      a[target^="rhcad"],
+      a[href*="fbclid="],
+      a[href*="/l.php"]
+    ),
+    a[target^="rhcad"],
+    :is(div[role="complementary"], aside, [data-pagelet*="RightRail"]) :is(div, li):has(> :is(
+      a[attributionsrc],
+      a[target^="rhcad"],
+      a[href*="fbclid="],
+      a[href*="/l.php"]
+    )),
+    .CometHomeRightRailUnit:has(.adhidden, .fb-diet-side-ad-hidden),
+    .adhidden,
+    .fb-diet-side-ad-hidden {
+      display: none !important;
+    }
+  `;
+
+  function syncRightRailStyle(doc) {
     try {
-      const style = document.createElement('style');
-      style.textContent = `
-        .CometHomeRightRailUnit:has(.adhidden),
-        .CometHomeRightRailUnit:has(.fb-diet-side-ad-hidden) {
-          display: none !important;
+      const targetDoc = doc || (typeof document !== 'undefined' ? document : null);
+      if (!targetDoc || typeof targetDoc.createElement !== 'function') return false;
+
+      const bridge = window.FBDietBridge;
+      const settings = bridge && typeof bridge.getSettings === 'function' ? bridge.getSettings() : null;
+      const shouldHide = !settings || (settings.enabled !== false && settings.foldSponsored !== false);
+
+      let style = targetDoc.getElementById ? targetDoc.getElementById(RIGHT_RAIL_STYLE_ID) : null;
+      if (!shouldHide) {
+        if (style && style.parentNode) {
+          style.parentNode.removeChild(style);
         }
-        .adhidden, .fb-diet-side-ad-hidden {
-          display: none !important;
-        }
-      `;
-      (document.head || document.documentElement).appendChild(style);
+        return false;
+      }
+
+      if (!style) {
+        style = targetDoc.createElement('style');
+        style.id = RIGHT_RAIL_STYLE_ID;
+        style.textContent = RIGHT_RAIL_PREHIDE_CSS;
+        (targetDoc.head || targetDoc.documentElement).appendChild(style);
+      }
+      return true;
     } catch (e) {
       // Non-fatal
+      return false;
     }
+  }
+
+  function install(doc) {
+    syncRightRailStyle(doc);
 
     const proxy = window.FBDietProxy;
     if (!proxy || typeof proxy.registerComponent !== 'function') return false;
@@ -598,6 +637,12 @@ window.FBDietFold = (() => {
     return registered > 0;
   }
 
+  if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('fb-diet:settings-changed', () => {
+      syncRightRailStyle();
+    });
+  }
+
   install();
   scheduleDriftChecks();
 
@@ -606,6 +651,7 @@ window.FBDietFold = (() => {
     HIDE_MODE,
     FBDietFold,
     install,
+    syncRightRailStyle,
     checkModuleDrift,
     getStatus: () => ({
       hideMode: HIDE_MODE,

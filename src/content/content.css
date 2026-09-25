@@ -242,6 +242,20 @@
 }
 
 /* Right sidebar sponsored ads: directly hidden without placeholder bar */
+/* Pre-hydration first-frame suppression (SSR markup) */
+:is(div[role="complementary"], aside, [data-pagelet*="RightRail"]) :is(
+  a[attributionsrc],
+  a[target^="rhcad"],
+  a[href*="fbclid="],
+  a[href*="/l.php"]
+),
+a[target^="rhcad"],
+:is(div[role="complementary"], aside, [data-pagelet*="RightRail"]) :is(div, li):has(> :is(
+  a[attributionsrc],
+  a[target^="rhcad"],
+  a[href*="fbclid="],
+  a[href*="/l.php"]
+)),
 .adhidden,
 .fb-diet-side-ad-hidden,
 .CometHomeRightRailUnit:has(.adhidden, .fb-diet-side-ad-hidden) {
