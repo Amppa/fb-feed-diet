@@ -113,6 +113,7 @@ Loaded sequentially at `document_start` before Comet finishes loading:
 - **`ui.js` (`window.FBDietUI`, `window.FBDietDOMMetadata`)**:
   - React UI components and group badges for placeholder bars.
   - Embeds mounted-DOM metadata extraction (`window.FBDietDOMMetadata`) directly to eliminate multi-script injection ordering and reload desync risks.
+  - `FBDietDOMMetadata.collect(container, isMediaGroup, relayContext)` synthesizes a permalink for units whose DOM has neither a permalink nor a timestamp link: `relayContext.postId` comes from Relay (never guessed from the DOM), and the author handle — plus the group id for group posts — is proven by the author profile link. A stray group link in the container is not sufficient evidence for group permalink synthesis.
   - Provides `FBDietTitleBar` (36px default / 18px mini modes, streaming Suspense observer, and expand/collapse control).
 - **`probe.js` (`window.FBDietProbe`)**:
   - Diagnostic JSON generator and developer inspection layer.

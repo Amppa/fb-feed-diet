@@ -84,6 +84,12 @@ window.FBDietProbe = (() => {
     return { restricted: scopeRestricted, allowed: scopeAllowed, path: scopePath };
   }
 
+  /** Relay post id of the unit, handed to the DOM collector so it can synthesize a permalink. */
+  function relayPostIdHint(feedUnit) {
+    const postId = (feedUnit && (feedUnit.post_id || feedUnit.clip_id || (feedUnit.story && feedUnit.story.post_id) || feedUnit.mf_story_key)) || null;
+    return postId ? { postId } : null;
+  }
+
   function buildUnitProbeReport(props, classifyResult, relayReads, container, renderedAt) {
     const feedUnit = props.payload && props.payload.feedUnit;
     const nowIso = new Date().toISOString();
@@ -95,7 +101,7 @@ window.FBDietProbe = (() => {
     const isMediaGroup = classifyResult && (classifyResult.category === 'reels' || classifyResult.category === 'stories' || classifyResult.category === 'suggestedGroup');
     const domMetadata = window.FBDietDOMMetadata;
     const domLive = container && domMetadata && typeof domMetadata.collect === 'function'
-      ? domMetadata.collect(container, isMediaGroup)
+      ? domMetadata.collect(container, isMediaGroup, relayPostIdHint(feedUnit))
       : null;
 
     // Structured context from Props / Relay store (initial)
@@ -111,7 +117,7 @@ window.FBDietProbe = (() => {
     const adUrl = (domLive && domLive.adUrl) || (cached && cached.adUrl) || (initialEnrichment && initialEnrichment.content && initialEnrichment.content.permalink && initialEnrichment.content.permalink.indexOf('/ads/') !== -1 ? initialEnrichment.content.permalink : null);
     let postUrl = (domLive && domLive.postUrl) || (cached && cached.postUrl) || (initialEnrichment && initialEnrichment.content && initialEnrichment.content.permalink && initialEnrichment.content.permalink.indexOf('/ads/') === -1 ? initialEnrichment.content.permalink : null);
 
-    const postId = (feedUnit && (feedUnit.post_id || feedUnit.clip_id || (feedUnit.story && feedUnit.story.post_id) || feedUnit.mf_story_key)) || null;
+    const postId = (relayPostIdHint(feedUnit) || {}).postId || null;
     const authorHandle = (initialEnrichment && initialEnrichment.actor && (initialEnrichment.actor.username || initialEnrichment.actor.id)) || null;
     if (!postUrl && postId && authorHandle) {
       postUrl = 'https://www.facebook.com/' + authorHandle + '/posts/' + postId;
@@ -421,7 +427,7 @@ window.FBDietProbe = (() => {
     const nowIso = new Date().toISOString();
     const renderIso = renderedAt || nowIso;
     const feedUnit = props && props.payload && props.payload.feedUnit;
-    const postId = (feedUnit && (feedUnit.post_id || feedUnit.clip_id || (feedUnit.story && feedUnit.story.post_id) || feedUnit.mf_story_key)) || null;
+    const postId = (relayPostIdHint(feedUnit) || {}).postId || null;
     const unitId = classifyResult && (classifyResult.unitId || (classifyResult.evidence && classifyResult.evidence.id));
     const feedPosition = props && props.payload && typeof props.payload.position === 'number' ? props.payload.position : null;
     const moduleName = (props && props.moduleName) || (classifyResult && classifyResult.moduleName) || null;
@@ -436,7 +442,7 @@ window.FBDietProbe = (() => {
     const isMediaGroup = classifyResult && (classifyResult.category === 'reels' || classifyResult.category === 'stories' || classifyResult.category === 'suggestedGroup');
     const domMetadata = window.FBDietDOMMetadata;
     const domLive = container && domMetadata && typeof domMetadata.collect === 'function'
-      ? domMetadata.collect(container, isMediaGroup)
+      ? domMetadata.collect(container, isMediaGroup, relayPostIdHint(feedUnit))
       : null;
 
     let domSuggestedLive = (classifyResult && classifyResult.domEvidence) || null;
@@ -451,16 +457,11 @@ window.FBDietProbe = (() => {
     }
 
     const liveUrls = (domLive && domLive.urls) || {};
-    let synthesizedUrl = null;
-    let authorHandle = (domLive && domLive.actor) || null;
-    if (postId && authorHandle) {
-      synthesizedUrl = 'https://www.facebook.com/' + encodeURIComponent(authorHandle) + '/posts/' + postId;
-    }
     const rawResolvedUrls = Object.assign({
-      primary: (domLive && domLive.postUrl) || synthesizedUrl || null,
+      primary: (domLive && domLive.postUrl) || null,
       raw: liveUrls.raw || null,
       domPermalink: liveUrls.domPermalink || null,
-      synthesized: synthesizedUrl,
+      synthesized: liveUrls.synthesized || null,
       authorProfile: liveUrls.authorProfile || null,
       groupUrl: liveUrls.groupUrl || null,
       adUrl: (domLive && domLive.adUrl) || liveUrls.adUrl || null,
