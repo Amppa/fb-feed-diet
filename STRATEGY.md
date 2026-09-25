@@ -9,7 +9,7 @@
   - [Production Rules Table](#production-rules-table)
 - [3. Decision Log & Architectural Rationale](#3-decision-log--architectural-rationale)
   - [Topic Index](#topic-index)
-  - [Decisions Summary (#1 ~ #28)](#decisions-summary-1--28)
+  - [Decisions Summary (#1 ~ #30)](#decisions-summary-1--30)
 - [4. Known Misclassification Pitfalls (False Positives)](#4-known-misclassification-pitfalls-false-positives)
 - [5. Diagnostic Runbook & New Rule Workflow](#5-diagnostic-runbook--new-rule-workflow)
   - [Diagnostic Tools](#diagnostic-tools)
@@ -55,11 +55,11 @@ sponsored  >  suggestedGroup  >  suggested  >  stories  >  reels  >  regular
 
 ### Topic Index
 - **[Rules & Classification]**: #1, #3, #6, #7, #8, #10, #14, #15, #16, #19
-- **[Probe & Diagnostics]**: #11, #13, #20, #21
-- **[Core & Interception]**: #4, #5, #9, #24, #26, #28
+- **[Probe & Diagnostics]**: #11, #13, #20, #21, #30
+- **[Core & Interception]**: #4, #5, #9, #24, #26, #28, #29
 - **[UI & Appearance Mode]**: #17, #18, #22, #23, #25, #27
 
-### Decisions Summary (#1 ~ #28)
+### Decisions Summary (#1 ~ #30)
 
 ### [Rules] Decision #1: Restrict `subscribe_status` Strictly to `CAN_SUBSCRIBE`
 - **Attempted & Rejected**: Expanding suggested criteria to include `CAN_FOLLOW` and `NOT_SUBSCRIBED`.
@@ -147,6 +147,20 @@ sponsored  >  suggestedGroup  >  suggested  >  stories  >  reels  >  regular
 - `classifyProbeReport` snapshot reading only resolves the snapshot's own plain fields (linked records keep resolving to `null`), and every evidence reader walks one flattened, duplicate-free prop source list.
 - Rollback note: no stored setting is invalidated. The Options page writes `showTitleMode` / `alwaysShowFoldBar`, so a stale `showFeedTitle` value is simply no longer read (no migration needed).
 
+### [Core] Decision #29: Proxy Module Drift Watchdog
+- `proxy.js` records module health while decorating: `stats.dCalls` counts every intercepted `__d` definition call, and `getModuleHealth()` derives per-registration `seen` (the module name appeared), `patched` (its factory was actually wrapped) and `unseen` (never appeared) counters.
+- `fold.js` converts those counters into a session verdict in `computeModuleDrift()`: **suspected drift = `dCalls >= DRIFT_MIN_DCALLS` (300) AND `seen === 0` AND Relay ready AND fold scope allowed**. The two extra guards matter: on a non-whitelisted path (`/messages` etc.) folding is expected to be silent, and a Relay store that never became ready means the snapshot is still early rather than stale.
+- Checks run at `DRIFT_CHECK_DELAYS = [15000, 45000]` ms after install. A confident verdict logs `[FB Diet][Drift] … FEED_UNIT_MODULES looks stale and folding may be inactive` **once per session and is never debug-gated** — a total folding failure must be visible without `?fb_diet_debug=1`.
+- Read-only inspection: `FBDietFold.checkModuleDrift()` / `FBDietFold.getStatus().drift`, raw counters via `FBDietProxy.getModuleHealth()`.
+- Scope: detection only. The watchdog never rewrites `FEED_UNIT_MODULES` or falls back to ad-hoc selectors; a stale table still requires a source fix plus a new decision entry here.
+
+### [Probe] Decision #30: DOM Fallback & Probe Hardening
+Three DOM-side false-positive sources were closed without removing the underlying fallbacks (commits 69bc9bf, 4df6f7a, 9aa953c):
+
+- **Ad-link matching (`detector.js`)**: the fallback no longer matches the bare substrings `/ads/` and `ad_id`. Organic permalinks carry `thread_id` / `load_id`, which contain `ad_id`, and any external site's `/ads/about` page matched as well — both folded real posts. A link must now either pass `AD_LINK_HREF_RE` (an `/ads/` path segment on facebook.com or relative) or carry `ad_id` as an actual query parameter (`/[?&]ad_id=/`).
+- **Permalink synthesis (`ui.js`)**: a post URL is only synthesized from a Relay-supplied id (`relayPostIdHint`: `post_id`, `clip_id`, `story.post_id`, `mf_story_key`) matching `/^[A-Za-z0-9_-]{4,}$/`; ids are never parsed out of DOM text. The host must be proven: an explicit group id, an author link of the form `/groups/<gid>/user/<uid>` (`authorIdentityFromProfileUrl`), or a `/groups/…` page path yield `/groups/<gid>/permalink/<id>/`; otherwise a non-reserved vanity handle is required for `/<handle>/posts/<id>`. A stray group link inside the unit is no longer sufficient — the old `groupUrl` synthesis fallback is retired (`groupUrl` survives as report-only evidence) — so a group *mention* in a post body cannot turn a personal permalink into a group permalink.
+- **Reshare source detection (`ui.js`)**: `extractReshareFromDom` applies a structural pre-filter before comparing author names. Candidates come from `[role="article"]`, `blockquote`, `div[class*="quote"]`; the container itself, anything inside the probe UI or the comment section, and anything equal to / containing / contained by the unit's own `header` are skipped. Only then must the inner author differ from the main author — so a commenter's name or the sharer's own header can no longer be reported as the reshared original.
+
 ---
 
 ## 4. Known Misclassification Pitfalls (False Positives)
@@ -157,6 +171,7 @@ sponsored  >  suggestedGroup  >  suggested  >  stories  >  reels  >  regular
 | **2** | Friend comment in a public group misclassified as `suggested` | Unsubscribed author matched `NOT_SUBSCRIBED` | Decisions #1, #6 |
 | **3** | Friend resharing a Reel misclassified as `reels` | Nested attachment record had `ShowcaseFeedUnit` / `SHOWCASE_SHORT_VIDEO` | Decision #3 (unit's own typename only) |
 | **4** | Contextual friend story misclassified as `suggested` | Identical keyed record `story_header(location:homepage_stream)` shared between suggestions and friend stories | Decision #6 (`story_header` completely retired) |
+| **5** | Reshare evidence names a commenter (or the sharer's own header) as the original post | Author-name comparison ran over any nested article/quote subtree, including comment subtrees and the unit header | Decision #30 (structural pre-filter excludes probe UI, comment section and unit header before comparing authors) |
 
 > **Golden Rule**: *Prefer a missed fold over a false positive.* Never loosen relationship status boundaries without multi-scenario verification.
 
@@ -170,7 +185,8 @@ sponsored  >  suggestedGroup  >  suggested  >  stories  >  reels  >  regular
    - Check `classify.category` (`regular` with `no-match` vs `null` with `no-unit-id`).
    - Check `relayReads` and unpeeled candidate records.
 3. **Verbose Console**: Append `?fb_diet_debug=1` to any Facebook URL.
-4. **Detailed Guide**: Refer to [docs/debugging.md](docs/debugging.md) for full DevTools workflows.
+4. **Drift Watchdog**: `[FB Diet][Drift] … FEED_UNIT_MODULES looks stale` in the console means no registered module matched after ≥300 intercepted definitions (Relay ready, scope allowed). Confirm with `FBDietFold.getStatus().drift` (`dCalls` / `seen` / `patched`) and `FBDietProxy.getModuleHealth()` (`unseen` lists module names that never appeared) before touching `FEED_UNIT_MODULES`.
+5. **Detailed Guide**: Refer to [docs/debugging.md](docs/debugging.md) for full DevTools workflows.
 
 ### 5-Step Safe Rule Addition Workflow
 1. Extract candidate Relay paths / props fields from `no-match` probe JSON.
