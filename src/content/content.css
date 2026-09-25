@@ -158,8 +158,9 @@
   white-space: nowrap !important;
 }
 
-.fb-diet-title-group,
+.fb-diet-title-group-name,
 .fb-diet-title-author,
+.fb-diet-title-media,
 .fb-diet-title-snippet {
   overflow: hidden !important;
   text-overflow: ellipsis !important;
@@ -167,20 +168,33 @@
 }
 
 .fb-diet-title-group,
-.fb-diet-title-author {
+.fb-diet-title-author,
+.fb-diet-title-media {
   max-width: 140px !important;
   flex-shrink: 0 !important;
 }
 
 .fb-diet-title-group {
-  display: inline-block !important;
-  font-weight: 600 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  font-weight: normal !important;
   color: var(--secondary-text, #65676b) !important;
+  white-space: nowrap !important;
+}
+
+.fb-diet-title-group-name {
+  display: inline-block !important;
+  min-width: 0 !important;
 }
 
 .fb-diet-title-author {
   font-weight: 700 !important;
   color: var(--primary-text, #050505) !important;
+}
+
+.fb-diet-title-media {
+  font-weight: normal !important;
+  color: var(--secondary-text, #65676b) !important;
 }
 
 .fb-diet-title-snippet {
@@ -274,11 +288,17 @@
   position: relative;
 }
 
-.fb-diet-probe-btn {
+.fb-diet-probe-group {
   position: absolute;
   top: 4px;
-  left: -26px;
+  left: -52px;
+  display: inline-flex;
+  gap: 3px;
   z-index: 9999;
+}
+
+.fb-diet-probe-btn {
+  position: relative;
   width: 22px;
   height: 22px;
   line-height: 20px;
@@ -293,10 +313,20 @@
   justify-content: center;
   cursor: pointer;
   opacity: 0.55;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+/* Fallback for standalone probe button when not wrapped in group */
+.fb-diet-probe-holder > .fb-diet-probe-btn {
+  position: absolute;
+  top: 4px;
+  left: -26px;
+  z-index: 9999;
 }
 
 .fb-diet-probe-btn:hover {
   opacity: 1;
+  transform: scale(1.08);
 }
 
 .fb-diet-probe-popup {

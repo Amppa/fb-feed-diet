@@ -11,6 +11,7 @@ function run(c) {
 
   for (const selector of [
     '.fb-diet-probe-holder',
+    '.fb-diet-probe-group',
     '.fb-diet-probe-btn',
     '.fb-diet-probe-popup',
     '.fb-diet-probe-popup-row',
@@ -35,6 +36,8 @@ function run(c) {
      css.includes('.fb-diet-placeholder.fb-diet-state-expanded~.fb-diet-expand-body::after')) &&
     css.includes('display: none !important;')
   );
+  c.ok('content.css defines .fb-diet-title-group-name', css.includes('.fb-diet-title-group-name'));
+  c.ok('content.css defines non-bold for group title', css.includes('.fb-diet-title-group') && css.includes('font-weight: normal !important;'));
 }
 
 module.exports = { run };

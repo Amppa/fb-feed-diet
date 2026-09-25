@@ -73,92 +73,410 @@ window.FBDietUI = (() => {
     '推薦你加入', '推荐你加入', 'Popular across Facebook', 'Facebook 熱門內容',
     '贊助', '赞助', 'sponsored', '廣告', '広告',
     '連續短片', '短视频', 'reels', '限時動態', '限时动态', 'stories',
-    '追蹤', 'follow', '關注', '加入', 'join'
+    '追蹤', 'follow', '關注', '加入', 'join',
+    'facebook', 'meta'
+  ]);
+
+  const UI_KEYWORDS = new Set([
+    '公開', '朋友', '只限本人', 'Public', 'Friends', 'Only me',
+    '讚', '留言', '分享', 'Like', 'Comment', 'Share',
+    'Facebook', 'Meta', '傳送門', '查看更多', 'See more', '顯示更多', 'Show more',
+    '查看原文', '為此翻譯評分', 'See original', 'Rate this translation',
+    '所有留言', '最相關', '最新留言', 'All comments', 'Most relevant', 'Newest'
   ]);
 
   function isNonAuthor(text) {
     if (!text || typeof text !== 'string') return true;
-    const clean = text.replace(/^[·•\s+]+/, '').trim();
+    const clean = text.replace(/^[·•\s+]+/, '').replace(/\s+/g, ' ').trim();
     if (clean.length < 2 || clean.length > 80) return true;
-    if (NON_AUTHOR_TEXTS.has(clean)) return true;
+    if (clean.startsWith('#')) return true;
+    if (clean.includes('.com') || clean.includes('.net') || clean.includes('.org') || clean.includes('.io') || clean.startsWith('http') || clean.startsWith('www.')) return true;
+    if (NON_AUTHOR_TEXTS.has(clean) || UI_KEYWORDS.has(clean)) return true;
     const lower = clean.toLowerCase();
     for (const kw of NON_AUTHOR_TEXTS) {
       if (lower === kw.toLowerCase()) return true;
     }
+    for (const kw of UI_KEYWORDS) {
+      if (lower === kw.toLowerCase()) return true;
+    }
+    if (/^[\d·\s]+(分鐘|小時|天|秒|週|年|m|h|d|w|y|hr|min|s)/i.test(clean)) return true;
     return false;
+  }
+
+  function isUiOrActionText(text) {
+    if (!text || typeof text !== 'string') return true;
+    const clean = text.replace(/^[·•\s+]+/, '').trim();
+    if (clean.length < 2) return true;
+    if (UI_KEYWORDS.has(clean) || NON_AUTHOR_TEXTS.has(clean)) return true;
+    const lower = clean.toLowerCase();
+    for (const kw of UI_KEYWORDS) {
+      if (lower === kw.toLowerCase()) return true;
+    }
+    for (const kw of NON_AUTHOR_TEXTS) {
+      if (lower === kw.toLowerCase()) return true;
+    }
+    if (/^[\d·\s]+(分鐘|小時|天|秒|週|年|m|h|d|w|y|hr|min|s)/i.test(clean)) return true;
+    if (/^[·•\s]*(追蹤|Follow|關注|加入|Join)[·•\s]*$/i.test(clean)) return true;
+    if (/^[·•\s]*(查看原文|為此翻譯評分|See original|Rate this translation)/i.test(clean)) return true;
+    return false;
+  }
+
+  function isExcludedLinkHref(href) {
+    if (!href || typeof href !== 'string') return false;
+    const h = href.toLowerCase().trim();
+    if (!h) return false;
+
+    // Group link without /user/ is the group page/feed, not an author
+    if (h.includes('/groups/') && !h.includes('/user/')) return true;
+
+    if (
+      h.includes('/posts/') ||
+      h.includes('/permalink/') ||
+      h.includes('permalink.php') ||
+      h.includes('story_fbid=') ||
+      h.includes('/videos/') ||
+      h.includes('/watch/') ||
+      h.includes('/ads/') ||
+      h.includes('/ad_preferences/') ||
+      h.includes('/photo') ||
+      h.includes('/photos/') ||
+      h.includes('/reel/') ||
+      h.includes('/reels/') ||
+      h.includes('/hashtag/') ||
+      h.includes('/events/') ||
+      h.includes('/marketplace/') ||
+      h.includes('/gaming/') ||
+      h.includes('/policies/') ||
+      h.includes('/help/') ||
+      h.includes('/settings/')
+    ) return true;
+
+    // Root or query-only links (e.g. '/', '/?__cft__...', '#', 'https://www.facebook.com/?...')
+    const cleanPath = h.replace(/^https?:\/\/[^/]+/i, '').split('?')[0].split('#')[0];
+    if (cleanPath === '' || cleanPath === '/') return true;
+
+    return false;
+  }
+
+  function cleanPostSnippet(rawText, author, group) {
+    if (!rawText || typeof rawText !== 'string') return '';
+    let text = rawText.split('\n')[0].trim();
+    if (author) {
+      const esc = author.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      text = text.replace(new RegExp('^' + esc + '[:\\s·•]*', 'i'), '');
+    }
+    if (group) {
+      const escG = group.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      text = text.replace(new RegExp('^' + escG + '[:\\s·•]*', 'i'), '');
+    }
+    // Strip leading actions like · 追蹤 / · Follow / 追蹤
+    text = text.replace(/^[·•\s]*(追蹤|Follow|關注|加入|Join)[·•\s]*/i, '');
+    // Strip trailing translation notice
+    text = text.replace(/[·•\s]*(查看原文|為此翻譯評分|See original|Rate this translation)[\s\S]*$/i, '').trim();
+    return text.trim();
   }
 
   function extractAuthorFromDom(container) {
     if (!container || typeof container.querySelectorAll !== 'function') return null;
     try {
+      const groupName = extractGroupFromDom(container);
+
+      // 1. Group member link: a[href*="/user/"] or a[href*="/groups/"][href*="/user/"]
+      const userLinks = container.querySelectorAll('a[href*="/user/"]');
+      for (const ul of userLinks) {
+        if (isInsideProbeUi(ul) || isInsideCommentSection(ul)) continue;
+        const text = (ul.textContent || ul.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
+        if (text && !isNonAuthor(text) && (!groupName || text !== groupName)) {
+          return text;
+        }
+      }
+
+      // 2. Headings: search ALL links inside h2..h5 / [role="heading"]
       const headings = container.querySelectorAll('h2, h3, h4, h5, [role="heading"]');
       for (const h of headings) {
-        const link = h.querySelector('a[role="link"], a[href]');
-        if (link) {
-          const text = link.textContent.trim();
-          if (!isNonAuthor(text)) return text;
+        if (isInsideProbeUi(h) || isInsideCommentSection(h)) continue;
+        const links = h.querySelectorAll('a[role="link"], a[href]');
+        for (const link of links) {
+          const href = (link.getAttribute('href') || link.href || '').toLowerCase();
+          if (isExcludedLinkHref(href)) continue;
+          const text = (link.textContent || link.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
+          if (text && !isNonAuthor(text) && (!groupName || text !== groupName)) {
+            return text;
+          }
         }
         const text = h.textContent.trim();
-        if (!isNonAuthor(text)) return text;
+        if (text === '匿名成員' || text === 'Anonymous participant') return text;
       }
-      const strongLink = container.querySelector('a[role="link"] strong, strong a[role="link"]');
-      if (strongLink) {
-        const text = strongLink.textContent.trim();
-        if (!isNonAuthor(text)) return text;
+
+      // 3. Header zone / Strong link
+      const strongLinks = container.querySelectorAll('a[role="link"] strong, strong a[role="link"], header a[role="link"], [data-ad-comet-preview="header"] a');
+      for (const sl of strongLinks) {
+        if (isInsideProbeUi(sl) || isInsideCommentSection(sl)) continue;
+        const link = sl.tagName === 'A' ? sl : (sl.closest ? sl.closest('a') : null);
+        if (link) {
+          const href = (link.getAttribute('href') || link.href || '').toLowerCase();
+          if (isExcludedLinkHref(href)) continue;
+        }
+        const text = (sl.textContent || sl.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
+        if (text && !isNonAuthor(text) && (!groupName || text !== groupName)) {
+          return text;
+        }
       }
-      const headerLink = container.querySelector('header a[role="link"], [data-ad-comet-preview="header"] a');
-      if (headerLink) {
-        const text = headerLink.textContent.trim();
-        if (!isNonAuthor(text)) return text;
-      }
-      // Top profile links in card
-      const links = container.querySelectorAll('a[role="link"]');
+
+      // 4. Top profile links in card
+      const links = container.querySelectorAll('a[role="link"], a[href]');
       for (const a of links) {
+        if (isInsideProbeUi(a) || isInsideCommentSection(a)) continue;
         const href = (a.getAttribute('href') || a.href || '').toLowerCase();
-        if (
-          href.includes('/posts/') ||
-          href.includes('/groups/') ||
-          href.includes('/videos/') ||
-          href.includes('/watch/') ||
-          href.includes('/ads/') ||
-          href.includes('/photo')
-        ) continue;
-        const text = a.textContent.trim();
-        if (!isNonAuthor(text)) return text;
+        if (isExcludedLinkHref(href)) continue;
+        const text = (a.textContent || a.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
+        if (text && !isNonAuthor(text) && (!groupName || text !== groupName)) {
+          return text;
+        }
+      }
+
+      // 5. Fallback: Image alt / aria-label ({AuthorName} 貼文的相片 / Photo by {AuthorName})
+      const labeledMedia = container.querySelectorAll('img[alt], [aria-label*="貼文的相片"], [aria-label*="\'s post"], [aria-label*="帖子的照片"]');
+      for (const m of labeledMedia) {
+        if (isInsideProbeUi(m) || isInsideCommentSection(m)) continue;
+        const label = (m.getAttribute('aria-label') || m.getAttribute('alt') || '').trim();
+        const match = label.match(/^(.+?)\s*(?:貼文的相片|的相片|帖子的照片|'s post)/i);
+        if (match) {
+          const cand = match[1].replace(/\s+/g, ' ').trim();
+          if (cand && !isNonAuthor(cand) && (!groupName || cand !== groupName)) {
+            return cand;
+          }
+        }
       }
     } catch (e) {}
     return null;
   }
 
-  function extractMessageFromDom(container) {
+  function extractPostTitleFromDom(container, author, group) {
+    if (!container || typeof container.querySelectorAll !== 'function') return null;
+    try {
+      const headings = container.querySelectorAll('h2, h3, h4, h5, [role="heading"]');
+      for (const h of headings) {
+        if (h.closest && h.closest('header, [data-ad-comet-preview="header"], [role="button"], button, [aria-haspopup="menu"]')) continue;
+        if (h.querySelector && h.querySelector('[role="button"], button, [aria-haspopup="menu"]')) continue;
+
+        const text = h.textContent.trim();
+        if (isUiOrActionText(text)) continue;
+
+        // Skip author headings or group headings
+        if (author && (text === author || text.includes(author))) continue;
+        if (group && (text === group || text.includes(group))) continue;
+
+        // Headings containing Follow / Join actions are author/header rows
+        if (/([·•\s]|^)(追蹤|Follow|關注|加入|Join)([·•\s]|$)/i.test(text)) continue;
+
+        const link = h.querySelector('a[role="link"], a[href]');
+        if (link) {
+          const linkText = link.textContent.trim();
+          if (author && (linkText === author || linkText.includes(author))) continue;
+          if (group && (linkText === group || linkText.includes(group))) continue;
+
+          const href = (link.getAttribute('href') || link.href || '').toLowerCase();
+          if (
+            href.includes('/groups/') ||
+            href.includes('/user/') ||
+            href.includes('/stories/') ||
+            href.includes('/profile.php') ||
+            (!href.includes('/posts/') && !href.includes('/permalink/') && href.startsWith('/'))
+          ) {
+            continue;
+          }
+        }
+
+        const cleanTitle = cleanPostSnippet(text, author, group);
+        if (!cleanTitle || isUiOrActionText(cleanTitle)) continue;
+
+        return {
+          node: h,
+          text: cleanTitle
+        };
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function extractMessageFromDom(container, author, group) {
     if (!container || typeof container.querySelector !== 'function') return null;
     try {
+      const effectiveAuthor = author !== undefined ? author : extractAuthorFromDom(container);
+      const effectiveGroup = group !== undefined ? group : extractGroupFromDom(container);
+
+      const titleObj = extractPostTitleFromDom(container, effectiveAuthor, effectiveGroup);
+      const postTitle = titleObj ? titleObj.text : null;
+
+      let postBody = null;
       const msgEl = container.querySelector('[data-ad-preview="message"], [data-ad-comet-preview="message"], [data-testid="post_message"]');
       if (msgEl) {
         const text = msgEl.textContent.trim();
-        if (text) return text.split('\n')[0].trim();
+        if (text && !isUiOrActionText(text)) {
+          const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+          if (lines.length > 0) {
+            const cleanedFirst = cleanPostSnippet(lines[0], effectiveAuthor, effectiveGroup);
+            if (postTitle && cleanedFirst === postTitle) {
+              postBody = lines.length > 1 ? cleanPostSnippet(lines[1], effectiveAuthor, effectiveGroup) : null;
+            } else {
+              postBody = cleanedFirst;
+            }
+          }
+        }
       }
-      const dirEls = container.querySelectorAll('div[dir="auto"], span[dir="auto"]');
-      for (const el of dirEls) {
-        if (el.closest && el.closest('h2, h3, h4, h5, [role="heading"], header, [role="button"], button, [aria-haspopup="menu"]')) continue;
-        const text = el.textContent.trim();
-        if (!text || text.length < 2) continue;
-        if (/^[\d·\s]+(分鐘|小時|天|秒|週|年|m|h|d|w|y|hr|min|s)/i.test(text)) continue;
-        if (isNonAuthor(text)) continue;
-        if (['公開', '朋友', '只限本人', 'Public', 'Friends', 'Only me', '讚', '留言', '分享', 'Like', 'Comment', 'Share'].includes(text)) continue;
-        return text.split('\n')[0].trim();
+
+      if (!postBody) {
+        const dirEls = container.querySelectorAll('div[dir="auto"], span[dir="auto"]');
+        for (const el of dirEls) {
+          if (titleObj && titleObj.node && (titleObj.node === el || (titleObj.node.contains && titleObj.node.contains(el)))) continue;
+          if (el.closest && el.closest('header, [data-ad-comet-preview="header"], h2, h3, h4, h5, [role="heading"], [role="button"], button, [aria-haspopup="menu"]')) continue;
+          const text = el.textContent.trim();
+          if (isUiOrActionText(text)) continue;
+          if (effectiveAuthor && (text === effectiveAuthor || text.includes(effectiveAuthor))) continue;
+          if (effectiveGroup && (text === effectiveGroup || text.includes(effectiveGroup))) continue;
+          const cleaned = cleanPostSnippet(text, effectiveAuthor, effectiveGroup);
+          if (!cleaned || isUiOrActionText(cleaned)) continue;
+          postBody = cleaned;
+          break;
+        }
       }
+
+      if (postTitle && postBody) {
+        if (postBody === postTitle || postBody.startsWith(postTitle)) return postBody;
+        if (postTitle.startsWith(postBody)) return postTitle;
+        return postTitle + ' ' + postBody;
+      }
+      if (postTitle) return postTitle;
+      if (postBody) return postBody;
     } catch (e) {}
     return null;
   }
 
-  function extractGroupFromDom(container) {
-    if (!container || typeof container.querySelector !== 'function') return null;
+  function isInsideCommentSection(el) {
+    if (!el || typeof el.closest !== 'function') return false;
+    return Boolean(
+      el.closest('form') ||
+      el.closest('[aria-label="留言"], [aria-label="Comments"], [aria-label="回覆"], [aria-label="Replies"]') ||
+      el.closest('[data-testid="UFI2CommentsList/root_depth_0"]') ||
+      el.closest('[role="region"][aria-label*="留言"], [role="region"][aria-label*="Comments"]')
+    );
+  }
+
+  function isInsideProbeUi(el) {
+    if (!el || typeof el.closest !== 'function') return false;
+    return Boolean(el.closest('.fb-diet-probe-group, .fb-diet-probe-popup, .fb-diet-probe-btn'));
+  }
+
+  function stripTrackingParams(url) {
+    if (!url || typeof url !== 'string') return null;
     try {
-      const groupLink = container.querySelector('a[href*="/groups/"]');
-      if (groupLink) {
+      const u = new URL(url.startsWith('/') ? 'https://www.facebook.com' + url : url);
+      const trackingKeys = [
+        'fbclid', '__cft__', '__cft__[0]', '__tn__', 'ref', 'ref_component', 'ref_page',
+        'hoisted_section_header_type', 'extid', 'sfnsn', 'mibextid', 'rdid'
+      ];
+      for (const k of trackingKeys) {
+        u.searchParams.delete(k);
+      }
+      for (const p of Array.from(u.searchParams.keys())) {
+        if (p.startsWith('__cft__') || p.startsWith('__tn__')) {
+          u.searchParams.delete(p);
+        }
+      }
+      let cleaned = u.toString();
+      if (cleaned.endsWith('?')) cleaned = cleaned.slice(0, -1);
+      return cleaned;
+    } catch (e) {
+      return url.split('?')[0];
+    }
+  }
+
+  function extractAllUrlsFromDom(container, postId, authorUsername, groupId) {
+    const urls = {
+      primary: null,
+      raw: null,
+      domPermalink: null,
+      synthesized: null,
+      authorProfile: null,
+      groupUrl: null,
+      adUrl: null
+    };
+    if (!container) return urls;
+    try {
+      urls.adUrl = extractAdUrlFromDom(container);
+
+      // 1. Group URL
+      const groupLinks = container.querySelectorAll ? container.querySelectorAll('a[href*="/groups/"]') : [];
+      for (const gl of groupLinks) {
+        const href = gl.href || gl.getAttribute('href') || '';
+        if (href && !href.includes('/permalink/') && !href.includes('/posts/') && !href.includes('/user/')) {
+          urls.groupUrl = href.startsWith('/') ? 'https://www.facebook.com' + href : href;
+          break;
+        }
+      }
+
+      // 2. Author Profile URL
+      const authorLinks = container.querySelectorAll ? container.querySelectorAll('a[role="link"], a[href]') : [];
+      for (const al of authorLinks) {
+        if (isInsideProbeUi(al) || isInsideCommentSection(al)) continue;
+        const href = (al.getAttribute('href') || al.href || '').toLowerCase();
+        if (href && !isExcludedLinkHref(href)) {
+          const full = al.href || al.getAttribute('href');
+          urls.authorProfile = full && full.startsWith('/') ? 'https://www.facebook.com' + full : full;
+          break;
+        }
+      }
+
+      // 3. DOM permalink
+      const links = container.querySelectorAll ? container.querySelectorAll('a[role="link"], a[href]') : [];
+      for (const a of links) {
+        const href = a.href || a.getAttribute('href') || '';
+        if (
+          href.indexOf('/posts/') !== -1 ||
+          href.indexOf('/permalink/') !== -1 ||
+          href.indexOf('permalink.php') !== -1 ||
+          href.indexOf('/videos/') !== -1 ||
+          href.indexOf('/photos/') !== -1 ||
+          href.indexOf('story_fbid=') !== -1 ||
+          (postId && href.indexOf(postId) !== -1)
+        ) {
+          urls.domPermalink = href.startsWith('/') ? 'https://www.facebook.com' + href : href;
+          break;
+        }
+      }
+
+      // 4. Synthesized URL
+      const pagePath = typeof window !== 'undefined' && window.location && window.location.pathname ? window.location.pathname : '';
+      const pageGroupMatch = pagePath.match(/\/groups\/([^/?]+)/);
+      const effectiveGroup = groupId || (pageGroupMatch ? pageGroupMatch[1] : null) || (urls.groupUrl ? (urls.groupUrl.match(/\/groups\/([^/?]+)/) || [])[1] : null);
+
+      if (postId && effectiveGroup) {
+        urls.synthesized = 'https://www.facebook.com/groups/' + effectiveGroup + '/permalink/' + postId + '/';
+      } else if (postId && authorUsername) {
+        urls.synthesized = 'https://www.facebook.com/' + authorUsername + '/posts/' + postId;
+      }
+
+      const best = urls.domPermalink || urls.synthesized || urls.adUrl || null;
+      urls.raw = best;
+      urls.primary = best ? stripTrackingParams(best) : null;
+    } catch (e) {}
+    return urls;
+  }
+
+  function extractGroupFromDom(container) {
+    if (!container || typeof container.querySelectorAll !== 'function') return null;
+    try {
+      const groupLinks = container.querySelectorAll('a[href*="/groups/"]');
+      for (const groupLink of groupLinks) {
+        const href = (groupLink.getAttribute('href') || groupLink.href || '').toLowerCase();
+        if (href.includes('/permalink/') || href.includes('/posts/') || href.includes('/user/')) continue;
         const text = groupLink.textContent.trim();
-        if (text && text.length > 1 && text.length < 80) return text;
+        if (text && text.length > 1 && text.length < 80 && !isNonAuthor(text)) {
+          if (!/^[\d·\s]+(分鐘|小時|天|秒|週|年|m|h|d|w|y|hr|min|s)/i.test(text)) {
+            return text;
+          }
+        }
       }
     } catch (e) {}
     return null;
@@ -176,19 +494,8 @@ window.FBDietUI = (() => {
   function extractPostUrlFromDom(container) {
     if (!container || typeof container.querySelectorAll !== 'function') return null;
     try {
-      const links = container.querySelectorAll('a[role="link"], a[href]');
-      for (const a of links) {
-        const href = a.href || a.getAttribute('href') || '';
-        if (
-          href.indexOf('/posts/') !== -1 ||
-          href.indexOf('permalink.php') !== -1 ||
-          href.indexOf('/videos/') !== -1 ||
-          href.indexOf('/photos/') !== -1 ||
-          href.indexOf('story_fbid=') !== -1
-        ) {
-          return href.startsWith('/') ? 'https://www.facebook.com' + href : href;
-        }
-      }
+      const urls = extractAllUrlsFromDom(container);
+      return urls.primary || urls.raw || null;
     } catch (e) {}
     return null;
   }
@@ -196,26 +503,174 @@ window.FBDietUI = (() => {
   function extractMediaFromDom(container, isMediaGroup) {
     if (!container || typeof container.querySelector !== 'function') return null;
     try {
-      if (container.querySelector('video, [data-video-id]')) return '🎬 [影片]';
+      if (container.querySelector('video, [data-video-id]')) return '[🎬 影片]';
       if (!isMediaGroup) {
         const imgs = container.querySelectorAll('img[src*="fbcdn"]');
-        if (imgs.length > 1) return '📷 [多張相片]';
-        if (imgs.length === 1) return '📷 [相片]';
+        let count = imgs.length;
+
+        // Check for +N count overlay (e.g. "+3", "+5")
+        const allSpans = container.querySelectorAll('span, div');
+        for (const el of allSpans) {
+          const t = el.textContent ? el.textContent.trim() : '';
+          const m = t.match(/^\+(\d+)$/);
+          if (m) {
+            const extra = parseInt(m[1], 10);
+            if (extra > 0) {
+              count = count + extra;
+              break;
+            }
+          }
+        }
+
+        if (count > 1) return '[📷 相片 x' + count + ']';
+        if (count === 1) return '[📷 相片]';
       }
     } catch (e) {}
     return null;
   }
 
+  function scanTextCandidates(container, author, group) {
+    const candidates = [];
+    if (!container || typeof container.querySelectorAll !== 'function') return candidates;
+    try {
+      const titleObj = extractPostTitleFromDom(container, author, group);
+      const titleNode = titleObj ? titleObj.node : null;
+      let acceptedBodyCount = 0;
+
+      const elements = container.querySelectorAll('h2, h3, h4, h5, [role="heading"], div[dir="auto"], span[dir="auto"]');
+      for (const el of elements) {
+        if (candidates.length >= 10) break;
+        if (isInsideProbeUi(el)) continue;
+
+        const rawText = el.textContent ? el.textContent.trim() : '';
+        if (!rawText) continue;
+
+        // Deduplicate identical immediate text
+        if (candidates.some((c) => c.text === rawText.slice(0, 30))) continue;
+
+        let status = 'candidate';
+        const tag = (el.tagName || (el.getAttribute && el.getAttribute('role')) || 'DIV').toUpperCase();
+
+        if (isInsideCommentSection(el)) {
+          status = 'skipped:comment-section';
+        } else if (titleNode && (titleNode === el || (titleNode.contains && titleNode.contains(el)))) {
+          status = 'accepted:post-title';
+        } else if (el.closest && el.closest('header, [data-ad-comet-preview="header"]')) {
+          status = 'skipped:in-header';
+        } else if (el.closest && el.closest('[role="button"], button, [aria-haspopup="menu"]')) {
+          status = 'skipped:ui-button';
+        } else if (isUiOrActionText(rawText)) {
+          status = 'skipped:ui-branding';
+        } else if (author && (rawText === author || rawText.includes(author))) {
+          status = 'skipped:author-heading';
+        } else if (group && (rawText === group || rawText.includes(group))) {
+          status = 'skipped:group-name';
+        } else if (/([·•\s]|^)(追蹤|Follow|關注|加入|Join)([·•\s]|$)/i.test(rawText)) {
+          status = 'skipped:action-text';
+        } else if (acceptedBodyCount === 0) {
+          status = 'accepted:post-body';
+          acceptedBodyCount++;
+        } else {
+          status = 'secondary:body-text';
+        }
+
+        candidates.push({
+          index: candidates.length,
+          tag,
+          text: rawText.slice(0, 30),
+          status
+        });
+      }
+    } catch (e) {}
+    return candidates;
+  }
+
+  function extractReshareFromDom(container, mainAuthor) {
+    if (!container || typeof container.querySelectorAll !== 'function') return null;
+    try {
+      const quotes = container.querySelectorAll('[role="article"], blockquote, div[class*="quote"]');
+      for (const q of quotes) {
+        if (q === container) continue;
+        const innerAuthor = extractAuthorFromDom(q);
+        if (innerAuthor && innerAuthor !== mainAuthor) {
+          const innerMsg = extractMessageFromDom(q, innerAuthor);
+          const innerUrl = extractPostUrlFromDom(q);
+          return {
+            originalActor: innerAuthor,
+            originalTitle: innerMsg,
+            originalPermalink: innerUrl
+          };
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function getMediaLabel(category) {
+    if (typeof window !== 'undefined' && window.FBDietI18N && typeof window.FBDietI18N.t === 'function') {
+      if (category === 'stories') return window.FBDietI18N.t('labelStories');
+      if (category === 'reels') return window.FBDietI18N.t('labelReels');
+      if (category === 'suggestedGroup') return window.FBDietI18N.t('labelSuggestedGroup');
+    }
+    const isZh = (() => {
+      try {
+        const doc = typeof document !== 'undefined' ? document : (typeof window !== 'undefined' ? window.document : null);
+        const docLang = (doc && doc.documentElement && doc.documentElement.lang) || '';
+        if (docLang.toLowerCase().startsWith('zh')) return true;
+        const nav = typeof navigator !== 'undefined' ? navigator : (typeof window !== 'undefined' ? window.navigator : null);
+        const navLang = (nav && nav.language) || '';
+        if (navLang.toLowerCase().startsWith('zh')) return true;
+      } catch (e) {}
+      return false;
+    })();
+
+    if (category === 'stories') {
+      return isZh ? '限時動態' : 'Stories';
+    }
+    if (category === 'reels') {
+      return isZh ? '連續短片' : 'Reels';
+    }
+    if (category === 'suggestedGroup') {
+      return isZh ? '推薦社團列表' : 'Suggested Groups';
+    }
+    return '';
+  }
+
   function collectDomMetadata(container, isMediaGroup) {
     if (!container || typeof container.querySelector !== 'function') return null;
-    try {
+    if (isMediaGroup) {
       return {
-        actor: extractAuthorFromDom(container),
-        snippet: extractMessageFromDom(container),
-        group: extractGroupFromDom(container),
-        postUrl: extractPostUrlFromDom(container),
-        adUrl: extractAdUrlFromDom(container),
-        media: extractMediaFromDom(container, isMediaGroup)
+        actor: null,
+        snippet: null,
+        title: null,
+        group: null,
+        postUrl: null,
+        urls: {},
+        adUrl: null,
+        media: null,
+        textCandidates: [],
+        reshare: null
+      };
+    }
+    try {
+      const actor = extractAuthorFromDom(container);
+      const group = extractGroupFromDom(container);
+      const urls = extractAllUrlsFromDom(container);
+      const titleObj = extractPostTitleFromDom(container, actor, group);
+      const textCandidates = scanTextCandidates(container, actor, group);
+      const reshare = extractReshareFromDom(container, actor);
+
+      return {
+        actor,
+        snippet: extractMessageFromDom(container, actor, group),
+        title: titleObj ? { tag: titleObj.node ? titleObj.node.tagName : 'H2', text: titleObj.text } : null,
+        group,
+        postUrl: urls.primary || urls.raw || null,
+        urls,
+        adUrl: urls.adUrl || null,
+        media: extractMediaFromDom(container, isMediaGroup),
+        textCandidates,
+        reshare
       };
     } catch (e) {
       return null;
@@ -225,11 +680,16 @@ window.FBDietUI = (() => {
   const domMetadataExtractor = {
     collect: collectDomMetadata,
     extractAuthorFromDom,
+    extractPostTitleFromDom,
     extractMessageFromDom,
     extractGroupFromDom,
     extractAdUrlFromDom,
     extractPostUrlFromDom,
-    extractMediaFromDom
+    extractAllUrlsFromDom,
+    extractMediaFromDom,
+    scanTextCandidates,
+    extractReshareFromDom,
+    stripTrackingParams
   };
   window.FBDietDOMMetadata = domMetadataExtractor;
 
@@ -242,6 +702,7 @@ window.FBDietUI = (() => {
       const isExpanded = Boolean(props.isExpanded);
       const isMini = Boolean(props.isMini);
       const showTitle = props.showTitle !== undefined ? Boolean(props.showTitle) : true;
+      const isStaticCategory = props.category === 'reels' || props.category === 'stories' || props.category === 'suggestedGroup';
 
       const React = window.FBDietProxy ? window.FBDietProxy.getReact() : null;
       const barRef = React && typeof React.useRef === 'function' ? React.useRef(null) : { current: null };
@@ -259,10 +720,9 @@ window.FBDietUI = (() => {
 
       if (React && typeof React.useEffect === 'function') {
         React.useEffect(() => {
-          if (!showTitle) return;
-          const isMediaGroup = props.category === 'reels' || props.category === 'stories';
-          if (initialActor && (initialMsg || isMediaGroup)) return;
-          if (cached && cached.actorName && (cached.snippetText || isMediaGroup)) return;
+          if (!showTitle || isStaticCategory) return;
+          if (initialActor && initialMsg) return;
+          if (cached && cached.actorName && cached.snippetText) return;
           const el = barRef && barRef.current;
           if (!el) return;
           const container = el.nextElementSibling || (el.parentElement ? el.parentElement.querySelector('.fb-diet-fold-hidden, .fb-diet-expand-body, .fb-diet-full-container') : null);
@@ -273,7 +733,7 @@ window.FBDietUI = (() => {
 
           const scan = () => {
             if (!active) return false;
-            const domMetadata = collectDomMetadata(container, isMediaGroup);
+            const domMetadata = collectDomMetadata(container, isStaticCategory);
             const foundActor = initialActor || (domMetadata && domMetadata.actor);
             const foundMsg = initialMsg || (domMetadata && domMetadata.snippet);
             const foundGroup = initialGroup || (domMetadata && domMetadata.group);
@@ -289,7 +749,7 @@ window.FBDietUI = (() => {
               };
               if (unitId) titleBarCache.set(unitId, newData);
               setDomData(newData);
-              if (foundActor && (foundMsg || foundMedia || isMediaGroup)) {
+              if (foundActor && (foundMsg || foundMedia)) {
                 if (observer) {
                   try { observer.disconnect(); } catch (e) {}
                   observer = null;
@@ -334,38 +794,38 @@ window.FBDietUI = (() => {
 
       if (showTitle) {
         // Group name (with max-width: 140px in css)
-        if (effectiveGroup) {
+        if (effectiveGroup && !isStaticCategory) {
           contentKids.push(
-            createEl('span', { className: 'fb-diet-title-group', title: effectiveGroup }, ['[' + effectiveGroup + ']'])
+            createEl('span', { className: 'fb-diet-title-group', title: effectiveGroup }, [
+              '[',
+              createEl('span', { className: 'fb-diet-title-group-name' }, [effectiveGroup]),
+              ']'
+            ])
           );
         }
 
         // Author string & reshare detection
         let authorText = '';
-        if (effectiveActor) {
+        if (isStaticCategory) {
+          authorText = getMediaLabel(props.category);
+        } else if (effectiveActor) {
           authorText = effectiveActor + ':';
-        } else if (props.category === 'stories') {
-          authorText = '限時動態';
-        } else if (props.category === 'reels') {
-          authorText = '連續短片';
-        } else if (props.category === 'suggestedGroup') {
-          authorText = '推薦社團:';
         }
 
         if (authorText) {
+          const authorClass = isStaticCategory ? 'fb-diet-title-media' : 'fb-diet-title-author';
           contentKids.push(
-            createEl('span', { className: 'fb-diet-title-author', title: authorText }, [authorText])
+            createEl('span', { className: authorClass, title: authorText }, [authorText])
           );
         }
 
         // Message snippet / title / media fallback
-        let snippetText = effectiveMsg;
-        if (!snippetText) {
+        let snippetText = isStaticCategory ? null : (effectiveMsg ? cleanPostSnippet(effectiveMsg, effectiveActor, effectiveGroup) : null);
+        if (!snippetText && !isStaticCategory) {
           const media = enrichment && enrichment.media;
-          const isMediaCategory = props.category === 'reels' || props.category === 'stories';
           if (media && media.hasVideo) {
             snippetText = '🎬 [影片]';
-          } else if (!isMediaCategory && media && (media.count > 0 || media.isMultiImage)) {
+          } else if (media && (media.count > 0 || media.isMultiImage)) {
             snippetText = media.isMultiImage ? '📷 [多張相片]' : '📷 [相片]';
           } else if (enrichment && enrichment.content && enrichment.content.callToAction) {
             snippetText = '👉 [' + enrichment.content.callToAction + ']';
@@ -408,6 +868,7 @@ window.FBDietUI = (() => {
     titleBarCache,
     FBDietBar,
     FBDietTitleBar,
+    getMediaLabel,
     domMetadata: domMetadataExtractor,
     extractAuthorFromDom,
     extractMessageFromDom,

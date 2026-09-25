@@ -229,12 +229,17 @@ function run(c) {
     const probed = t.render(payloadOf('u1'));
     c.ok('probe on wraps the fold', probed.type === 'div' && probed.props.className === 'fb-diet-probe-holder');
     const probeKids = probed.props.children;
-    c.ok('probe holder carries button + fold', Array.isArray(probeKids) && probeKids.length === 2 && probeKids[0].props.className === 'fb-diet-probe-btn');
-    c.ok('probe button carries a click handler', typeof probeKids[0].props.onClick === 'function');
+    const probeGroup = Array.isArray(probeKids) && probeKids[0];
+    const probeButtons = probeGroup && probeGroup.props && probeGroup.props.children;
+    c.ok('probe holder carries button group + fold', Array.isArray(probeKids) && probeKids.length === 2 && probeGroup.props.className === 'fb-diet-probe-group');
+    c.ok('probe group carries dual buttons (proxy and dom)', Array.isArray(probeButtons) && probeButtons.length === 2 && probeButtons[0].props.className.includes('fb-diet-probe-btn-proxy') && probeButtons[1].props.className.includes('fb-diet-probe-btn-dom'));
+    c.ok('proxy probe button carries a click handler', typeof probeButtons[0].props.onClick === 'function');
+    c.ok('dom probe button carries a click handler', typeof probeButtons[1].props.onClick === 'function');
     // Clicking must not throw even inside the test harness
     let clickThrew = false;
     try {
-      probeKids[0].props.onClick({ stopPropagation() {}, preventDefault() {} });
+      probeButtons[0].props.onClick({ stopPropagation() {}, preventDefault() {} });
+      probeButtons[1].props.onClick({ stopPropagation() {}, preventDefault() {} });
     } catch (e) {
       clickThrew = true;
     }
@@ -575,6 +580,89 @@ function run(c) {
     const expandedKids = renderedExpandedBar.props.children.props.children;
     c.equals('author still displayed in expanded state', expandedKids[1].props.children, 'Marie Curie:');
     c.equals('snippet still displayed in expanded state', expandedKids[2].props.children, 'Discovered Polonium and Radium');
+  }
+
+  /* --- media bypass: reels and stories bypass DOM scan and show localized labels --- */
+  {
+    const t = setup({});
+    const ui = t.win.FBDietUI;
+
+    // 1. Label localization check
+    t.win.document = { documentElement: { lang: 'zh-TW' } };
+    c.equals('stories label in zh-TW', ui.getMediaLabel('stories'), '限時動態');
+    c.equals('reels label in zh-TW', ui.getMediaLabel('reels'), '連續短片');
+    c.equals('suggestedGroup label in zh-TW', ui.getMediaLabel('suggestedGroup'), '推薦社團列表');
+
+    t.win.document.documentElement.lang = 'en-US';
+    c.equals('stories label in en', ui.getMediaLabel('stories'), 'Stories');
+    c.equals('reels label in en', ui.getMediaLabel('reels'), 'Reels');
+    c.equals('suggestedGroup label in en', ui.getMediaLabel('suggestedGroup'), 'Suggested Groups');
+
+    // 2. Stories rendering in TitleBar (no snippet, author is localized media label)
+    t.win.document.documentElement.lang = 'zh-TW';
+    t.React.resetHooks();
+    const storiesBar = ui.FBDietTitleBar({
+      category: 'stories',
+      showTitle: true,
+      unitId: 'u-stories-test'
+    });
+    const storiesKids = storiesBar.props.children.props.children;
+    c.equals('stories bar has media badge', storiesKids[0].props.className, 'fb-diet-badge fb-diet-badge-media');
+    c.equals('stories bar uses non-bold fb-diet-title-media class', storiesKids[1].props.className, 'fb-diet-title-media');
+    c.equals('stories bar shows 限時動態', storiesKids[1].props.children, '限時動態');
+    c.equals('stories bar has no snippet', storiesKids.length, 2);
+
+    // 3. Reels rendering in TitleBar (no snippet, author is localized media label)
+    t.React.resetHooks();
+    const reelsBar = ui.FBDietTitleBar({
+      category: 'reels',
+      showTitle: true,
+      unitId: 'u-reels-test'
+    });
+    const reelsKids = reelsBar.props.children.props.children;
+    c.equals('reels bar has media badge', reelsKids[0].props.className, 'fb-diet-badge fb-diet-badge-media');
+    c.equals('reels bar uses non-bold fb-diet-title-media class', reelsKids[1].props.className, 'fb-diet-title-media');
+    c.equals('reels bar shows 連續短片', reelsKids[1].props.children, '連續短片');
+    c.equals('reels bar has no snippet', reelsKids.length, 2);
+
+    // 4. SuggestedGroup rendering in TitleBar (no snippet, no group, author is localized media label)
+    t.React.resetHooks();
+    const groupBar = ui.FBDietTitleBar({
+      category: 'suggestedGroup',
+      showTitle: true,
+      unitId: 'u-group-test'
+    });
+    const groupKids = groupBar.props.children.props.children;
+    c.equals('suggestedGroup bar has other badge', groupKids[0].props.className, 'fb-diet-badge fb-diet-badge-other');
+    c.equals('suggestedGroup bar uses non-bold fb-diet-title-media class', groupKids[1].props.className, 'fb-diet-title-media');
+    c.equals('suggestedGroup bar shows 推薦社團列表', groupKids[1].props.children, '推薦社團列表');
+    c.equals('suggestedGroup bar has no snippet', groupKids.length, 2);
+
+    // 5. Verify no cache entry was created by DOM scan
+    c.ok('stories has no titleBarCache entry', !ui.titleBarCache.has('u-stories-test'));
+    c.ok('reels has no titleBarCache entry', !ui.titleBarCache.has('u-reels-test'));
+    c.ok('suggestedGroup has no titleBarCache entry', !ui.titleBarCache.has('u-group-test'));
+
+    // 6. Regular group post rendering in TitleBar
+    t.React.resetHooks();
+    const costcoTitleBar = ui.FBDietTitleBar({
+      category: 'regular',
+      showTitle: true,
+      unitId: 'u-costco-test',
+      enrichment: {
+        actor: { name: 'Rosa Chiou' },
+        group: { name: 'COSTCO 好市多 商品消費心得分享區' },
+        content: { message: '#Hardbite洋芋片好吃' }
+      }
+    });
+    const costcoKids = costcoTitleBar.props.children.props.children;
+    c.equals('costco bar has group span', costcoKids[1].props.className, 'fb-diet-title-group');
+    const groupInnerKids = costcoKids[1].props.children;
+    c.equals('costco group starts with [', groupInnerKids[0], '[');
+    c.equals('costco group inner span class is fb-diet-title-group-name', groupInnerKids[1].props.className, 'fb-diet-title-group-name');
+    c.equals('costco group inner span contains group name', groupInnerKids[1].props.children, 'COSTCO 好市多 商品消費心得分享區');
+    c.equals('costco group ends with ]', groupInnerKids[2], ']');
+    c.equals('costco bar has author span', costcoKids[2].props.className, 'fb-diet-title-author');
   }
 }
 
