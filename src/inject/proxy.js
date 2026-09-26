@@ -37,6 +37,7 @@ window.FBDietProxy = (() => {
   const patchedModulesSet = new Set(); // moduleNames whose export was successfully replaced
   const failedModules = new Set(); // moduleNames seen but whose definerPath did not resolve
   const errors = [];
+  const MAX_PATCHED_LOG = 40;
   const stats = { intercepted: 0, patched: 0, hookRuns: 0, dCalls: 0, patchedModules: [] };
   let reactCache = null;
 
@@ -287,7 +288,7 @@ window.FBDietProxy = (() => {
 
     target.container[target.key] = wrapComponent(moduleName, entry, current);
     stats.patched += 1;
-    stats.patchedModules.push(moduleName + ' ' + entry.definerPath);
+    if (stats.patchedModules.length < MAX_PATCHED_LOG) stats.patchedModules.push(moduleName + ' ' + entry.definerPath);
     patchedModulesSet.add(moduleName);
     failedModules.delete(moduleName);
     return true;
@@ -320,7 +321,14 @@ function wrapFactory(moduleName, factory) {
         }
       }
 
-      moduleArgs.set(moduleName, factoryArgs);
+      // Retaining a factory's argument array pins that module's factory closure and every
+      // dependency export it received, so the loader can never collect them. Facebook
+      // defines thousands of modules per session; only the names we registered or hooked
+      // are ever read back (getModuleHealth scans registrations, and register() re-applies
+      // to an already-defined module), so only those are kept.
+      if (registrations.has(moduleName) || factoryHooks.has(moduleName)) {
+        moduleArgs.set(moduleName, factoryArgs);
+      }
       return result;
     }
 

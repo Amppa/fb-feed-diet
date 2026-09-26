@@ -139,20 +139,36 @@
    * which also means the MAIN world can never hit "extension context invalidated".
    * ------------------------------------------------------------------ */
 
+  // True once the MAIN world confirmed ready: suppresses redundant pings and handshake loops.
+  let handshakeDone = false;
+
   /**
-   * Sends the current settings to the MAIN world and asks for a handshake. The MAIN world
-   * may not be listening yet, which is why it answers a ping and we also announce on
-   * every settings change.
+   * Forwards the active settings payload to the MAIN world without triggering a handshake roundtrip.
    */
-  function announceToMain() {
+  function sendSettingsToMain() {
     try {
       window.postMessage(
         { source: CONTENT_SOURCE, type: 'settings', payload: { settings: currentSettings } },
         '*'
       );
-      window.postMessage({ source: CONTENT_SOURCE, type: 'ping' }, '*');
     } catch (e) {
       // postMessage should never fail, but never let it break the content script
+    }
+  }
+
+  /**
+   * Sends the current settings to the MAIN world and asks for a handshake. The MAIN world
+   * may not be listening yet, which is why it answers a ping. Redundant pings are stopped
+   * once the handshake completes.
+   */
+  function announceToMain() {
+    sendSettingsToMain();
+    if (!handshakeDone) {
+      try {
+        window.postMessage({ source: CONTENT_SOURCE, type: 'ping' }, '*');
+      } catch (e) {
+        // postMessage should never fail, but never let it break the content script
+      }
     }
   }
 
@@ -238,7 +254,10 @@
       if (!data || typeof data !== 'object' || data.source !== MAIN_SOURCE) return;
 
       if (data.type === 'ready' || data.type === 'hello') {
-        announceToMain();
+        if (!handshakeDone) {
+          handshakeDone = true;
+          sendSettingsToMain();
+        }
         return;
       }
 
@@ -284,7 +303,7 @@
   function applyUpdatedSettings(newSettings) {
     if (!newSettings || typeof newSettings !== 'object') return;
     currentSettings = { ...currentSettings, ...newSettings };
-    announceToMain();
+    sendSettingsToMain();
   }
 
   // Listen for real-time toggle changes from Popup or Options
@@ -314,6 +333,7 @@
 
   // Debug helpers (isolated world): pick the content script context in DevTools to use them
   window.__fbDietStatus = () => ({
+    handshakeDone,
     settings: { ...currentSettings },
     reports: mainReports.slice(-25),
     pendingLogEntries: logBuffer.length

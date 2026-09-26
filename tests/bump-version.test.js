@@ -37,7 +37,7 @@ function run(checker) {
 
   checker.ok('package.json version matches manifest.json', pkg.version === manifest.version);
   checker.ok('defaults.js EXTENSION_VERSION matches manifest.json', defaultsMatch && defaultsMatch[1] === manifest.version);
-  checker.equals('current version is 2.7.0', manifest.version, '2.7.0');
+  checker.equals('current version is 2.7.1', manifest.version, '2.7.1');
 
   // 4. Firefox shares the single cross-browser manifest (Chrome reads service_worker, Firefox reads scripts)
   const bgScripts = manifest.background.scripts;

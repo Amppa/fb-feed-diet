@@ -197,7 +197,7 @@
     return current;
   }
 
-  const EXTENSION_VERSION = '2.7.0';
+  const EXTENSION_VERSION = '2.7.1';
 
   globalThis.FB_DIET_DEFAULTS = {
     SETTINGS: DEFAULT_SETTINGS,

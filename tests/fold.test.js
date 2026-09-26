@@ -224,6 +224,21 @@ function run(c) {
     c.ok('suggested also reported', blocked.indexOf('suggested') !== -1);
   }
 
+  /* --- hide-mode override: the memory A/B lever --- */
+  {
+    const t = setup({ [SPONSORED_PATH]: 'ad-hide' });
+    t.bridge.setSettings({ foldAds: 'title' });
+    const squashed = t.render(payloadOf('u-squash'));
+    const squashKids = squashed.props.children;
+    c.equals('default hide keeps the 1x1 squash class', Array.isArray(squashKids) && squashKids[1] && squashKids[1].props.className, 'fb-diet-fold-hidden fb-diet-foldsquash');
+
+    t.win.__fbDietHideMode = 'none';
+    const plain = t.render(payloadOf('u-plain'));
+    const plainKids = plain.props.children;
+    c.equals('hide-mode none drops the squash class', Array.isArray(plainKids) && plainKids[1] && plainKids[1].props.className, 'fb-diet-fold-hidden');
+    delete t.win.__fbDietHideMode;
+  }
+
   /* --- feed probe button (debug diagnostics) --- */
   {
     const t = setup({ [SPONSORED_PATH]: 'ad-1' });
