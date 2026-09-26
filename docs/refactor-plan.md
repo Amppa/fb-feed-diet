@@ -103,6 +103,29 @@ in `dom-metadata.test.js` without any assertion being weakened.
 Recover from git history if the probe ever needs counts again; the extraction logic is a
 single cherry-pick away.
 
+## Phase 8: memory retention fixes (`fix/memory-retention`)
+
+Prompted by a report of Facebook tabs reaching 2-7 GB with the extension enabled.
+
+| Fix | File | Why it mattered |
+| :-- | :-- | :-- |
+| Keep factory args only for registered/hooked modules | `proxy.js` | `moduleArgs.set()` ran for every module the loader defined, pinning each factory closure and its dependency exports; thousands of modules per session, while only the ~15 registered names are ever read back (`getModuleHealth` iterates `registrations`, `register()` re-applies to a seen module) |
+| Cap `stats.patchedModules` at 40 | `proxy.js` | unbounded push, only the first 20 were ever shown |
+| FIFO cap 300 on `titleBarCache` | `ui.js` | set-only Map; folded units never unmount, so it grew with every unit scrolled past |
+| 4 s hard disconnect + 200 ms coalescing for the title-bar `MutationObserver` | `ui.js` | cleanup only ran on unmount, which never happens for a squashed post; each mutation batch re-triggered a 23-query subtree sweep |
+| Commit effect deps `[isHydrated, domSuggested]` -> `[domSuggested]` | `fold.js` | the effect sets `isHydrated`, so every unit built and tore down its suggested-post scanner twice |
+| `window.__fbDietHideMode = 'none'` override | `fold.js` | lets the squash-vs-`display:none` media cost be measured on a real page without changing the default |
+
+Not addressed by choice: the squash design itself (it deliberately keeps units visible to
+IntersectionObserver to preserve Relay subscriptions), and the 20-deep `lastCmp` walk plus
+the 23-query subtree sweep, which are CPU/GC pressure rather than retained memory. Both need
+live-page measurement before changing; `docs/debugging.md` §Memory Diagnostics describes the
+A/B levers.
+
+Test note: the fake React in `tests/harness.js` ignores dependency arrays, so the commit-effect
+fix is verified by inspection rather than assertion; the hide-mode lever is covered
+functionally in `fold.test.js`.
+
 ## Invariants to preserve
 
 - The MAIN world proxy is the only classification and folding engine. Do not reintroduce a

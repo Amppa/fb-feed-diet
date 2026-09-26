@@ -46,6 +46,27 @@ window.__fbDietDumpLog();      // prints & returns the stored entries
 window.__fbDietClearLog();     // wipes the log
 ```
 
+### Memory Diagnostics
+
+Feed pages are the extension's heaviest surface, so compare before blaming Facebook:
+
+```javascript
+// MAIN world context in DevTools:
+FBDietProxy.getModuleHealth()   // dCalls (modules seen), registered/seen/patched, unseen
+FBDietFold.getStatus()          // fold state, counters, hydration commits, drift verdict
+```
+
+- `dCalls` climbing into the thousands is normal for Comet; what matters is that the proxy
+  now keeps factory data only for the ~15 registered module names.
+- Folded posts stay mounted by design: `.fb-diet-foldsquash` keeps them `display:block` at
+  1x1 so IntersectionObserver still counts them as visible, which is what preserves Relay
+  subscriptions across fold/unfold. To measure the cost of that choice, set
+  `window.__fbDietHideMode = 'none'` before scrolling: units then hide with real
+  `display:none`, releasing media and decoded bitmaps underneath. Reload or delete the
+  variable to restore the default.
+- Switching the extension to Lite mode is the fastest A/B: Lite never mounts the DOM
+  suggested scanner or the title-bar subtree observer.
+
 ### Feed Probe Button (per-unit lifecycle diagnostics, Probe v4)
 
 Enable "Show Feed Probe Buttons" in the Options page (or open Facebook with `?fb_diet_debug=1`).
