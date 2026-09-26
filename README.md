@@ -34,6 +34,17 @@ Instead of abruptly wiping elements or breaking your feed, **FB Feed Diet** neat
 5. Select the `fb-diet` folder.
 6. Open [Facebook](https://www.facebook.com) and enjoy a clean, distraction-free feed!
 
+### Firefox (128 or newer)
+
+The same package also runs on Firefox — the MAIN-world content scripts require Firefox 128+ (`browser_specific_settings.gecko.strict_min_version`).
+
+1. Build the package with `npm run package` (or use the repository folder directly).
+2. Open Firefox and navigate to `about:debugging#/setup/runtime/this-firefox`.
+3. Click **Load Temporary Add-on…** (暫時性載入附加元件) and select `manifest.json` from the zip (or the repository).
+4. Open [Facebook](https://www.facebook.com) and enjoy a clean feed!
+
+> Temporary add-ons are unloaded when Firefox restarts — repeat step 3 to reload.
+
 ---
 
 ## 💡 How to Use

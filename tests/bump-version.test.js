@@ -38,6 +38,14 @@ function run(checker) {
   checker.ok('package.json version matches manifest.json', pkg.version === manifest.version);
   checker.ok('defaults.js EXTENSION_VERSION matches manifest.json', defaultsMatch && defaultsMatch[1] === manifest.version);
   checker.equals('current version is 2.6.0', manifest.version, '2.6.0');
+
+  // 4. Firefox shares the single cross-browser manifest (Chrome reads service_worker, Firefox reads scripts)
+  checker.ok('background.scripts present for Firefox event page', Array.isArray(manifest.background.scripts) && manifest.background.scripts.length > 0);
+  checker.equals('background.scripts matches service_worker', manifest.background.scripts[0], manifest.background.service_worker);
+  checker.ok('background script file exists', fs.existsSync(path.join(ROOT, manifest.background.service_worker)));
+  const gecko = manifest.browser_specific_settings && manifest.browser_specific_settings.gecko;
+  checker.ok('gecko id present', Boolean(gecko && typeof gecko.id === 'string' && gecko.id.includes('@')));
+  checker.equals('gecko strict_min_version is 128.0', gecko && gecko.strict_min_version, '128.0');
 }
 
 module.exports = { run };

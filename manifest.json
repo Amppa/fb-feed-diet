@@ -4,6 +4,12 @@
   "version": "2.6.0",
   "description": "Put your Facebook feed on a healthy diet. Automatically fold sponsored ads, suggestions.",
   "minimum_chrome_version": "111",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "fb-feed-diet@amppa.github.io",
+      "strict_min_version": "128.0"
+    }
+  },
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -28,7 +34,8 @@
     "*://*.facebook.com/*"
   ],
   "background": {
-    "service_worker": "src/background/background.js"
+    "service_worker": "src/background/background.js",
+    "scripts": ["src/background/background.js"]
   },
   "options_ui": {
     "page": "src/options/options.html",
