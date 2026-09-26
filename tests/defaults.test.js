@@ -26,10 +26,11 @@ function run(checker) {
   const settings = defaults && defaults.SETTINGS;
   checker.ok('SETTINGS object exists', Boolean(settings));
   checker.equals('settings.enabled is true', settings && settings.enabled, true);
+  checker.equals('settings.dietMode is full', settings && settings.dietMode, 'full');
   checker.equals('settings.mode is proxy', settings && settings.mode, 'proxy');
   checker.equals('settings.foldSponsored is true', settings && settings.foldSponsored, true);
-  checker.equals('settings.foldSuggested is true', settings && settings.foldSuggested, true);
-  checker.equals('settings.foldSuggestedGroup is true', settings && settings.foldSuggestedGroup, true);
+  checker.equals('settings.foldSuggested is false', settings && settings.foldSuggested, false);
+  checker.equals('settings.foldSuggestedGroup is false', settings && settings.foldSuggestedGroup, false);
   checker.equals('settings.foldMarketAds is true', settings && settings.foldMarketAds, true);
   checker.equals('settings.foldSearchingAds is true', settings && settings.foldSearchingAds, true);
   checker.equals('settings.foldStories is true', settings && settings.foldStories, true);

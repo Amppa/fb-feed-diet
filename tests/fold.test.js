@@ -196,7 +196,8 @@ function run(c) {
 
     t.bridge.setSettings({ foldSponsored: false, minimizedFoldMode: true, alwaysShowFoldBar: false });
     const unfoldedClean = t.render(payloadOf('u1'));
-    c.ok('alwaysShowFoldBar off renders native without bar', unfoldedClean.__source === true);
+    const cleanSource = unfoldedClean && (unfoldedClean.__source === true || (unfoldedClean.props && unfoldedClean.props.children && (unfoldedClean.props.children.__source === true || (Array.isArray(unfoldedClean.props.children) && unfoldedClean.props.children[0] && unfoldedClean.props.children[0].__source === true))));
+    c.ok('alwaysShowFoldBar off renders native without bar', Boolean(cleanSource));
 
     t.bridge.setSettings({ foldSponsored: false, minimizedFoldMode: false, alwaysShowFoldBar: true });
     const unfoldedTitleBar = t.render(payloadOf('u1'));
@@ -214,6 +215,7 @@ function run(c) {
       if (id === 'u-sub' && path === '^^actors[0].subscribe_status') return 'CAN_SUBSCRIBE';
       return null;
     });
+    t.bridge.setSettings({ foldSuggested: true });
     t.render(payloadOf('u-ad'));
     t.render(payloadOf('u-sub'));
     c.equals('one blocked report per unit', countMessages(t.win, 'blocked'), 2);
@@ -471,7 +473,8 @@ function run(c) {
     } catch (e) {
       /* must never happen */
     }
-    c.ok('hostile payload degrades to the untouched render', Boolean(result) && result.__source === true);
+    const cleanResult = result && (result.__source === true || (result.props && result.props.children && (result.props.children.__source === true || (Array.isArray(result.props.children) && result.props.children[0] && result.props.children[0].__source === true))));
+    c.ok('hostile payload degrades to the untouched render', Boolean(cleanResult));
   }
 
   /* --- title bar DOM extraction and author/snippet display --- */

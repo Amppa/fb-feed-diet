@@ -7,11 +7,11 @@
 (function () {
   const DEFAULT_SETTINGS = {
     enabled: true,
-    dietMode: 'lite',
+    dietMode: 'full',
     mode: 'proxy',
     foldSponsored: true,
-    foldSuggested: true,
-    foldSuggestedGroup: true,
+    foldSuggested: false,
+    foldSuggestedGroup: false,
     foldMarketAds: true,
     foldSearchingAds: true,
     foldStories: true,
