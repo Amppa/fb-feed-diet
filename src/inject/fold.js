@@ -188,13 +188,22 @@ window.FBDietFold = (() => {
     return wrapWithFoldContext(React, FoldContext, [bar, expandedBody]);
   }
 
-  /** Folded unit: notice bar plus the original tree squashed into 1x1 (never unmounted). */
+  /**
+   * Folded unit: notice bar plus the original tree squashed into 1x1 (never unmounted).
+   * The squash exists so IntersectionObserver still counts the unit as visible, which keeps
+   * Facebook's own windowing from unmounting it (STRATEGY.md). Setting
+   * `window.__fbDietHideMode = 'none'` from the page console swaps in a real display:none
+   * hide, which lets media/DOM under folded posts be released for memory comparison.
+   */
   function renderFoldedView(React, FoldContext, bar, rendered, containerRef) {
+    const hideClass = (typeof window !== 'undefined' && window.__fbDietHideMode === 'none')
+      ? 'fb-diet-fold-hidden'
+      : 'fb-diet-fold-hidden fb-diet-foldsquash';
     const hidden = createEl(
       'div',
       {
         ref: containerRef,
-        className: 'fb-diet-fold-hidden fb-diet-foldsquash',
+        className: hideClass,
         'aria-hidden': 'true'
       },
       [rendered]
@@ -325,7 +334,9 @@ window.FBDietFold = (() => {
             return setupDomSuggestedScanner(containerRef, setDomSuggested);
           }
         }
-      }, [isHydrated, domSuggested]);
+      // isHydrated is deliberately not a dependency: this effect sets it, so listing it
+      // re-ran the whole body (and rebuilt then tore down the scanner) on every unit.
+      }, [domSuggested]);
     }
 
     if (isNested || !isHydrated) return rendered;
