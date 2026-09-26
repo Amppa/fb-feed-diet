@@ -39,20 +39,9 @@
   let flushTimer = null;
   let isShutDown = false;
 
-  function getTodayString() {
-    if (typeof DEFAULTS.getTodayDateString === 'function') {
-      return DEFAULTS.getTodayDateString();
-    }
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
   // Builds a zeroed counts object (used for the buffer and storage fallbacks)
   function createEmptyCounts() {
-    return Object.assign({}, DEFAULT_COUNTS, { date: getTodayString() });
+    return Object.assign({}, DEFAULT_COUNTS, { date: DEFAULTS.getTodayDateString() });
   }
 
   // Unit ids are opaque base64 blobs; show a short fingerprint instead.
@@ -435,7 +424,7 @@
       const data = await safeStorageGet('counts');
       if (!data || isShutDown) return;
 
-      const today = getTodayString();
+      const today = DEFAULTS.getTodayDateString();
       let counts = data.counts;
       if (!counts || counts.date !== today) {
         counts = createEmptyCounts();
