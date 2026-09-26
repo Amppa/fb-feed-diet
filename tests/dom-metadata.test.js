@@ -126,7 +126,7 @@ function run(c) {
   c.equals('skips 為你推薦 and extracts real author', suggestedSnapshot && suggestedSnapshot.actor, 'Grace Hopper');
   c.equals('skips timestamp and extracts post message from span[dir=auto]', suggestedSnapshot && suggestedSnapshot.snippet, 'Compilers are amazing');
   c.ok('textCandidates is array', Array.isArray(suggestedSnapshot && suggestedSnapshot.textCandidates));
-  c.ok('candidate text truncated to <= 30 chars', suggestedSnapshot.textCandidates.every((item) => item.text.length <= 30));
+  c.ok('candidate text truncated to <= 30 chars', suggestedSnapshot.textCandidates.length > 0 && suggestedSnapshot.textCandidates.every((item) => item.text.length <= 30));
 
   // Group post with title only + photo + Facebook in footer (the user reported issue)
   const groupHeader = makeNode('a', { href: '/groups/1752413238230321/' }, [], '拾荒');

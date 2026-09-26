@@ -153,7 +153,7 @@ function run(c) {
   calls.mapValue = () => null;
   r = C.classifyFeedUnit({ feedUnit: feedUnitOf() });
   reads = C.getLastRelayReads();
-  c.ok('relay read log resets per unit', reads.every((entry) => entry.value === null));
+  c.ok('relay read log resets per unit', reads.length > 0 && reads.every((entry) => entry.value === null));
 
   /* --- stories: mid-feed Stories row (DiscoverFeedUnit) --- */
   // The Stories row inserted into the home feed arrives via the generic
