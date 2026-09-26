@@ -156,6 +156,26 @@ function run(checker) {
     invalid.dispatchMain('regular', { unitId: 'invalid-1' });
     checker.ok('invalid extension queues no count flush', !invalid.timers.some((timer) => timer.delay === 3000 && !timer.cleared));
     checker.equals('invalid extension is shut down after receiving a report', invalid.sandbox.__fbDietDebug().isShutDown, true);
+
+    /* --- Handshake loop prevention (ping-pong guard) --- */
+    const hs = createHarness();
+    await settleContentScript();
+    const initialMsgCount = hs.messages.length;
+    checker.ok('initial announce sent settings and ping', initialMsgCount >= 2);
+    checker.equals('initial handshake is not done yet', hs.sandbox.__fbDietStatus().handshakeDone, false);
+
+    // First ready message completes handshake
+    hs.dispatchMain('ready', {});
+    checker.equals('first ready marks handshakeDone', hs.sandbox.__fbDietStatus().handshakeDone, true);
+    const countAfterFirstReady = hs.messages.length;
+    checker.ok('first ready pushed settings', countAfterFirstReady > initialMsgCount);
+    const lastMsg = hs.messages[hs.messages.length - 1];
+    checker.equals('first ready sends settings without ping', lastMsg.type, 'settings');
+
+    // Subsequent ready messages must be completely ignored (no ping-pong loop)
+    hs.dispatchMain('ready', {});
+    hs.dispatchMain('ready', {});
+    checker.equals('subsequent ready messages trigger no further messages', hs.messages.length, countAfterFirstReady);
   })();
 }
 
