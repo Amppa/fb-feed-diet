@@ -100,27 +100,27 @@ window.FBDietDOMFallback = (() => {
     const detector = window.FBDietDetector;
     if (!detector || typeof detector.isSponsored !== 'function') return;
 
-    if (settings.foldStories && safeDetect(detector.isStories, el)) {
+    if (settings.foldMedia && safeDetect(detector.isStories, el)) {
       foldElement(el, 'stories', onBlocked);
       return;
     }
-    if (settings.foldReels && safeDetect(detector.isReels, el)) {
+    if (settings.foldMedia && safeDetect(detector.isReels, el)) {
       foldElement(el, 'reels', onBlocked);
       return;
     }
-    if (settings.foldMarketAds && safeDetect(detector.isMarketAd, el)) {
+    if (settings.foldAds && safeDetect(detector.isMarketAd, el)) {
       foldElement(el, 'marketAds', onBlocked);
       return;
     }
-    if (settings.foldSearchingAds && safeDetect(detector.isSearchAd, el)) {
+    if (settings.foldAds && safeDetect(detector.isSearchAd, el)) {
       foldElement(el, 'searchingAds', onBlocked);
       return;
     }
-    if (settings.foldSponsored && safeDetect(detector.isSponsored, el)) {
+    if (settings.foldAds && safeDetect(detector.isSponsored, el)) {
       foldElement(el, 'sponsored', onBlocked);
       return;
     }
-    if (settings.foldSuggestedGroup && safeDetect(detector.isSuggestedGroup, el)) {
+    if (settings.foldOther && safeDetect(detector.isSuggestedGroup, el)) {
       foldElement(el, 'suggestedGroup', onBlocked);
       return;
     }

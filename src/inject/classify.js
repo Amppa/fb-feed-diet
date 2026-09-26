@@ -29,15 +29,15 @@ window.FBDietClassify = (() => {
     REGULAR: 'regular'
   };
 
-  // Maps a category to the storage key owned by the options page / popup
+  // Maps a category to the group-level storage key owned by the options page / popup
   const SETTING_BY_CATEGORY = {
-    sponsored: 'foldSponsored',
+    sponsored: 'foldAds',
     suggested: 'foldSuggested',
-    suggestedGroup: 'foldSuggestedGroup',
-    reels: 'foldReels',
-    stories: 'foldStories',
-    marketAds: 'foldMarketAds',
-    searchingAds: 'foldSearchingAds',
+    suggestedGroup: 'foldOther',
+    reels: 'foldMedia',
+    stories: 'foldMedia',
+    marketAds: 'foldAds',
+    searchingAds: 'foldAds',
     regular: 'foldRegular'
   };
 

@@ -27,15 +27,11 @@ function run(checker) {
   checker.ok('SETTINGS object exists', Boolean(settings));
   checker.equals('settings.enabled is true', settings && settings.enabled, true);
   checker.equals('settings.dietMode is full', settings && settings.dietMode, 'full');
-  checker.equals('settings.mode is proxy', settings && settings.mode, 'proxy');
-  checker.equals('settings.foldSponsored is true', settings && settings.foldSponsored, true);
-  checker.equals('settings.foldSuggested is false', settings && settings.foldSuggested, false);
-  checker.equals('settings.foldSuggestedGroup is false', settings && settings.foldSuggestedGroup, false);
-  checker.equals('settings.foldMarketAds is true', settings && settings.foldMarketAds, true);
-  checker.equals('settings.foldSearchingAds is true', settings && settings.foldSearchingAds, true);
-  checker.equals('settings.foldStories is true', settings && settings.foldStories, true);
-  checker.equals('settings.foldReels is true', settings && settings.foldReels, true);
+  checker.equals('settings.foldAds is true', settings && settings.foldAds, true);
   checker.equals('settings.foldRegular is false', settings && settings.foldRegular, false);
+  checker.equals('settings.foldSuggested is false', settings && settings.foldSuggested, false);
+  checker.equals('settings.foldMedia is true', settings && settings.foldMedia, true);
+  checker.equals('settings.foldOther is false', settings && settings.foldOther, false);
   checker.equals('settings.minimizedFoldMode is false', settings && settings.minimizedFoldMode, false);
   checker.equals('settings.alwaysShowFoldBar is true', settings && settings.alwaysShowFoldBar, true);
   checker.equals('settings.showTitleMode is whenFolded', settings && settings.showTitleMode, 'whenFolded');
@@ -64,7 +60,8 @@ function run(checker) {
   checker.equals('suggestedGroup maps to other', groupByCategory && groupByCategory.suggestedGroup, 'other');
 
   const keysByGroup = defaults && defaults.SETTING_KEYS_BY_GROUP;
-  checker.ok('ads group batch-writes its three keys', Boolean(keysByGroup) && keysByGroup.ads.join(',') === 'foldSponsored,foldMarketAds,foldSearchingAds');
+  checker.equals('ads group writes foldAds', keysByGroup && keysByGroup.ads.join(','), 'foldAds');
+  checker.equals('media group writes foldMedia', keysByGroup && keysByGroup.media.join(','), 'foldMedia');
   checker.ok('regular group writes foldRegular', Boolean(keysByGroup) && keysByGroup.regular.join(',') === 'foldRegular');
   checker.ok('every mapped key exists in SETTINGS', Boolean(keysByGroup) && Object.values(keysByGroup).every((keys) => keys.every((key) => key in settings)));
 

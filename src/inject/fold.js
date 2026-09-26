@@ -259,8 +259,8 @@ window.FBDietFold = (() => {
       if (!bridge) return rendered;
 
       const settings = bridge.getSettings();
-      // If disabled or in DOM mode, let original render untouched
-      if (!settings.enabled || settings.mode === 'dom') return rendered;
+      // If disabled, let original render untouched
+      if (!settings.enabled) return rendered;
 
       // Fold scope (STRATEGY.md decision #26): outside the allowlisted surfaces skip
       // classification, counters, logs and fold bars entirely. Probe stays available
@@ -460,7 +460,7 @@ window.FBDietFold = (() => {
     if (!bridge) return rendered;
 
     const settings = bridge.getSettings();
-    if (!settings.enabled || settings.foldSponsored === false) return rendered;
+    if (!settings.enabled || settings.foldAds === false) return rendered;
 
     // Pure visual hide: independent of restrictFoldScope and never counted or logged
     // (STRATEGY.md decision #26). Empty hidden node, no placeholder, no unfold.
@@ -582,7 +582,7 @@ window.FBDietFold = (() => {
 
       const bridge = window.FBDietBridge;
       const settings = bridge && typeof bridge.getSettings === 'function' ? bridge.getSettings() : null;
-      const shouldHide = !settings || (settings.enabled !== false && settings.foldSponsored !== false);
+      const shouldHide = !settings || (settings.enabled !== false && settings.foldAds !== false);
 
       let style = targetDoc.getElementById ? targetDoc.getElementById(RIGHT_RAIL_STYLE_ID) : null;
       if (!shouldHide) {

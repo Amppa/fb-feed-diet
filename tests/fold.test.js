@@ -132,7 +132,7 @@ function run(c) {
   /* --- category disabled renders unfolded with header bar + reports allowed --- */
   {
     const t = setup({ [SPONSORED_PATH]: 'ad-allowed' });
-    t.bridge.setSettings({ foldSponsored: false, minimizedFoldMode: true });
+    t.bridge.setSettings({ foldAds: false, minimizedFoldMode: true });
     const result = t.render(payloadOf('u-allowed'));
     c.ok('disabled category renders unfolded with header bar', result.type === t.React.Fragment && Array.isArray(result.props.children));
     const [headerBar] = result.props.children;
@@ -188,22 +188,22 @@ function run(c) {
     c.ok('master off renders untouched', t.render(payloadOf('u1')).__source === true);
     t.bridge.setSettings({ enabled: true, minimizedFoldMode: true });
 
-    t.bridge.setSettings({ foldSponsored: false, minimizedFoldMode: true });
+    t.bridge.setSettings({ foldAds: false, minimizedFoldMode: true });
     const unfoldedOff = t.render(payloadOf('u1'));
     const [offHeaderBar] = unfoldedOff.props.children;
     const offHeaderRender = offHeaderBar.type(offHeaderBar.props);
     c.ok('category off renders unfolded with header bar', unfoldedOff.type === t.React.Fragment && offHeaderRender.props.className.indexOf('fb-diet-state-expanded') !== -1);
 
-    t.bridge.setSettings({ foldSponsored: false, minimizedFoldMode: true, alwaysShowFoldBar: false });
+    t.bridge.setSettings({ foldAds: false, minimizedFoldMode: true, alwaysShowFoldBar: false });
     const unfoldedClean = t.render(payloadOf('u1'));
     const cleanSource = unfoldedClean && (unfoldedClean.__source === true || (unfoldedClean.props && unfoldedClean.props.children && (unfoldedClean.props.children.__source === true || (Array.isArray(unfoldedClean.props.children) && unfoldedClean.props.children[0] && unfoldedClean.props.children[0].__source === true))));
     c.ok('alwaysShowFoldBar off renders native without bar', Boolean(cleanSource));
 
-    t.bridge.setSettings({ foldSponsored: false, minimizedFoldMode: false, alwaysShowFoldBar: true });
+    t.bridge.setSettings({ foldAds: false, minimizedFoldMode: false, alwaysShowFoldBar: true });
     const unfoldedTitleBar = t.render(payloadOf('u1'));
     c.ok('alwaysShowFoldBar on + mini off renders unfolded with title bar', unfoldedTitleBar.type === t.React.Fragment && unfoldedTitleBar.props.children[0].type === t.win.FBDietUI.FBDietTitleBar);
 
-    t.bridge.setSettings({ foldSponsored: true, minimizedFoldMode: true, alwaysShowFoldBar: true });
+    t.bridge.setSettings({ foldAds: true, minimizedFoldMode: true, alwaysShowFoldBar: true });
     c.ok('category restored folds again', t.render(payloadOf('u1')).type === t.React.Fragment && t.render(payloadOf('u1')).props.children[0].type === t.win.FBDietUI.FBDietTitleBar);
     c.equals('category restored has isMini true', t.render(payloadOf('u1')).props.children[0].props.isMini, true);
   }
@@ -318,7 +318,7 @@ function run(c) {
   /* --- 3-tier fold mode: title mode (24px persistent header bar) --- */
   {
     const t = setup({ [SPONSORED_PATH]: 'ad-title' });
-    t.bridge.setSettings({ foldSponsored: 'title' });
+    t.bridge.setSettings({ foldAds: 'title' });
 
     // Collapsed title state: renders FBDietTitleBar with [+]
     const folded = t.render(payloadOf('u-title'));
@@ -757,15 +757,15 @@ function run(c) {
     c.ok('injected style suppresses ads with fbclid', appendedStyle.textContent.includes('a[href*="fbclid="]'));
     c.ok('injected style retains .adhidden and .fb-diet-side-ad-hidden', appendedStyle.textContent.includes('.CometHomeRightRailUnit:has(') && appendedStyle.textContent.includes('.fb-diet-side-ad-hidden'));
 
-    // Dynamic sync: when foldSponsored is disabled, style is removed
-    t.bridge.setSettings({ foldSponsored: false });
+    // Dynamic sync: when foldAds is disabled, style is removed
+    t.bridge.setSettings({ foldAds: false });
     t.fold.syncRightRailStyle(fakeDoc);
-    c.ok('syncRightRailStyle removes stylesheet when foldSponsored is false', appendedStyle === null);
+    c.ok('syncRightRailStyle removes stylesheet when foldAds is false', appendedStyle === null);
 
-    // Dynamic sync: re-enabling foldSponsored restores the style
-    t.bridge.setSettings({ foldSponsored: true });
+    // Dynamic sync: re-enabling foldAds restores the style
+    t.bridge.setSettings({ foldAds: true });
     t.fold.syncRightRailStyle(fakeDoc);
-    c.ok('syncRightRailStyle restores stylesheet when foldSponsored is re-enabled', Boolean(appendedStyle));
+    c.ok('syncRightRailStyle restores stylesheet when foldAds is re-enabled', Boolean(appendedStyle));
   }
 }
 

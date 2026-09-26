@@ -184,7 +184,7 @@ function run(checker) {
   parent.appendChild(spoEl);
 
   let evalBlocked = null;
-  fallback.evaluateElement(spoEl, { enabled: true, foldSponsored: true }, (cat) => { evalBlocked = cat; });
+  fallback.evaluateElement(spoEl, { enabled: true, foldAds: true }, (cat) => { evalBlocked = cat; });
   checker.equals('evaluateElement folds matching sponsored element', evalBlocked, 'sponsored');
 
   /* --- fold scope: leaving the allowlist restores once, re-entering rescans (decision #26) --- */

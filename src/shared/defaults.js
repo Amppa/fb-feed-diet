@@ -8,15 +8,11 @@
   const DEFAULT_SETTINGS = {
     enabled: true,
     dietMode: 'full',
-    mode: 'proxy',
-    foldSponsored: true,
-    foldSuggested: false,
-    foldSuggestedGroup: false,
-    foldMarketAds: true,
-    foldSearchingAds: true,
-    foldStories: true,
-    foldReels: true,
+    foldAds: true,
     foldRegular: false,
+    foldSuggested: false,
+    foldMedia: true,
+    foldOther: false,
     minimizedFoldMode: false,
     alwaysShowFoldBar: true,
     showTitleMode: 'whenFolded',
@@ -126,11 +122,11 @@
   // foldRegular defaults to false, so ordinary friend posts are unfolded by
   // default but can be folded via the Options page.
   const SETTING_KEYS_BY_GROUP = {
-    ads: ['foldSponsored', 'foldMarketAds', 'foldSearchingAds'],
+    ads: ['foldAds'],
     regular: ['foldRegular'],
     suggested: ['foldSuggested'],
-    media: ['foldStories', 'foldReels'],
-    other: ['foldSuggestedGroup']
+    media: ['foldMedia'],
+    other: ['foldOther']
   };
 
   const GROUP_META = {

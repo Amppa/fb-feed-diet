@@ -359,7 +359,7 @@ function run(c) {
 
   /* --- fold mode checks --- */
   equals(c, 'default settings sponsored mode is title (36px default)', C.getCategoryFoldMode('sponsored', {}), 'title');
-  equals(c, 'minimized fold mode returns mini (18px)', C.getCategoryFoldMode('sponsored', { foldSponsored: true, minimizedFoldMode: true }), 'mini');
+  equals(c, 'minimized fold mode returns mini (18px)', C.getCategoryFoldMode('sponsored', { foldAds: true, minimizedFoldMode: true }), 'mini');
   equals(c, 'default settings suggested mode is off', C.getCategoryFoldMode('suggested', {}), 'off');
   equals(c, 'enabled suggested mode is title', C.getCategoryFoldMode('suggested', { foldSuggested: true }), 'title');
   equals(c, 'default settings regular mode is off', C.getCategoryFoldMode('regular', {}), 'off');
