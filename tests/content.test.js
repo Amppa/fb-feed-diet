@@ -4,7 +4,7 @@
  *
  * The content script is an IIFE, so these tests load the real file in a minimal
  * isolated-world VM. They cover only the storage buffers and lifecycle boundary;
- * DOM fallback behavior is covered separately by fallback.test.js.
+ * all classification and folding lives in the MAIN world (src/inject/*).
  */
 const fs = require('fs');
 const path = require('path');
@@ -18,14 +18,6 @@ function createHarness(options = {}) {
   const timers = [];
   const listeners = new Map();
   const messages = [];
-  const fallback = {
-    restoreAllElements() {},
-    scanPage() {},
-    stopObservation() {},
-    startObservation() {
-      throw new Error('content.js must not start the disabled DOM fallback');
-    }
-  };
 
   const sandbox = {
     console: { log() {}, debug() {}, info() {} },
@@ -63,8 +55,7 @@ function createHarness(options = {}) {
         },
         onChanged: { addListener() {} }
       }
-    },
-    FBDietDOMFallback: fallback
+    }
   };
   sandbox.window = sandbox;
   sandbox.self = sandbox;
@@ -112,6 +103,11 @@ async function settleContentScript() {
 function run(checker) {
   const defaults = loadDefaults();
   const today = defaults.getTodayDateString();
+
+  // The retired ISOLATED-world DOM fallback engine must never come back (STRATEGY.md #32).
+  const source = fs.readFileSync(path.join(ROOT, 'src', 'content', 'content.js'), 'utf8');
+  checker.ok('content.js references no DOM fallback engine', source.indexOf('FBDietDOMFallback') === -1);
+  checker.ok('content.js keeps the single-engine debug surface', source.indexOf('currentSettings.dietMode') !== -1);
 
   return (async () => {
     const counts = createHarness();

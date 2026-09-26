@@ -71,8 +71,6 @@
       ],
       "js": [
         "src/shared/defaults.js",
-        "src/content/detector.js",
-        "src/content/fallback.js",
         "src/content/content.js"
       ],
       "run_at": "document_idle",

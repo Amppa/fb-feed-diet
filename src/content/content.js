@@ -1,7 +1,7 @@
 /**
- * FB Diet - Content Script
- * Observes Facebook feed/page elements, folds ads & suggestions into clean placeholders,
- * allows one-click expand/collapse, and sends throttled stats to storage.
+ * FB Diet - Content Script (ISOLATED world)
+ * Pure bridge: owns chrome.storage (settings, counters, diagnostic log) and relays
+ * settings to the MAIN world, which performs all classification and folding.
  */
 
 (() => {
@@ -15,9 +15,6 @@
   // MAIN world bridge protocol (see src/inject/bridge.js)
   const MAIN_SOURCE = 'fb-diet/main';
   const CONTENT_SOURCE = 'fb-diet/content';
-
-  // True once the MAIN world proxy announced itself: it owns folding from then on
-  let proxyActive = false;
 
   // Ring buffer of reports from the MAIN world proxy (diagnostics)
   const mainReports = [];
@@ -78,12 +75,6 @@
   function shutdown() {
     if (isShutDown) return;
     isShutDown = true;
-
-    try {
-      window.FBDietDOMFallback?.stopObservation?.();
-    } catch (e) {
-      // Ignore: observer may already be gone
-    }
 
     if (flushTimer) {
       clearTimeout(flushTimer);
@@ -163,26 +154,6 @@
     } catch (e) {
       // postMessage should never fail, but never let it break the content script
     }
-  }
-
-  /**
-   * The proxy owns folding once it reports in. The DOM scanner is stopped and anything the
-   * conservative DOM fallback already folded is restored, so the two engines never fight.
-   */
-  function activateProxyMode() {
-    if (isShutDown || proxyActive) return;
-
-    proxyActive = true;
-
-    try {
-      window.FBDietDOMFallback?.restoreAllElements?.();
-    } catch (e) {
-      // Nothing folded yet: nothing to restore
-    }
-
-    window.FBDietDOMFallback?.stopObservation?.();
-
-    announceToMain();
   }
 
   function storeMainReport(type, payload) {
@@ -267,7 +238,7 @@
       if (!data || typeof data !== 'object' || data.source !== MAIN_SOURCE) return;
 
       if (data.type === 'ready' || data.type === 'hello') {
-        activateProxyMode();
+        announceToMain();
         return;
       }
 
@@ -309,24 +280,11 @@
     announceToMain();
   })();
 
-  // Listen for real-time toggle changes from Popup
+  // Applies a settings update pushed from Popup/Options and forwards it to the MAIN world
   function applyUpdatedSettings(newSettings) {
     if (!newSettings || typeof newSettings !== 'object') return;
-    const oldEnabled = currentSettings.enabled;
     currentSettings = { ...currentSettings, ...newSettings };
-
-    if (proxyActive) {
-      announceToMain();
-      return;
-    }
-
-    const fallback = window.FBDietDOMFallback;
-    if (oldEnabled && !currentSettings.enabled) {
-      fallback?.restoreAllElements?.();
-    } else if (currentSettings.enabled) {
-      fallback?.restoreAllElements?.();
-      fallback?.scanPage?.(currentSettings, recordBlock);
-    }
+    announceToMain();
   }
 
   // Listen for real-time toggle changes from Popup or Options
@@ -372,7 +330,6 @@
 
   // Debug helpers (isolated world): pick the content script context in DevTools to use them
   window.__fbDietStatus = () => ({
-    proxyActive,
     settings: { ...currentSettings },
     reports: mainReports.slice(-25),
     pendingLogEntries: logBuffer.length
@@ -480,13 +437,11 @@
 
   window.__fbDietDebug = () => {
     const info = {
-      mode: currentSettings.mode || 'proxy',
+      dietMode: currentSettings.dietMode || DEFAULT_SETTINGS.dietMode,
       enabled: currentSettings.enabled !== false,
-      proxyActive,
       isShutDown,
       recentMainReports: mainReports.slice(-10),
-      countBuffer,
-      relayStoreReady: window.FBDietRelay ? window.FBDietRelay.isReady() : (window.___rs ? true : 'main-world')
+      countBuffer
     };
     console.log('[FB Diet Diagnostics]', info);
     return info;

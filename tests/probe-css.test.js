@@ -32,9 +32,14 @@ function run(c) {
   c.ok('content.css defines 4px gap for mini folded bar', css.includes('margin: 0 0 4px 0 !important;'));
   c.ok('content.css defines 8px rounded corners for folded bar', css.includes('border-radius: 8px !important;'));
   c.ok('content.css disables outer frame border when expanded',
-    (css.includes('.fb-diet-placeholder.fb-diet-state-expanded ~ .fb-diet-expand-body::after') ||
-     css.includes('.fb-diet-placeholder.fb-diet-state-expanded~.fb-diet-expand-body::after')) &&
+    (css.includes('.fb-diet-titlebar.fb-diet-state-expanded ~ .fb-diet-expand-body::after') ||
+     css.includes('.fb-diet-titlebar.fb-diet-state-expanded~.fb-diet-expand-body::after')) &&
     css.includes('display: none !important;')
+  );
+  // The ISOLATED-world DOM fallback engine is retired (STRATEGY.md decision #32):
+  // only the MAIN world emits fold bars, so its class names must be the sole owners.
+  c.ok('content.css drops the retired fallback-only placeholder classes',
+    css.indexOf('.fb-diet-placeholder') === -1 && css.indexOf('.fb-diet-folded-original') === -1
   );
   c.ok('content.css defines .fb-diet-title-group-name', css.includes('.fb-diet-title-group-name'));
   c.ok('content.css defines non-bold for group title', css.includes('.fb-diet-title-group') && css.includes('font-weight: normal !important;'));

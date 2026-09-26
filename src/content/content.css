@@ -1,35 +1,11 @@
 /**
- * FB Diet - In-page Placeholder & Folding Styles
+ * FB Diet - In-page Folding Styles
  * Seamlessly blends with Facebook's native Light & Dark themes.
  */
 
-/* Folded original post container */
-.fb-diet-folded-original {
-  display: none !important;
-}
-
-/* When expanded by user */
-.fb-diet-folded-original.fb-diet-is-expanded {
-  display: block !important;
-  animation: fbDietFadeIn 0.25s ease-out;
-}
-
-@keyframes fbDietFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* ------------------------------------------------------------------ *
- * Placeholder Base (Shared layout across 18px and 36px variants)
+ * Fold bar base
  * ------------------------------------------------------------------ */
-.fb-diet-placeholder,
 .fb-diet-titlebar {
   display: flex !important;
   align-items: center !important;
@@ -46,44 +22,18 @@
   overflow: hidden !important;
 }
 
-.fb-diet-placeholder:hover,
 .fb-diet-titlebar:hover {
   background-color: var(--hover-overlay, rgba(0, 0, 0, 0.05)) !important;
 }
 
-.fb-diet-placeholder.fb-diet-state-expanded,
 .fb-diet-titlebar.fb-diet-state-expanded {
   margin: 0 !important;
   border-radius: 8px 8px 0 0 !important;
 }
 
-.fb-diet-placeholder.fb-diet-state-expanded:hover,
 .fb-diet-titlebar.fb-diet-state-expanded:hover {
   background-color: var(--hover-overlay, rgba(0, 0, 0, 0.08)) !important;
   filter: brightness(0.96) !important;
-}
-
-/* 18px Ultra-slim strip */
-.fb-diet-placeholder {
-  margin: 0 0 4px 0 !important;
-  padding: 1px 8px !important;
-  min-height: 18px !important;
-  height: 18px !important;
-  background-color: var(--card-background, #ffffff) !important;
-  font-size: 11px !important;
-  line-height: 16px !important;
-  color: var(--secondary-text, #65676b) !important;
-}
-
-.fb-diet-placeholder.fb-diet-state-expanded {
-  background-color: var(--secondary-button-background, #f0f2f5) !important;
-}
-
-/* Left section of placeholder */
-.fb-diet-placeholder-left {
-  display: flex !important;
-  align-items: center !important;
-  gap: 6px !important;
 }
 
 /* Badge for the fold group (Ads, Suggested, etc.) */
@@ -125,7 +75,7 @@
   color: #3b82f6 !important;
 }
 
-/* 36px Title mode placeholder bar */
+/* 36px Title mode fold bar */
 .fb-diet-titlebar {
   height: 36px !important;
   min-height: 36px !important;
@@ -236,11 +186,6 @@
   z-index: -1 !important;
 }
 
-/* The placeholder rendered by the proxy must span the feed column width */
-.fb-diet-placeholder {
-  width: 100% !important;
-}
-
 /* Right sidebar sponsored ads: directly hidden without placeholder bar */
 /* Pre-hydration first-frame suppression (SSR markup) */
 :is(div[role="complementary"], aside, [data-pagelet*="RightRail"]) :is(
@@ -279,12 +224,6 @@ a[target^="rhcad"],
  * ------------------------------------------------------------------ */
 
 /* The wrapper anchors the frame pseudo. It carries no border itself. */
-.fb-diet-placeholder.fb-diet-state-expanded~.fb-diet-expand-body {
-  position: relative !important;
-  border: none !important;
-  --fb-diet-strip-h: 18px;
-}
-
 .fb-diet-titlebar.fb-diet-state-expanded~.fb-diet-expand-body {
   position: relative !important;
   border: none !important;
@@ -292,7 +231,6 @@ a[target^="rhcad"],
 }
 
 /* Expanded state frame: outer border line disabled per user requirement */
-.fb-diet-placeholder.fb-diet-state-expanded~.fb-diet-expand-body::after,
 .fb-diet-titlebar.fb-diet-state-expanded~.fb-diet-expand-body::after {
   display: none !important;
 }
