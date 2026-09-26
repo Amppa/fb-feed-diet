@@ -204,6 +204,84 @@ window.FBDietFold = (() => {
   }
 
   /**
+   * Fold-scope gate (STRATEGY.md decision #26): outside the allowlisted surfaces the unit
+   * keeps its native render and takes part in no counters, logs or fold bars. Fails open
+   * when the defaults module or the pathname is unavailable.
+   */
+  function isFoldScopeBlocked(settings) {
+    if (settings.restrictFoldScope === false) return false;
+    const defaults = window.FB_DIET_DEFAULTS;
+    const isAllowed = defaults && typeof defaults.isFoldScopeAllowed === 'function' ? defaults.isFoldScopeAllowed : null;
+    if (!isAllowed) return false;
+    const pathname = window.location ? window.location.pathname : undefined;
+    return !isAllowed(pathname);
+  }
+
+  /**
+   * Resolves what this unit is: the entry category handed over by the wrapper, the
+   * classifier verdict, and the live DOM suggestion that may still override an
+   * unclassified unit. Returns null only when classification is impossible (no classifier
+   * module), which the caller answers by leaving the render untouched.
+   */
+  function resolveVerdict(props, domSuggested) {
+    let category = props.entryCategory || null;
+    let reason = 'component:' + (props.moduleName || 'unknown');
+    let unitId = null;
+    let unitTypename = null;
+    let classifyResult = null;
+    let relayReads = null;
+
+    if (!category) {
+      const classify = window.FBDietClassify;
+      if (!classify) return null;
+
+      // The module name is part of the classification context: the Reels attachment
+      // style wrapper, for example, must never fold as Reels (see STRATEGY.md).
+      const result = classify.classifyFeedUnit(props.payload, { moduleName: props.moduleName || null, lastCmp: props.lastCmp });
+      classifyResult = result;
+      relayReads = typeof classify.getLastRelayReads === 'function' ? classify.getLastRelayReads() : null;
+      category = result.category;
+      reason = result.reason;
+      unitId = result.unitId;
+      unitTypename = result.unitTypename;
+    }
+
+    let effectiveClassifyResult = classifyResult;
+    const isAlreadyClassified = category && category !== 'regular';
+    if (!isAlreadyClassified && domSuggested && domSuggested.isSuggested) {
+      category = 'suggested';
+      reason = domSuggested.reason || 'dom:suggested';
+      if (classifyResult) {
+        effectiveClassifyResult = Object.assign({}, classifyResult, {
+          category,
+          reason,
+          signal: domSuggested.signal || 'Other',
+          domEvidence: domSuggested
+        });
+      }
+    }
+
+    if (!unitId) {
+      const mod = props.moduleName || 'unit';
+      const type = (props.payload && props.payload.unitTypename) || 'ad';
+      unitId = mod + '_' + type;
+    }
+
+    return { category, reason, unitId, unitTypename, classifyResult, effectiveClassifyResult, relayReads };
+  }
+
+  /** Counter report shape. The same payload is reported as blocked, allowed or regular. */
+  function verdictReport(props, verdict) {
+    return {
+      category: verdict.category,
+      unitId: verdict.unitId,
+      reason: verdict.reason,
+      unitTypename: verdict.unitTypename || (props.payload && typeof props.payload.unitTypename === 'string' ? props.payload.unitTypename : null),
+      moduleName: props.moduleName || null
+    };
+  }
+
+  /**
    * The component that replaces a matched feed unit.
    */
   function FBDietFold(props) {
@@ -264,54 +342,20 @@ window.FBDietFold = (() => {
 
       // Fold scope (STRATEGY.md decision #26): outside the allowlisted surfaces skip
       // classification, counters, logs and fold bars entirely. Probe stays available
-      // with a null classify result. Fail-open when defaults or the pathname are missing.
-      if (settings.restrictFoldScope !== false) {
-        const scopeDefaults = window.FB_DIET_DEFAULTS;
-        const isScopeAllowed = scopeDefaults && typeof scopeDefaults.isFoldScopeAllowed === 'function'
-          ? scopeDefaults.isFoldScopeAllowed
-          : null;
-        const pathname = window.location ? window.location.pathname : undefined;
-        if (isScopeAllowed && !isScopeAllowed(pathname)) {
-          return addProbe(rendered, props, null, null);
-        }
+      // with a null classify result.
+      if (isFoldScopeBlocked(settings)) {
+        return addProbe(rendered, props, null, null);
       }
 
-      let category = props.entryCategory || null;
-      let reason = 'component:' + (props.moduleName || 'unknown');
-      let unitId = null;
-      let unitTypename = null;
-      let classifyResult = null;
-      let relayReads = null;
+      const verdict = resolveVerdict(props, domSuggested);
+      if (!verdict) return rendered;
 
-      if (!category) {
-        const classify = window.FBDietClassify;
-        if (!classify) return rendered;
-
-        // The module name is part of the classification context: the Reels attachment
-        // style wrapper, for example, must never fold as Reels (see STRATEGY.md).
-        const result = classify.classifyFeedUnit(props.payload, { moduleName: props.moduleName || null, lastCmp: props.lastCmp });
-        classifyResult = result;
-        relayReads = typeof classify.getLastRelayReads === 'function' ? classify.getLastRelayReads() : null;
-        category = result.category;
-        reason = result.reason;
-        unitId = result.unitId;
-        unitTypename = result.unitTypename;
-      }
-
-      let effectiveClassifyResult = classifyResult;
-      const isAlreadyClassified = category && category !== 'regular';
-      if (!isAlreadyClassified && domSuggested && domSuggested.isSuggested) {
-        category = 'suggested';
-        reason = domSuggested.reason || 'dom:suggested';
-        if (classifyResult) {
-          effectiveClassifyResult = Object.assign({}, classifyResult, {
-            category,
-            reason,
-            signal: domSuggested.signal || 'Other',
-            domEvidence: domSuggested
-          });
-        }
-      }
+      const category = verdict.category;
+      const reason = verdict.reason;
+      const unitId = verdict.unitId;
+      const classifyResult = verdict.classifyResult;
+      const effectiveClassifyResult = verdict.effectiveClassifyResult;
+      const relayReads = verdict.relayReads;
 
       if (!category) {
         if (settings.dietMode !== 'full') {
@@ -323,12 +367,6 @@ window.FBDietFold = (() => {
         return addProbe(wrapped || rendered, props, classifyResult, relayReads);
       }
 
-      if (!unitId) {
-        const mod = props.moduleName || 'unit';
-        const type = (props.payload && props.payload.unitTypename) || 'ad';
-        unitId = mod + '_' + type;
-      }
-
       const defaultMode = bridge.getFoldMode ? bridge.getFoldMode(category) : (bridge.isEnabled(category) ? 'mini' : 'off');
       const visual = bridge.getUnitVisualState
         ? bridge.getUnitVisualState(unitId, defaultMode)
@@ -338,38 +376,14 @@ window.FBDietFold = (() => {
 
       // Report counters: any folded unit counts toward blocked/filtered
       if (isFolded) {
-        bridge.reportBlocked({
-          category,
-          unitId,
-          reason,
-          unitTypename:
-            unitTypename ||
-            (props.payload && typeof props.payload.unitTypename === 'string' ? props.payload.unitTypename : null),
-          moduleName: props.moduleName || null
-        });
+        bridge.reportBlocked(verdictReport(props, verdict));
       } else if (category === 'regular') {
         if (typeof bridge.reportRegular === 'function') {
-          bridge.reportRegular(effectiveClassifyResult || {
-            category,
-            unitId,
-            reason,
-            unitTypename:
-              unitTypename ||
-              (props.payload && typeof props.payload.unitTypename === 'string' ? props.payload.unitTypename : null),
-            moduleName: props.moduleName || null
-          });
+          bridge.reportRegular(effectiveClassifyResult || verdictReport(props, verdict));
         }
       } else {
         if (typeof bridge.reportAllowed === 'function') {
-          bridge.reportAllowed({
-            category,
-            unitId,
-            reason,
-            unitTypename:
-              unitTypename ||
-              (props.payload && typeof props.payload.unitTypename === 'string' ? props.payload.unitTypename : null),
-            moduleName: props.moduleName || null
-          });
+          bridge.reportAllowed(verdictReport(props, verdict));
         }
       }
 

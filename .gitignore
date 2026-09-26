@@ -3,3 +3,4 @@ node_modules/
 release/
 .DS_Store
 Thumbs.db
+.scratch/

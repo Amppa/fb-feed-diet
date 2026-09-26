@@ -15,6 +15,8 @@ Branch: `refactor/architecture-cleanup` (merge into `master` is a human decision
 | 3 | Ghost code, dead exports, duplicate packager | Done |
 | 4 | SSOT vocabulary and helper consolidation | Partially done — 2 of 4 items |
 | 5 | Test infrastructure hardening | Mostly done — 1 item rejected on evidence |
+| 6 | Oversized-function decomposition | Done — see below |
+| 7 | Drop unconsumed DOM probe producers (metrics, text candidates) | Done — see below |
 | Docs | STRATEGY.md, architecture.md, debugging.md, DEVELOPMENT.md, workflow.md | Done |
 
 ## Phase 4 outcome
@@ -58,6 +60,48 @@ Branch: `refactor/architecture-cleanup` (merge into `master` is a human decision
   harness double does not support. Swapping it would silently change which nodes selectors
   match; merging requires first teaching the harness that dialect and re-validating every
   assertion, which is new test infrastructure rather than cleanup.
+
+## Phase 6: oversized-function decomposition (`refactor/decomposition`)
+
+Follow-up round after the cleanup above, targeting comprehension hotspots instead of file
+count. Verified with byte-identical golden snapshots (14 fold scenarios incl. counters and
+`postMessage` reports, 4 metadata enrichment cases, 4 suggested-detection cards) plus the
+full suite.
+
+| Function | Before | After | Extracted |
+| :-- | :-- | :-- | :-- |
+| `fold.js FBDietFold` | 230 | 165 | `isFoldScopeBlocked`, `resolveVerdict`, `verdictReport` (the counter payload was previously spelled out three times) |
+| `metadata.js collect` | 264 | 78 | `collectActor`, `collectGroup`, `collectContent` |
+| `dom-suggested.js detectSuggestedFromDom` | 232 | 29 | `scanAriaKeywords`, `resolveHeaderScope`, `scanHeaderScope`, `scanAuthorZone`, `classifyExtraButton`, `scanPreMessageLabels` |
+
+React hooks stayed inside `FBDietFold`; the suggested scans keep the first-hit-wins
+precedence and the shared debug log. Nothing new is exported to `window`.
+
+**Deliberately not done**
+- `probe.js buildProbeReport` (145 lines): already fronted by `collectProbeContext`, and the
+  remaining body is one linear report assembly.
+- Splitting `ui.js` into `dom-metadata.js` + `ui.js`: the seam exists (two globals, disjoint
+  consumers) but the gain is file-count optics while the cost is a permanent extra manifest
+  order and four extra test loaders. Revisit when the extractor cluster gains a second
+  consumer or has to dispatch per surface (group / page / reels).
+
+## Phase 7: drop the unconsumed DOM probe producers (`chore/drop-unconsumed-dom-probes`)
+
+`ui.js` 1222 → 947 lines by deleting two producers whose only reader was the test suite:
+
+| Removed | Lines | Was produced as |
+| :-- | :-- | :-- |
+| `parseMetricNumber`, `extractButtonCount`, `extractMetricsFromDom` | 148 | `collect().metrics` |
+| `scanTextCandidates`, `isNodeAtOrAfter`, `isBelowContentZone` | 119 | `collect().textCandidates` |
+
+Grep over all of `src/` found zero consumers: the probe report stopped surfacing reaction
+counts and text candidates during the schema v2/v3 streamlining (and `probe-css.test.js`
+still pins that the popup must not render `Candidates:`), but the producers survived that
+decision. 24 test assertions went with the feature — the suite shrank from 81 to 57 checks
+in `dom-metadata.test.js` without any assertion being weakened.
+
+Recover from git history if the probe ever needs counts again; the extraction logic is a
+single cherry-pick away.
 
 ## Invariants to preserve
 

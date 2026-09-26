@@ -37,7 +37,6 @@ function run(c) {
   c.equals('media groups suppress photo labels', mediaGroupSnapshot.media, null);
   c.equals('media groups bypass actor extraction', mediaGroupSnapshot.actor, null);
   c.equals('media groups bypass snippet extraction', mediaGroupSnapshot.snippet, null);
-  c.equals('media groups bypass candidate scanning', mediaGroupSnapshot.textCandidates.length, 0);
 
   // Multi-image test with +2 overlay (3 imgs + 2 = 5 total)
   const img1 = makeNode('img', { src: 'https://fbcdn.example/p1.jpg' });
@@ -60,8 +59,6 @@ function run(c) {
   const suggestedSnapshot = metadata.collect(suggestedCard, false);
   c.equals('skips 為你推薦 and extracts real author', suggestedSnapshot && suggestedSnapshot.actor, 'Grace Hopper');
   c.equals('skips timestamp and extracts post message from span[dir=auto]', suggestedSnapshot && suggestedSnapshot.snippet, 'Compilers are amazing');
-  c.ok('textCandidates is array', Array.isArray(suggestedSnapshot && suggestedSnapshot.textCandidates));
-  c.ok('candidate text truncated to <= 30 chars', suggestedSnapshot.textCandidates.length > 0 && suggestedSnapshot.textCandidates.every((item) => item.text.length <= 30));
 
   // Group post with title only + photo + Facebook in footer (the user reported issue)
   const groupHeader = makeNode('a', { href: '/groups/1752413238230321/' }, [], '拾荒');
@@ -105,10 +102,6 @@ function run(c) {
   c.equals('vgraphs actor extracted', vgraphsSnapshot && vgraphsSnapshot.actor, 'VGraphs');
   c.equals('vgraphs heading not misclassified as post title', vgraphsSnapshot && vgraphsSnapshot.title, null);
   c.equals('vgraphs snippet strips duplicate author, follow button, and translation footer', vgraphsSnapshot && vgraphsSnapshot.snippet, '25 代表性的歐洲動畫。');
-  const acceptedBody = vgraphsSnapshot.textCandidates.find((item) => item.status === 'accepted:post-body');
-  c.ok('vgraphs accepted post body is the message', Boolean(acceptedBody) && acceptedBody.text.indexOf('25 代表性的歐洲動畫') !== -1);
-  const titleCand = vgraphsSnapshot.textCandidates.find((item) => item.status === 'accepted:post-title');
-  c.equals('no fake post-title candidate', titleCand, undefined);
 
   // Group post with member profile link + hashtag + long message (>80 chars) + external domain (Costco Rosa Chiou bug)
   const costcoGroupLink = makeNode('a', { href: '/groups/2469367233335424/' }, [], 'COSTCO 好市多 商品消費心得分享區');
@@ -154,11 +147,6 @@ function run(c) {
   c.equals('urls.timestamp is populated', post40Snapshot && post40Snapshot.urls && post40Snapshot.urls.timestamp, 'https://www.facebook.com/?__cft__[0]=AZitCKrmcmHbvERnxVfeJxhwV3l&__tn__=%2CO%2CP-R#?jak');
   c.equals('urls.domPermalink falls back to timestamp url when no /posts/ exists', post40Snapshot && post40Snapshot.urls && post40Snapshot.urls.domPermalink, 'https://www.facebook.com/?__cft__[0]=AZitCKrmcmHbvERnxVfeJxhwV3l&__tn__=%2CO%2CP-R#?jak');
 
-  const accepted40Body = post40Snapshot.textCandidates.find((item) => item.status === 'accepted:post-body');
-  c.ok('post body candidate accepted for 40-year text', Boolean(accepted40Body) && accepted40Body.text.startsWith('40年雖然'));
-
-  const mMeCandidate = post40Snapshot.textCandidates.find((item) => item.text === 'm.me');
-  c.ok('m.me candidate skipped as url-domain', Boolean(mMeCandidate) && mMeCandidate.status === 'skipped:url-domain');
 
   // Duncan Case 1: Pure emoji post 🤳 🚘 💥 👼 🛜 ❔ (rendered as img[alt]) + 13 photos + tagged friend
   const duncanAuthorLink = makeNode('a', { role: 'link', href: '/duncanlindesign' }, [], 'Duncan');
@@ -203,8 +191,6 @@ function run(c) {
 
   const duncanSnapshot2 = metadata.collect(duncanCard2, false);
   c.equals('Duncan 2 snippet extracts emojis not obfuscated hash', duncanSnapshot2 && duncanSnapshot2.snippet, '⏸️⏩️⏪️▶️⏏️');
-  const hashCand = duncanSnapshot2.textCandidates.find((c) => c.text && c.text.startsWith('548ZFPjXt'));
-  c.ok('obfuscated hash marked as skipped:obfuscated-hash', Boolean(hashCand) && hashCand.status === 'skipped:obfuscated-hash');
   c.ok('Duncan 2 post url strips __cft__ but keeps comment_id', duncanSnapshot2.urls.primary && duncanSnapshot2.urls.primary.indexOf('comment_id=1111111591482749') !== -1 && duncanSnapshot2.urls.primary.indexOf('__cft__') === -1);
 
   // Permalink synthesis from a caller-supplied (Relay) post id, for units whose DOM
@@ -276,61 +262,6 @@ function run(c) {
   const wrapperCard = makeNode('article', {}, [unitWrapper]);
   c.equals('a candidate wrapping the unit header is not a reshare', metadata.collect(wrapperCard, false).reshare, null);
 
-  // Metrics (Reactions, Comments, Shares) tests
-  c.equals('parseMetricNumber parses integers', metadata.parseMetricNumber('46'), 46);
-  c.equals('parseMetricNumber parses comma numbers', metadata.parseMetricNumber('1,234'), 1234);
-  c.equals('parseMetricNumber parses K suffix', metadata.parseMetricNumber('1.2K'), 1200);
-  c.equals('parseMetricNumber parses 萬 suffix', metadata.parseMetricNumber('3.5萬'), 35000);
-  c.equals('parseMetricNumber parses M suffix', metadata.parseMetricNumber('2M'), 2000000);
-  c.equals('parseMetricNumber parses descriptive text', metadata.parseMetricNumber('2 則留言'), 2);
-  c.equals('parseMetricNumber returns null for non-numbers', metadata.parseMetricNumber('留言'), null);
-
-  // Sample 1: data-ad-rendering-role buttons (46 likes, 2 comments, 1 share)
-  const likeRole1 = makeNode('div', { 'data-ad-rendering-role': 'like_button' });
-  const likeSpan1 = makeNode('span', { dir: 'auto' }, [], '46');
-  const likeBtn1 = makeNode('div', { role: 'button', 'aria-label': '讚' }, [likeRole1, likeSpan1]);
-
-  const commentRole1 = makeNode('div', { 'data-ad-rendering-role': 'comment_button' });
-  const commentSpan1 = makeNode('span', { dir: 'auto' }, [], '2');
-  const commentBtn1 = makeNode('div', { role: 'button', 'aria-label': '留言' }, [commentRole1, commentSpan1]);
-
-  const shareRole1 = makeNode('div', { 'data-ad-rendering-role': 'share_button' });
-  const shareSpan1 = makeNode('span', { dir: 'auto' }, [], '1');
-  const shareBtn1 = makeNode('div', { role: 'button', 'aria-label': '傳送給朋友或在個人檔案上發佈。' }, [shareRole1, shareSpan1]);
-
-  const metricsCard1 = makeNode('article', {}, [likeBtn1, commentBtn1, shareBtn1]);
-  const metrics1 = metadata.extractMetricsFromDom(metricsCard1);
-  c.equals('extracts reactions count from Sample 1', metrics1 && metrics1.reactions, 46);
-  c.equals('extracts comments count from Sample 1', metrics1 && metrics1.comments, 2);
-  c.equals('extracts shares count from Sample 1', metrics1 && metrics1.shares, 1);
-
-  // Sample 2: 277 likes, 17 comments, 3 shares
-  const likeRole2 = makeNode('div', { 'data-ad-rendering-role': 'like_button' });
-  const likeSpan2 = makeNode('span', { dir: 'auto' }, [], '277');
-  const likeBtn2 = makeNode('div', { role: 'button', 'aria-label': '讚' }, [likeRole2, likeSpan2]);
-
-  const commentRole2 = makeNode('div', { 'data-ad-rendering-role': 'comment_button' });
-  const commentSpan2 = makeNode('span', { dir: 'auto' }, [], '17');
-  const commentBtn2 = makeNode('div', { role: 'button', 'aria-label': '留言' }, [commentRole2, commentSpan2]);
-
-  const shareRole2 = makeNode('div', { 'data-ad-rendering-role': 'share_button' });
-  const shareSpan2 = makeNode('span', { dir: 'auto' }, [], '3');
-  const shareBtn2 = makeNode('div', { role: 'button', 'aria-label': '傳送給朋友或在個人檔案上發佈。' }, [shareRole2, shareSpan2]);
-
-  const metricsCard2 = makeNode('article', {}, [likeBtn2, commentBtn2, shareBtn2]);
-  const metrics2 = metadata.extractMetricsFromDom(metricsCard2);
-  c.equals('extracts reactions count from Sample 2', metrics2 && metrics2.reactions, 277);
-  c.equals('extracts comments count from Sample 2', metrics2 && metrics2.comments, 17);
-  c.equals('extracts shares count from Sample 2', metrics2 && metrics2.shares, 3);
-
-  // Card with no metric buttons returns null
-  const emptyCard = makeNode('article', {}, [makeNode('div', {}, [], 'Hello World')]);
-  c.equals('card with no metrics buttons returns null', metadata.extractMetricsFromDom(emptyCard), null);
-
-  // Collect incorporates metrics
-  const fullSnapshot = metadata.collect(metricsCard1, false);
-  c.ok('collect includes metrics', fullSnapshot && typeof fullSnapshot.metrics === 'object');
-  c.equals('collect reports correct reactions', fullSnapshot.metrics && fullSnapshot.metrics.reactions, 46);
 }
 
 module.exports = { run };

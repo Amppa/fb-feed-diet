@@ -211,6 +211,203 @@ window.FBDietMetadata = (() => {
     return candidates;
   }
 
+  /**
+   * Actor block: props/records first, then the Relay store.
+   * Also returns the raw id and vanity username because permalink composition needs them.
+   */
+  function collectActor(ctx) {
+    const actorObj =
+      ctx.readFromRecords('actors.0') ||
+      ctx.readFromRecords('actor') ||
+      ctx.readFromRecords('author') ||
+      ctx.readFromRecords('comet_sections.header.story.actors.0') ||
+      ctx.readFromRecords('comet_sections.content.story.actors.0') ||
+      ctx.readFromRecords('edge.node.comet_sections.header.story.actors.0') ||
+      ctx.readFromRecords('node.comet_sections.header.story.actors.0') ||
+      ctx.readFromRecords('story.actors.0') ||
+      null;
+
+    const actorName = clean(firstNonEmpty([
+      readProp(actorObj, 'name'),
+      readProp(actorObj, 'text'),
+      ctx.readFromRecords('actors.0.name'),
+      ctx.readFromRecords('actor.name'),
+      ctx.readFromRecords('author.name'),
+      ctx.readFromRecords('headline.text'),
+      ctx.readFromRecords('comet_sections.header.story.actors.0.name'),
+      ctx.readFromRecords('comet_sections.header.story.title.text'),
+      ctx.readFromRecords('edge.node.comet_sections.header.story.actors.0.name'),
+      ctx.readFromRecords('node.comet_sections.header.story.actors.0.name'),
+      ctx.readFromRecords('story.actors.0.name'),
+      readPath(ctx.ids, ['^^actors[0].name', 'actors[0].name'])
+    ]));
+    const actorType = clean(firstNonEmpty([
+      readProp(actorObj, '__typename'),
+      ctx.readFromRecords('actors.0.__typename'),
+      readPath(ctx.ids, ['^^actors[0].__typename', 'actors[0].__typename'])
+    ]));
+    const actorSub = clean(firstNonEmpty([
+      readProp(actorObj, 'subscribe_status'),
+      ctx.readFromRecords('actors.0.subscribe_status'),
+      readPath(ctx.ids, ['^^actors[0].subscribe_status', 'actors[0].subscribe_status'])
+    ]));
+    const actorUrl = cleanUrl(firstNonEmpty([
+      readProp(actorObj, 'url'),
+      ctx.readFromRecords('actors.0.url'),
+      readPath(ctx.ids, ['^^actors[0].url', 'actors[0].url'])
+    ]));
+    const rawId = clean(firstNonEmpty([
+      readProp(actorObj, 'id'),
+      ctx.readFromRecords('actors.0.id'),
+      readPath(ctx.ids, ['^^actors[0].id', 'actors[0].id'])
+    ]));
+    const username = clean(firstNonEmpty([
+      readProp(actorObj, 'username'),
+      readProp(actorObj, 'vanity'),
+      extractUsername(actorUrl),
+      extractUsername(readPath(ctx.ids, ['^^actors[0].url']))
+    ]));
+
+    // When vanity username exists, prioritize it as actor id for human recognition
+    const actorId = username || rawId || null;
+    const actor = {
+      id: actorId,
+      name: actorName,
+      username: username || null,
+      typename: actorType,
+      subscribeStatus: actorSub,
+      url: actorUrl
+    };
+    if (rawId && rawId !== actorId) {
+      actor.numericId = rawId;
+    }
+    return { actor, username, rawId };
+  }
+
+  /** Group block: props/records first, then the Relay store. */
+  function collectGroup(ctx) {
+    const toObj = ctx.readFromRecords('to') || ctx.readFromRecords('comet_sections.header.story.to') || null;
+    return {
+      id: clean(firstNonEmpty([readProp(toObj, 'id'), readPath(ctx.ids, ['^to.id'])])),
+      name: clean(firstNonEmpty([
+        readProp(toObj, 'name'),
+        ctx.readFromRecords('to.name'),
+        ctx.readFromRecords('comet_sections.header.story.to.name'),
+        ctx.readFromRecords('edge.node.comet_sections.header.story.to.name'),
+        ctx.readFromRecords('node.comet_sections.header.story.to.name'),
+        readPath(ctx.ids, ['^to.name'])
+      ])),
+      joinState: clean(firstNonEmpty([readProp(toObj, 'viewer_forum_join_state'), readPath(ctx.ids, ['^to.viewer_forum_join_state'])])),
+      permalink: cleanUrl(firstNonEmpty([
+        readProp(toObj, 'wwwURL'),
+        readProp(toObj, 'permalink_url'),
+        readProp(toObj, 'url'),
+        readPath(ctx.ids, ['^to.wwwURL', '^to.permalink_url', '^to.url'])
+      ]))
+    };
+  }
+
+  /** Content block: post id, permalink (with the handle-composed fallback), title, message. */
+  function collectContent(ctx, username, rawId) {
+    const postId = clean(firstNonEmpty([
+      readProp(ctx.feedUnit, 'post_id'),
+      readProp(ctx.feedUnit, 'clip_id'),
+      readProp(ctx.feedUnit, 'story.post_id'),
+      readProp(ctx.feedUnit, 'mf_story_key'),
+      ctx.readFromRecords('post_id'),
+      ctx.readFromRecords('clip_id'),
+      ctx.readFromRecords('story.post_id'),
+      ctx.readFromRecords('mf_story_key'),
+      readProp(ctx.payload, 'post_id')
+    ]));
+
+    let permalink = cleanUrl(firstNonEmpty([
+      ctx.readFromRecords('wwwURL'),
+      ctx.readFromRecords('permalink_url'),
+      ctx.readFromRecords('url'),
+      ctx.readFromRecords('story.url'),
+      ctx.readFromRecords('story.wwwURL'),
+      ctx.readFromRecords('story.permalink_url'),
+      ctx.readFromRecords('sponsored_data.about_this_ad_url'),
+      ctx.readFromRecords('comet_sections.header.story.sponsored_data.about_this_ad_url'),
+      ctx.readFromRecords('comet_sections.content.story.permalink_url'),
+      ctx.readFromRecords('comet_sections.content.story.wwwURL'),
+      ctx.readFromRecords('comet_sections.feedback.story.url'),
+      ctx.readFromRecords('comet_sections.content.story.url'),
+      ctx.readFromRecords('feedback_context.feedback_target_with_context.url'),
+      ctx.readFromRecords('shareable.url'),
+      readProp(ctx.payload, 'story.url'),
+      readProp(ctx.payload, 'story.wwwURL'),
+      readPath(ctx.ids, ['^wwwURL', '^permalink_url', '^url', '^story.url', '^sponsored_data.about_this_ad_url'])
+    ]));
+
+    if (!permalink && postId) {
+      const actorHandle = username || rawId;
+      if (actorHandle) {
+        permalink = 'https://www.facebook.com/' + actorHandle + '/posts/' + postId;
+      }
+    }
+
+    let title = clean(firstNonEmpty([
+      ctx.readFromRecords('comet_sections.header.story.title.text'),
+      ctx.readFromRecords('story_header.title.text'),
+      ctx.evidence && ctx.evidence.storyTitle
+    ]));
+    if (!title && ctx.relay && ctx.ids && ctx.ids.length) {
+      const locations = ['homepage_stream', 'groups_tab', 'feed'];
+      for (const loc of locations) {
+        try {
+          const val = ctx.relay.readFirst(ctx.ids, '^story_header{$1}.^title.text', { $1: { location: loc } });
+          if (val) {
+            title = clean(val);
+            break;
+          }
+        } catch (e) {}
+      }
+    }
+
+    const rawCreatedTime = clean(firstNonEmpty([
+      ctx.readFromRecords('created_time'),
+      ctx.readFromRecords('creation_time'),
+      ctx.readFromRecords('story.created_time'),
+      ctx.readFromRecords('publish_time'),
+      readPath(ctx.ids, ['^created_time'])
+    ]));
+
+    return {
+      permalink,
+      message: clean(firstNonEmpty([
+        ctx.readFromRecords('message.text'),
+        ctx.readFromRecords('story.message.text'),
+        ctx.readFromRecords('comet_sections.content.story.message.text'),
+        ctx.readFromRecords('edge.node.comet_sections.content.story.message.text'),
+        ctx.readFromRecords('node.comet_sections.content.story.message.text'),
+        typeof ctx.readFromRecords('message') === 'string' ? ctx.readFromRecords('message') : null,
+        typeof ctx.readFromRecords('text') === 'string' ? ctx.readFromRecords('text') : null,
+        readPath(ctx.ids, ['^message.text'])
+      ])),
+      title,
+      createdTime: rawCreatedTime,
+      createdAt: formatCreatedAt(rawCreatedTime),
+      callToAction: clean(firstNonEmpty([
+        ctx.readFromRecords('call_to_action.type'),
+        ctx.readFromRecords('action_links.0.title'),
+        ctx.readFromRecords('action_links.0.text'),
+        readPath(ctx.ids, ['^call_to_action.type', '^action_links[0].title', '^action_links[0].text'])
+      ])),
+      feedContext: clean(firstNonEmpty([
+        ctx.readFromRecords('feed_context.text'),
+        ctx.readFromRecords('context_layout.text'),
+        readPath(ctx.ids, ['^feed_context.text', '^context_layout.text', '^story_header.title.text'])
+      ])),
+      isReshare: Boolean(
+        ctx.readFromRecords('attached_story') ||
+        ctx.readFromRecords('reshared_story') ||
+        readPath(ctx.ids, ['^attached_story', '^reshared_story'])
+      )
+    };
+  }
+
   function collect(classifyResult, props) {
     try {
       const relay = relayApi();
@@ -247,200 +444,15 @@ window.FBDietMetadata = (() => {
         return null;
       }
 
-      // 1. Actor: props/records first, then Relay store
-      const actorObj =
-        readFromRecords('actors.0') ||
-        readFromRecords('actor') ||
-        readFromRecords('author') ||
-        readFromRecords('comet_sections.header.story.actors.0') ||
-        readFromRecords('comet_sections.content.story.actors.0') ||
-        readFromRecords('edge.node.comet_sections.header.story.actors.0') ||
-        readFromRecords('node.comet_sections.header.story.actors.0') ||
-        readFromRecords('story.actors.0') ||
-        null;
+      // Every block reads the same candidate set: props/records first, Relay store second.
+      const ctx = { readFromRecords, ids, relay, evidence, feedUnit, payload };
 
-      const actorName = clean(firstNonEmpty([
-        readProp(actorObj, 'name'),
-        readProp(actorObj, 'text'),
-        readFromRecords('actors.0.name'),
-        readFromRecords('actor.name'),
-        readFromRecords('author.name'),
-        readFromRecords('headline.text'),
-        readFromRecords('comet_sections.header.story.actors.0.name'),
-        readFromRecords('comet_sections.header.story.title.text'),
-        readFromRecords('edge.node.comet_sections.header.story.actors.0.name'),
-        readFromRecords('node.comet_sections.header.story.actors.0.name'),
-        readFromRecords('story.actors.0.name'),
-        readPath(ids, ['^^actors[0].name', 'actors[0].name'])
-      ]));
-      const actorType = clean(firstNonEmpty([
-        readProp(actorObj, '__typename'),
-        readFromRecords('actors.0.__typename'),
-        readPath(ids, ['^^actors[0].__typename', 'actors[0].__typename'])
-      ]));
-      const actorSub = clean(firstNonEmpty([
-        readProp(actorObj, 'subscribe_status'),
-        readFromRecords('actors.0.subscribe_status'),
-        readPath(ids, ['^^actors[0].subscribe_status', 'actors[0].subscribe_status'])
-      ]));
-      const actorUrl = cleanUrl(firstNonEmpty([
-        readProp(actorObj, 'url'),
-        readFromRecords('actors.0.url'),
-        readPath(ids, ['^^actors[0].url', 'actors[0].url'])
-      ]));
-      const rawId = clean(firstNonEmpty([
-        readProp(actorObj, 'id'),
-        readFromRecords('actors.0.id'),
-        readPath(ids, ['^^actors[0].id', 'actors[0].id'])
-      ]));
-      const username = clean(firstNonEmpty([
-        readProp(actorObj, 'username'),
-        readProp(actorObj, 'vanity'),
-        extractUsername(actorUrl),
-        extractUsername(readPath(ids, ['^^actors[0].url']))
-      ]));
-
-      // When vanity username exists, prioritize it as actor id for human recognition
-      const actorId = username || rawId || null;
-      const actor = {
-        id: actorId,
-        name: actorName,
-        username: username || null,
-        typename: actorType,
-        subscribeStatus: actorSub,
-        url: actorUrl
-      };
-      if (rawId && rawId !== actorId) {
-        actor.numericId = rawId;
-      }
-
-      // 2. Group: props/records first, then Relay store
-      const toObj = readFromRecords('to') || readFromRecords('comet_sections.header.story.to') || null;
-      const groupId = clean(firstNonEmpty([readProp(toObj, 'id'), readPath(ids, ['^to.id'])]));
-      const groupPermalink = cleanUrl(firstNonEmpty([
-        readProp(toObj, 'wwwURL'),
-        readProp(toObj, 'permalink_url'),
-        readProp(toObj, 'url'),
-        readPath(ids, ['^to.wwwURL', '^to.permalink_url', '^to.url'])
-      ]));
-      const group = {
-        id: groupId,
-        name: clean(firstNonEmpty([
-          readProp(toObj, 'name'),
-          readFromRecords('to.name'),
-          readFromRecords('comet_sections.header.story.to.name'),
-          readFromRecords('edge.node.comet_sections.header.story.to.name'),
-          readFromRecords('node.comet_sections.header.story.to.name'),
-          readPath(ids, ['^to.name'])
-        ])),
-        joinState: clean(firstNonEmpty([readProp(toObj, 'viewer_forum_join_state'), readPath(ids, ['^to.viewer_forum_join_state'])])),
-        permalink: groupPermalink
-      };
-
-      // 3. Post ID & Permalink: props/records first, then Relay, then compose fallback
-      const postId = clean(firstNonEmpty([
-        readProp(feedUnit, 'post_id'),
-        readProp(feedUnit, 'clip_id'),
-        readProp(feedUnit, 'story.post_id'),
-        readProp(feedUnit, 'mf_story_key'),
-        readFromRecords('post_id'),
-        readFromRecords('clip_id'),
-        readFromRecords('story.post_id'),
-        readFromRecords('mf_story_key'),
-        readProp(payload, 'post_id')
-      ]));
-
-      let permalink = cleanUrl(firstNonEmpty([
-        readFromRecords('wwwURL'),
-        readFromRecords('permalink_url'),
-        readFromRecords('url'),
-        readFromRecords('story.url'),
-        readFromRecords('story.wwwURL'),
-        readFromRecords('story.permalink_url'),
-        readFromRecords('sponsored_data.about_this_ad_url'),
-        readFromRecords('comet_sections.header.story.sponsored_data.about_this_ad_url'),
-        readFromRecords('comet_sections.content.story.permalink_url'),
-        readFromRecords('comet_sections.content.story.wwwURL'),
-        readFromRecords('comet_sections.feedback.story.url'),
-        readFromRecords('comet_sections.content.story.url'),
-        readFromRecords('feedback_context.feedback_target_with_context.url'),
-        readFromRecords('shareable.url'),
-        readProp(payload, 'story.url'),
-        readProp(payload, 'story.wwwURL'),
-        readPath(ids, ['^wwwURL', '^permalink_url', '^url', '^story.url', '^sponsored_data.about_this_ad_url'])
-      ]));
-
-      if (!permalink && postId) {
-        const actorHandle = username || rawId;
-        if (actorHandle) {
-          permalink = 'https://www.facebook.com/' + actorHandle + '/posts/' + postId;
-        }
-      }
-
-      let title = clean(firstNonEmpty([
-        readFromRecords('comet_sections.header.story.title.text'),
-        readFromRecords('story_header.title.text'),
-        evidence && evidence.storyTitle
-      ]));
-      if (!title && relay && ids && ids.length) {
-        const locations = ['homepage_stream', 'groups_tab', 'feed'];
-        for (const loc of locations) {
-          try {
-            const val = relay.readFirst(ids, '^story_header{$1}.^title.text', { $1: { location: loc } });
-            if (val) {
-              title = clean(val);
-              break;
-            }
-          } catch (e) {}
-        }
-      }
-
-      const rawCreatedTime = clean(firstNonEmpty([
-        readFromRecords('created_time'),
-        readFromRecords('creation_time'),
-        readFromRecords('story.created_time'),
-        readFromRecords('publish_time'),
-        readPath(ids, ['^created_time'])
-      ]));
-
-      const callToAction = clean(firstNonEmpty([
-        readFromRecords('call_to_action.type'),
-        readFromRecords('action_links.0.title'),
-        readFromRecords('action_links.0.text'),
-        readPath(ids, ['^call_to_action.type', '^action_links[0].title', '^action_links[0].text'])
-      ]));
-
-      const feedContext = clean(firstNonEmpty([
-        readFromRecords('feed_context.text'),
-        readFromRecords('context_layout.text'),
-        readPath(ids, ['^feed_context.text', '^context_layout.text', '^story_header.title.text'])
-      ]));
-
-      const isReshare = Boolean(
-        readFromRecords('attached_story') ||
-        readFromRecords('reshared_story') ||
-        readPath(ids, ['^attached_story', '^reshared_story'])
-      );
-
-      const content = {
-        permalink,
-        message: clean(firstNonEmpty([
-          readFromRecords('message.text'),
-          readFromRecords('story.message.text'),
-          readFromRecords('comet_sections.content.story.message.text'),
-          readFromRecords('edge.node.comet_sections.content.story.message.text'),
-          readFromRecords('node.comet_sections.content.story.message.text'),
-          typeof readFromRecords('message') === 'string' ? readFromRecords('message') : null,
-          typeof readFromRecords('text') === 'string' ? readFromRecords('text') : null,
-          readPath(ids, ['^message.text'])
-        ])),
-        title,
-        createdTime: rawCreatedTime,
-        createdAt: formatCreatedAt(rawCreatedTime),
-        callToAction,
-        feedContext,
-        isReshare
-      };
+      const actorResult = collectActor(ctx);
+      const actor = actorResult.actor;
+      const username = actorResult.username;
+      const rawId = actorResult.rawId;
+      const group = collectGroup(ctx);
+      const content = collectContent(ctx, username, rawId);
 
       const recordAttachments = readFromRecords('attachments') || readFromRecords('all_subattachments');
       const relayRecord = relay && typeof relay.describe === 'function' && ids && ids.length ? relay.describe(ids[0]) : null;

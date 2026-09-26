@@ -124,6 +124,255 @@ window.FBDietDOMSuggested = (() => {
    * Scopes strictly to author-level headers to prevent false positives on reshared content.
    * Returns: { isSuggested: true, signal: 'Follow' | 'Join' | 'Other', reason: string, text: string, debug: object } | null
    */
+  /** Step 1: a suggestion keyword exposed directly through an aria-label. */
+  function scanAriaKeywords(container) {
+    for (const kw of SUGGESTED_TEXT_KEYWORDS) {
+      const ariaMatch = container.querySelector(`[aria-label*="${kw}"]`);
+      if (ariaMatch && !isInsideNestedReshare(ariaMatch, container)) {
+        return {
+          isSuggested: true,
+          signal: 'Other',
+          reason: 'dom:aria_suggested',
+          text: kw,
+          debug: { matchedAria: kw }
+        };
+      }
+    }
+    return null;
+  }
+
+  /** Step 2: the unit's own author header, excluding nested reshare subtrees. */
+  function resolveHeaderScope(container, debugLog) {
+    const headings = container.querySelectorAll('h2, h3, h4, h5, [role="heading"]');
+    let primaryHeading = null;
+    for (const h of headings) {
+      if (!isInsideNestedReshare(h, container)) {
+        primaryHeading = h;
+        break;
+      }
+    }
+    if (primaryHeading) {
+      debugLog.primaryAuthor = (primaryHeading.textContent || '').trim();
+    }
+
+    let topHeader = container.querySelector('header, [data-ad-comet-preview="header"]');
+    if (topHeader && isInsideNestedReshare(topHeader, container)) {
+      topHeader = null;
+    }
+    if (!topHeader && primaryHeading) {
+      topHeader = primaryHeading.closest('header, [data-ad-comet-preview="header"]') ||
+                  primaryHeading.closest('div[class*="header"]') ||
+                  (primaryHeading.parentElement && primaryHeading.parentElement.parentElement) ||
+                  primaryHeading.parentElement;
+    }
+
+    const msgEl = container.querySelector('[data-ad-preview="message"], [data-ad-comet-preview="message"], [data-testid="post_message"]');
+    return { primaryHeading, topHeader, msgEl };
+  }
+
+  /** Step 2b: keyword and follow/join candidates living inside the resolved header. */
+  function scanHeaderScope(topHeader, debugLog) {
+    const headerText = topHeader.textContent || '';
+    for (const kw of SUGGESTED_TEXT_KEYWORDS) {
+      if (headerText.indexOf(kw) !== -1) {
+        // Guard against friend comments (e.g. "X 留言回應" or "X commented on this")
+        if (headerText.indexOf('留言') === -1 && headerText.indexOf('回應') === -1 && headerText.indexOf('commented') === -1) {
+          return {
+            isSuggested: true,
+            signal: 'Other',
+            reason: 'dom:header_keyword',
+            text: kw,
+            debug: Object.assign({}, debugLog, { matchedKeyword: kw, headerSnippet: headerText.slice(0, 80) })
+          };
+        }
+      }
+    }
+
+    const actionCandidates = topHeader.querySelectorAll('a[role="link"], div[role="button"], button, span[role="button"], span');
+    for (const el of actionCandidates) {
+      const text = (el.textContent || '').trim();
+      const matchRes = matchFollowOrJoin(text);
+      if (matchRes) {
+        return {
+          isSuggested: true,
+          signal: matchRes.signal,
+          reason: matchRes.reason,
+          text,
+          debug: Object.assign({}, debugLog, { matchedText: text, signal: matchRes.signal })
+        };
+      }
+      const aria = (el.getAttribute('aria-label') || '').trim();
+      const ariaMatchRes = matchFollowOrJoin(aria);
+      if (ariaMatchRes) {
+        return {
+          isSuggested: true,
+          signal: ariaMatchRes.signal,
+          reason: ariaMatchRes.reason + '_aria',
+          text: aria,
+          debug: Object.assign({}, debugLog, { matchedAria: aria, signal: ariaMatchRes.signal })
+        };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Step 3: sweep the author zone for follow/join wording and remember the first
+   * unexplained action button. Returns the verdict hit (if any) plus that candidate.
+   */
+  function scanAuthorZone(container, scope, debugLog) {
+    const { primaryHeading, topHeader, msgEl } = scope;
+    const scanScope = topHeader || container;
+    const actionElements = scanScope.querySelectorAll('div[role="button"], button, a[role="link"], span[role="button"]');
+    let extraAuthorButtonCandidate = null;
+
+    for (const el of actionElements) {
+      if (isInsideNestedReshare(el, container)) continue;
+      if (!topHeader && msgEl) {
+        if (msgEl.contains(el) || msgEl === el) continue;
+        if (typeof msgEl.compareDocumentPosition === 'function') {
+          const pos = msgEl.compareDocumentPosition(el);
+          if (pos & 4) continue; // DOCUMENT_POSITION_FOLLOWING: element is after message
+        }
+      }
+
+      const text = (el.textContent || '').trim();
+      const aria = (el.getAttribute('aria-label') || '').trim();
+
+      // 3a. Explicit Follow or Join by text
+      const matchRes = matchFollowOrJoin(text);
+      if (matchRes) {
+        return {
+          hit: {
+            isSuggested: true,
+            signal: matchRes.signal,
+            reason: matchRes.reason,
+            text,
+            debug: Object.assign({}, debugLog, { matchedText: text, signal: matchRes.signal })
+          }
+        };
+      }
+
+      // 3b. Explicit Follow or Join by aria-label
+      const ariaMatchRes = matchFollowOrJoin(aria);
+      if (ariaMatchRes) {
+        return {
+          hit: {
+            isSuggested: true,
+            signal: ariaMatchRes.signal,
+            reason: ariaMatchRes.reason + '_aria',
+            text: aria,
+            debug: Object.assign({}, debugLog, { matchedAria: aria, signal: ariaMatchRes.signal })
+          }
+        };
+      }
+
+      // 3c. Track potential Extra Action button in author line
+      const role = el.getAttribute('role') || el.tagName.toLowerCase();
+      const isButtonRole = role === 'button' || el.tagName === 'BUTTON';
+
+      if (isButtonRole) {
+        if (isCardMenuOrPrivacy(el)) {
+          debugLog.excludedButtons.push({ type: 'menu_or_privacy', aria, text });
+          continue;
+        }
+        if (isVerifiedBadge(el)) {
+          debugLog.excludedButtons.push({ type: 'verified_badge', aria, text });
+          continue;
+        }
+        if (primaryHeading && (primaryHeading.contains(el) || primaryHeading === el)) {
+          debugLog.excludedButtons.push({ type: 'author_heading', aria, text });
+          continue;
+        }
+
+        const hasSvg = Boolean(el.querySelector && el.querySelector('svg')) || el.tagName === 'SVG';
+        // A button with NO text, NO aria-label, and NO SVG is an empty layout wrapper -> ignore
+        if (!text && !aria && !hasSvg) {
+          continue;
+        }
+
+        // If button contains an SVG that is a verified badge -> exclude
+        if (hasSvg) {
+          const svgEl = el.querySelector ? el.querySelector('svg') : el;
+          if (isVerifiedBadge(svgEl)) {
+            debugLog.excludedButtons.push({ type: 'verified_badge', aria, text });
+            continue;
+          }
+        }
+
+        // Extra action button found in author row!
+        debugLog.buttonsFound.push({ role, aria, text });
+        if (!extraAuthorButtonCandidate) {
+          extraAuthorButtonCandidate = el;
+        }
+      }
+    }
+    return { hit: null, extraAuthorButtonCandidate };
+  }
+
+  /** Step 4: judge the unexplained action button left over by the author-zone sweep. */
+  function classifyExtraButton(candidate, debugLog) {
+    if (!candidate) return null;
+    const svgEl = candidate.querySelector('svg') || (candidate.tagName === 'SVG' ? candidate : null);
+    const candText = (candidate.textContent || '').trim();
+    const candAria = (candidate.getAttribute('aria-label') || '').trim();
+
+    if (isVerifiedBadge(candidate) || (svgEl && isVerifiedBadge(svgEl))) {
+      // Verified badge, ignore
+      return null;
+    }
+    if (candText || candAria) {
+      return {
+        isSuggested: true,
+        signal: 'Other',
+        reason: 'dom:other_extra_button',
+        text: candAria || candText || 'extra_button',
+        debug: Object.assign({}, debugLog, {
+          matchedExtraButton: { hasSvg: Boolean(svgEl), text: candText, aria: candAria }
+        })
+      };
+    }
+    if (svgEl) {
+      return {
+        isSuggested: true,
+        signal: 'Other',
+        reason: 'dom:other_svg_icon',
+        text: 'svg_icon',
+        debug: Object.assign({}, debugLog, {
+          matchedExtraButton: { hasSvg: true, text: candText, aria: candAria }
+        })
+      };
+    }
+    return null;
+  }
+
+  /** Step 5: suggestion labels rendered above the post message. */
+  function scanPreMessageLabels(container, msgEl, debugLog) {
+    const topSpans = container.querySelectorAll('div[dir="auto"] > span, span[dir="auto"]');
+    for (const span of topSpans) {
+      if (msgEl && (msgEl.contains(span) || msgEl === span)) continue;
+      if (isInsideNestedReshare(span, container)) continue;
+      const text = (span.textContent || '').trim();
+      for (const kw of SUGGESTED_TEXT_KEYWORDS) {
+        if (text === kw || (text.startsWith(kw) && text.length <= kw.length + 5)) {
+          return {
+            isSuggested: true,
+            signal: 'Other',
+            reason: 'dom:pre_message_label',
+            text: kw,
+            debug: Object.assign({}, debugLog, { preMessageLabel: kw })
+          };
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Full Mode suggested-post detection over mounted DOM. Five ordered scans, each
+   * returning a verdict or null; the first hit wins and the debug trail accumulated on
+   * the shared log is attached to the verdict it produced.
+   */
   function detectSuggestedFromDom(container) {
     if (!container || typeof container.querySelector !== 'function') return null;
     try {
@@ -133,229 +382,28 @@ window.FBDietDOMSuggested = (() => {
         excludedButtons: []
       };
 
-      // 1. Direct aria-label checks on header elements
-      for (const kw of SUGGESTED_TEXT_KEYWORDS) {
-        const ariaMatch = container.querySelector(`[aria-label*="${kw}"]`);
-        if (ariaMatch && !isInsideNestedReshare(ariaMatch, container)) {
-          return {
-            isSuggested: true,
-            signal: 'Other',
-            reason: 'dom:aria_suggested',
-            text: kw,
-            debug: { matchedAria: kw }
-          };
-        }
+      const ariaHit = scanAriaKeywords(container);
+      if (ariaHit) return ariaHit;
+
+      const scope = resolveHeaderScope(container, debugLog);
+      if (scope.topHeader) {
+        const headerHit = scanHeaderScope(scope.topHeader, debugLog);
+        if (headerHit) return headerHit;
       }
 
-      // 2. Author-Level Header Scoping: locate primary top-level heading
-      const headings = container.querySelectorAll('h2, h3, h4, h5, [role="heading"]');
-      let primaryHeading = null;
-      for (const h of headings) {
-        if (!isInsideNestedReshare(h, container)) {
-          primaryHeading = h;
-          break;
-        }
-      }
-      if (primaryHeading) {
-        debugLog.primaryAuthor = (primaryHeading.textContent || '').trim();
-      }
+      const zone = scanAuthorZone(container, scope, debugLog);
+      if (zone.hit) return zone.hit;
 
-      // Find the top-level author header container
-      let topHeader = container.querySelector('header, [data-ad-comet-preview="header"]');
-      if (topHeader && isInsideNestedReshare(topHeader, container)) {
-        topHeader = null;
-      }
-      if (!topHeader && primaryHeading) {
-        topHeader = primaryHeading.closest('header, [data-ad-comet-preview="header"]') ||
-                    primaryHeading.closest('div[class*="header"]') ||
-                    (primaryHeading.parentElement && primaryHeading.parentElement.parentElement) ||
-                    primaryHeading.parentElement;
-      }
+      const extraHit = classifyExtraButton(zone.extraAuthorButtonCandidate, debugLog);
+      if (extraHit) return extraHit;
 
-      const msgEl = container.querySelector('[data-ad-preview="message"], [data-ad-comet-preview="message"], [data-testid="post_message"]');
-
-      // Check within topHeader if resolved
-      if (topHeader) {
-        const headerText = topHeader.textContent || '';
-        for (const kw of SUGGESTED_TEXT_KEYWORDS) {
-          if (headerText.indexOf(kw) !== -1) {
-            // Guard against friend comments (e.g. "X 留言回應" or "X commented on this")
-            if (headerText.indexOf('留言') === -1 && headerText.indexOf('回應') === -1 && headerText.indexOf('commented') === -1) {
-              return {
-                isSuggested: true,
-                signal: 'Other',
-                reason: 'dom:header_keyword',
-                text: kw,
-                debug: Object.assign({}, debugLog, { matchedKeyword: kw, headerSnippet: headerText.slice(0, 80) })
-              };
-            }
-          }
-        }
-
-        const actionCandidates = topHeader.querySelectorAll('a[role="link"], div[role="button"], button, span[role="button"], span');
-        for (const el of actionCandidates) {
-          const text = (el.textContent || '').trim();
-          const matchRes = matchFollowOrJoin(text);
-          if (matchRes) {
-            return {
-              isSuggested: true,
-              signal: matchRes.signal,
-              reason: matchRes.reason,
-              text,
-              debug: Object.assign({}, debugLog, { matchedText: text, signal: matchRes.signal })
-            };
-          }
-          const aria = (el.getAttribute('aria-label') || '').trim();
-          const ariaMatchRes = matchFollowOrJoin(aria);
-          if (ariaMatchRes) {
-            return {
-              isSuggested: true,
-              signal: ariaMatchRes.signal,
-              reason: ariaMatchRes.reason + '_aria',
-              text: aria,
-              debug: Object.assign({}, debugLog, { matchedAria: aria, signal: ariaMatchRes.signal })
-            };
-          }
-        }
-      }
-
-      // 3. Scan the author header zone
-      const scanScope = topHeader || container;
-      const actionElements = scanScope.querySelectorAll('div[role="button"], button, a[role="link"], span[role="button"]');
-      let extraAuthorButtonCandidate = null;
-
-      for (const el of actionElements) {
-        if (isInsideNestedReshare(el, container)) continue;
-        if (!topHeader && msgEl) {
-          if (msgEl.contains(el) || msgEl === el) continue;
-          if (typeof msgEl.compareDocumentPosition === 'function') {
-            const pos = msgEl.compareDocumentPosition(el);
-            if (pos & 4) continue; // DOCUMENT_POSITION_FOLLOWING: element is after message
-          }
-        }
-
-        const text = (el.textContent || '').trim();
-        const aria = (el.getAttribute('aria-label') || '').trim();
-
-        // 3a. Explicit Follow or Join by text
-        const matchRes = matchFollowOrJoin(text);
-        if (matchRes) {
-          return {
-            isSuggested: true,
-            signal: matchRes.signal,
-            reason: matchRes.reason,
-            text,
-            debug: Object.assign({}, debugLog, { matchedText: text, signal: matchRes.signal })
-          };
-        }
-
-        // 3b. Explicit Follow or Join by aria-label
-        const ariaMatchRes = matchFollowOrJoin(aria);
-        if (ariaMatchRes) {
-          return {
-            isSuggested: true,
-            signal: ariaMatchRes.signal,
-            reason: ariaMatchRes.reason + '_aria',
-            text: aria,
-            debug: Object.assign({}, debugLog, { matchedAria: aria, signal: ariaMatchRes.signal })
-          };
-        }
-
-        // 3c. Track potential Extra Action button in author line
-        const role = el.getAttribute('role') || el.tagName.toLowerCase();
-        const isButtonRole = role === 'button' || el.tagName === 'BUTTON';
-
-        if (isButtonRole) {
-          if (isCardMenuOrPrivacy(el)) {
-            debugLog.excludedButtons.push({ type: 'menu_or_privacy', aria, text });
-            continue;
-          }
-          if (isVerifiedBadge(el)) {
-            debugLog.excludedButtons.push({ type: 'verified_badge', aria, text });
-            continue;
-          }
-          if (primaryHeading && (primaryHeading.contains(el) || primaryHeading === el)) {
-            debugLog.excludedButtons.push({ type: 'author_heading', aria, text });
-            continue;
-          }
-
-          const hasSvg = Boolean(el.querySelector && el.querySelector('svg')) || el.tagName === 'SVG';
-          // A button with NO text, NO aria-label, and NO SVG is an empty layout wrapper -> ignore
-          if (!text && !aria && !hasSvg) {
-            continue;
-          }
-
-          // If button contains an SVG that is a verified badge -> exclude
-          if (hasSvg) {
-            const svgEl = el.querySelector ? el.querySelector('svg') : el;
-            if (isVerifiedBadge(svgEl)) {
-              debugLog.excludedButtons.push({ type: 'verified_badge', aria, text });
-              continue;
-            }
-          }
-
-          // Extra action button found in author row!
-          debugLog.buttonsFound.push({ role, aria, text });
-          if (!extraAuthorButtonCandidate) {
-            extraAuthorButtonCandidate = el;
-          }
-        }
-      }
-
-      // 4. If an extra action button was found in the author header row -> categorize as 'Other'
-      if (extraAuthorButtonCandidate) {
-        const svgEl = extraAuthorButtonCandidate.querySelector('svg') || (extraAuthorButtonCandidate.tagName === 'SVG' ? extraAuthorButtonCandidate : null);
-        const candText = (extraAuthorButtonCandidate.textContent || '').trim();
-        const candAria = (extraAuthorButtonCandidate.getAttribute('aria-label') || '').trim();
-
-        if (isVerifiedBadge(extraAuthorButtonCandidate) || (svgEl && isVerifiedBadge(svgEl))) {
-          // Verified badge, ignore
-        } else if (candText || candAria) {
-          return {
-            isSuggested: true,
-            signal: 'Other',
-            reason: 'dom:other_extra_button',
-            text: candAria || candText || 'extra_button',
-            debug: Object.assign({}, debugLog, {
-              matchedExtraButton: { hasSvg: Boolean(svgEl), text: candText, aria: candAria }
-            })
-          };
-        } else if (svgEl) {
-          return {
-            isSuggested: true,
-            signal: 'Other',
-            reason: 'dom:other_svg_icon',
-            text: 'svg_icon',
-            debug: Object.assign({}, debugLog, {
-              matchedExtraButton: { hasSvg: true, text: candText, aria: candAria }
-            })
-          };
-        }
-      }
-
-      // 5. Pre-message suggestion labels (above [data-ad-preview="message"])
-      const topSpans = container.querySelectorAll('div[dir="auto"] > span, span[dir="auto"]');
-      for (const span of topSpans) {
-        if (msgEl && (msgEl.contains(span) || msgEl === span)) continue;
-        if (isInsideNestedReshare(span, container)) continue;
-        const text = (span.textContent || '').trim();
-        for (const kw of SUGGESTED_TEXT_KEYWORDS) {
-          if (text === kw || (text.startsWith(kw) && text.length <= kw.length + 5)) {
-            return {
-              isSuggested: true,
-              signal: 'Other',
-              reason: 'dom:pre_message_label',
-              text: kw,
-              debug: Object.assign({}, debugLog, { preMessageLabel: kw })
-            };
-          }
-        }
-      }
+      return scanPreMessageLabels(container, scope.msgEl, debugLog);
     } catch (e) {
       // Fail open
     }
     return null;
   }
+
 
   return { detect: detectSuggestedFromDom };
 })();
