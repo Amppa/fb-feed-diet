@@ -107,6 +107,8 @@ function run(checker) {
   // The retired ISOLATED-world DOM fallback engine must never come back (STRATEGY.md #32).
   const source = fs.readFileSync(path.join(ROOT, 'src', 'content', 'content.js'), 'utf8');
   checker.ok('content.js references no DOM fallback engine', source.indexOf('FBDietDOMFallback') === -1);
+  // Settings arrive through exactly one channel: chrome.storage.onChanged (STRATEGY.md #33).
+  checker.ok('content.js has no second runtime settings channel', source.indexOf('SETTINGS_CHANGED') === -1);
   checker.ok('content.js keeps the single-engine debug surface', source.indexOf('currentSettings.dietMode') !== -1);
 
   return (async () => {

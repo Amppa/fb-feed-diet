@@ -307,25 +307,9 @@
     }
   }
 
-  if (isExtensionValid() && chrome.runtime?.onMessage) {
-    try {
-      chrome.runtime.onMessage.addListener((message) => {
-        if (!isExtensionValid()) {
-          shutdown();
-          return;
-        }
-        if (message && message.type === 'SETTINGS_CHANGED') {
-          applyUpdatedSettings(message.settings);
-        }
-      });
-    } catch (e) {
-      // Extension context invalidated
-    }
-  }
-
   registerStorageListener();
 
-  // When the tab goes away, drop the observer & pending timers
+  // When the tab goes away, drop pending timers and buffers
   window.addEventListener('pagehide', shutdown, { once: true });
 
   // Debug helpers (isolated world): pick the content script context in DevTools to use them

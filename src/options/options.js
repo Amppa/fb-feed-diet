@@ -209,14 +209,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // Writing settings is the whole broadcast: chrome.storage.onChanged in the background
+  // service worker pushes the new value to every open Facebook tab.
   async function saveAndBroadcastSettings(updated) {
     currentSettings = updated;
     await chrome.storage.local.set({ settings: updated });
-    try {
-      chrome.runtime.sendMessage({ type: 'PUSH_SETTINGS', settings: updated });
-    } catch (e) {
-      // Storage onChanged covers environments where runtime messaging is unavailable
-    }
   }
 
   /**

@@ -32,8 +32,9 @@ chrome.runtime.onInstalled.addListener(async () => {
  * Pushes the current settings straight into the MAIN world of every open Facebook tab.
  *
  * MAIN world scripts have no chrome.* access, so this is the authoritative settings path.
- * The content script also forwards settings over postMessage, which covers tabs where the
- * extension was reloaded and the service worker injection is not needed.
+ * The content script independently observes the same storage write and forwards it over
+ * postMessage, which covers tabs where the extension was reloaded and service worker
+ * injection is not available. One storage write therefore triggers exactly one fan-out.
  */
 async function pushSettingsToFacebookTabs(providedSettings) {
   let settings = providedSettings;
@@ -64,8 +65,6 @@ async function pushSettingsToFacebookTabs(providedSettings) {
         },
         args: [settings]
       }).catch(() => {});
-
-      chrome.tabs.sendMessage(tab.id, { type: 'SETTINGS_CHANGED', settings }).catch(() => {});
     } catch (e) {
       // Tab is on a chrome:// page, still loading, or the MAIN world script is not there yet
     }
@@ -77,14 +76,8 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.settings) pushSettingsToFacebookTabs(changes.settings.newValue);
 });
 
-// Handle incoming messages from popup or content scripts
+// Handle incoming messages from the popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === 'PUSH_SETTINGS') {
-    pushSettingsToFacebookTabs(message.settings);
-    sendResponse({ success: true });
-    return false;
-  }
-
   if (message.type === 'RESET_COUNTS') {
     const fresh = { ...DEFAULT_COUNTS, date: globalThis.FB_DIET_DEFAULTS.getTodayDateString() };
     chrome.storage.local.set({ counts: fresh }, () => {
