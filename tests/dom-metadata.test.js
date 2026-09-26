@@ -1,6 +1,6 @@
 'use strict';
 /** Contract tests for the MAIN-world DOM metadata collector. */
-const { createWindow, loadInject } = require('./harness');
+const { createWindow, loadInject, loadDefaults } = require('./harness');
 
 function makeNode(tag, attrs = {}, children = [], text = '') {
   const node = {
@@ -70,6 +70,7 @@ function makeNode(tag, attrs = {}, children = [], text = '') {
 
 function run(c) {
   const win = createWindow();
+  win.FB_DIET_DEFAULTS = loadDefaults();
   loadInject(win, 'ui.js');
   const metadata = win.FBDietDOMMetadata;
 

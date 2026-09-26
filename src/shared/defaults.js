@@ -133,6 +133,16 @@
     DIAGNOSTIC: ['追蹤', '加入', '推薦', 'SUBSCRIBE', 'JOIN', 'FOLLOW', 'SUGGEST']
   };
 
+  // First path segments that are Facebook routes rather than vanity handles. Shared by
+  // both permalink producers (ui.js synthesis and metadata.js username extraction) because
+  // they answer the same question; each caller keeps its own matching rule.
+  // Adding an entry here tightens permalink synthesis in both places at once.
+  const RESERVED_PROFILE_SEGMENTS = [
+    'groups', 'pages', 'profile.php', 'stories', 'story.php', 'share', 'watch',
+    'reel', 'reels', 'events', 'hashtag', 'photos', 'photo.php', 'media',
+    'policies', 'privacy', 'help', 'settings'
+  ];
+
   // ---------------------------------------------------------------------------
   // Section 4: policy and validation helpers
   // ---------------------------------------------------------------------------
@@ -174,6 +184,19 @@
     return `${year}-${month}-${day}`;
   }
 
+  /**
+   * Walks a dotted property path over a serialized payload.
+   * Returns undefined as soon as a hop is missing, so callers can `||` a fallback.
+   */
+  function readProp(object, path) {
+    let current = object;
+    for (const part of String(path).split('.')) {
+      if (current === null || current === undefined) return undefined;
+      current = current[part];
+    }
+    return current;
+  }
+
   const EXTENSION_VERSION = '2.6.0';
 
   globalThis.FB_DIET_DEFAULTS = {
@@ -184,10 +207,12 @@
     SETTING_BY_CATEGORY,
     GROUP_META,
     KEYWORDS,
+    RESERVED_PROFILE_SEGMENTS,
     VERSION: EXTENSION_VERSION,
     getTodayDateString,
     normalizeFoldMode,
     normalizeTitleMode,
-    isFoldScopeAllowed
+    isFoldScopeAllowed,
+    readProp
   };
 })();

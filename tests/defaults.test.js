@@ -152,6 +152,25 @@ function run(checker) {
   checker.equals('undefined falls back to the new default', defaults.normalizeTitleMode(undefined), 'whenFolded');
   checker.equals('custom fallback honoured', defaults.normalizeTitleMode('wat', 'always'), 'always');
 
+  /* --- shared path reader and reserved-route table (SSOT) --- */
+  checker.ok('readProp is exposed', typeof defaults.readProp === 'function');
+  checker.equals('readProp walks a dotted path', defaults.readProp({ a: { b: { c: 7 } } }, 'a.b.c'), 7);
+  checker.equals('readProp returns undefined on a missing hop', defaults.readProp({ a: null }, 'a.b'), undefined);
+  checker.ok('RESERVED_PROFILE_SEGMENTS covers both historical lists',
+    ['profile.php', 'groups', 'pages', 'watch', 'reel', 'stories', 'story.php', 'share', 'events',
+     'reels', 'hashtag', 'photos', 'photo.php', 'media', 'policies', 'privacy', 'help', 'settings']
+      .every((route) => defaults.RESERVED_PROFILE_SEGMENTS.indexOf(route) !== -1));
+
+  // Re-duplicating either surface silently reopens the drift these two consumers had.
+  const readSource = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
+  const classifySrc = readSource('src/inject/classify.js');
+  const metadataSrc = readSource('src/inject/metadata.js');
+  const uiSrc = readSource('src/inject/ui.js');
+  checker.ok('classify.js no longer carries the path-walk body', classifySrc.indexOf('let current = object;') === -1);
+  checker.ok('metadata.js no longer carries the path-walk body', metadataSrc.indexOf('let current = object;') === -1);
+  checker.ok('metadata.js has no private reserved-route list', metadataSrc.indexOf('const system = [') === -1);
+  checker.ok('ui.js has no private reserved-route list', uiSrc.indexOf("const RESERVED_PROFILE_SEGMENTS = ['groups'") === -1);
+
   // Idempotency: repeated execution does not throw
   let threw = false;
   try {

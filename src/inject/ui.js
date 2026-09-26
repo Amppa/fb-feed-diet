@@ -478,9 +478,9 @@ window.FBDietUI = (() => {
         return identity;
       }
 
-      const RESERVED_PROFILE_SEGMENTS = ['groups', 'pages', 'profile.php', 'stories', 'story.php', 'share', 'watch', 'reel', 'reels', 'events', 'hashtag', 'photos', 'photo.php', 'media', 'policies', 'privacy', 'help', 'settings'];
+      const RESERVED = DEFAULTS.RESERVED_PROFILE_SEGMENTS || [];
       const vanity = path.match(/^\/([A-Za-z0-9._-]{4,})$/);
-      if (vanity && RESERVED_PROFILE_SEGMENTS.indexOf(vanity[1].toLowerCase()) === -1) identity.handle = vanity[1];
+      if (vanity && RESERVED.indexOf(vanity[1].toLowerCase()) === -1) identity.handle = vanity[1];
     } catch (e) {}
     return identity;
   }

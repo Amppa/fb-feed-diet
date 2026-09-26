@@ -94,13 +94,14 @@ window.FBDietClassify = (() => {
     }
   }
 
+  /**
+   * Path lookup delegated to the single implementation in defaults.js. Without that
+   * module every path reads as absent, so classification fails closed to 'regular'
+   * (no folding) instead of guessing — same posture as getCategoryFoldMode.
+   */
   function readProp(object, path) {
-    let current = object;
-    for (const part of String(path).split('.')) {
-      if (current === null || current === undefined) return undefined;
-      current = current[part];
-    }
-    return current;
+    const shared = getDefaults();
+    return shared && typeof shared.readProp === 'function' ? shared.readProp(object, path) : undefined;
   }
 
   /** First truthy value among an ordered list of prop paths. */

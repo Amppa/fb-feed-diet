@@ -1,5 +1,5 @@
 'use strict';
-const { Checker, createWindow, loadInject } = require('./harness');
+const { Checker, createWindow, loadInject, loadDefaults } = require('./harness');
 
 function run(c) {
   const classifyResultOf = (ids) => ({ evidence: { id: Array.isArray(ids) ? ids[0] : ids, idCount: Array.isArray(ids) ? ids.length : 1, ids: Array.isArray(ids) ? ids : [ids] } });
@@ -8,6 +8,7 @@ function run(c) {
   /* --- no relay module on window -> null (never throws) --- */
   {
     const win = createWindow();
+    win.FB_DIET_DEFAULTS = loadDefaults();
     loadInject(win, 'metadata.js');
     c.ok('metadata API exposed', Boolean(win.FBDietMetadata) && typeof win.FBDietMetadata.collect === 'function');
     c.equals('collect returns null without FBDietRelay', win.FBDietMetadata.collect(classifyResultOf(['u1']), propsOf({})), null);
@@ -44,6 +45,7 @@ function run(c) {
         return null;
       }
     };
+    win.FB_DIET_DEFAULTS = loadDefaults();
     loadInject(win, 'metadata.js');
     const e = win.FBDietMetadata.collect(classifyResultOf(['u1']), propsOf({ post_id: '999', __typename: 'Story', __id: 'u1' }));
     c.ok('enrichment collected', Boolean(e));
@@ -77,6 +79,7 @@ function run(c) {
         return id === 'viewer' ? { actor_id: 'me1' } : null;
       }
     };
+    win.FB_DIET_DEFAULTS = loadDefaults();
     loadInject(win, 'metadata.js');
     const e = win.FBDietMetadata.collect(classifyResultOf(['u1']), propsOf({}));
     c.equals('viewer isSelf true when matching', e.viewer.isSelf, true);
@@ -95,6 +98,7 @@ function run(c) {
         return null;
       }
     };
+    win.FB_DIET_DEFAULTS = loadDefaults();
     loadInject(win, 'metadata.js');
     const e = win.FBDietMetadata.collect(classifyResultOf(['u1']), propsOf({ post_id: '999' }));
     c.equals('permalink constructed from actor + post_id', e.content.permalink, 'https://www.facebook.com/1001/posts/999');
@@ -113,6 +117,7 @@ function run(c) {
         return id === 'u1' ? { attachments: { __refs: ['a', 'b', 'c'] } } : null;
       }
     };
+    win.FB_DIET_DEFAULTS = loadDefaults();
     loadInject(win, 'metadata.js');
     const e = win.FBDietMetadata.collect(classifyResultOf(['u1']), propsOf({}));
     c.equals('__refs attachments counted', e.media.count, 3);
@@ -130,6 +135,7 @@ function run(c) {
         return id === 'u1' ? { attachments: [{ __typename: 'VideoInfo' }] } : null;
       }
     };
+    win.FB_DIET_DEFAULTS = loadDefaults();
     loadInject(win, 'metadata.js');
     const e = win.FBDietMetadata.collect(classifyResultOf(['u1']), propsOf({}));
     c.equals('single attachment not multi image', e.media.isMultiImage, false);
@@ -140,6 +146,7 @@ function run(c) {
   {
     const win = createWindow();
     // FBDietRelay is null / not loaded
+    win.FB_DIET_DEFAULTS = loadDefaults();
     loadInject(win, 'metadata.js');
     const fullPostUrl = 'https://www.facebook.com/happylearningJapanese/posts/pfbid0sNZD1f9wqoPLEs85Eq2rwi3DhFYseBe98usBEZr2xr2u6FrtefXgwWRWmfd6CqKkl';
     const feedUnit = {
@@ -174,6 +181,7 @@ function run(c) {
   /* --- nested Context Provider unwrapping in metadata --- */
   {
     const win = createWindow();
+    win.FB_DIET_DEFAULTS = loadDefaults();
     loadInject(win, 'metadata.js');
     const fullPostUrl = 'https://www.facebook.com/happylearningJapanese/posts/pfbid0sNZD1f9wqoPLEs85Eq2rwi3DhFYseBe98usBEZr2xr2u6FrtefXgwWRWmfd6CqKkl';
     const payload = {
@@ -233,6 +241,7 @@ function run(c) {
   /* --- edge.node inside children props (GraphQL connection) --- */
   {
     const win = createWindow();
+    win.FB_DIET_DEFAULTS = loadDefaults();
     loadInject(win, 'metadata.js');
     const payload = {
       feedUnit: {

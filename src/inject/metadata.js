@@ -16,6 +16,11 @@
 window.FBDietMetadata = (() => {
   'use strict';
 
+  // defaults.js is always injected before this module (manifest.json content_scripts),
+  // so the shared path reader and reserved-route table can be taken directly.
+  const DEFAULTS = window.FB_DIET_DEFAULTS || globalThis.FB_DIET_DEFAULTS || {};
+  const RESERVED_PROFILE_SEGMENTS = DEFAULTS.RESERVED_PROFILE_SEGMENTS || [];
+
   const MESSAGE_SNIPPET = 120;
   const URL_MAX_LEN = 1000;
 
@@ -24,14 +29,7 @@ window.FBDietMetadata = (() => {
     return relay && typeof relay.readFirst === 'function' ? relay : null;
   }
 
-  function readProp(object, path) {
-    let current = object;
-    for (const part of String(path).split('.')) {
-      if (current === null || current === undefined) return undefined;
-      current = current[part];
-    }
-    return current;
-  }
+  const readProp = DEFAULTS.readProp;
 
   function firstNonEmpty(candidates) {
     for (const value of candidates) {
@@ -80,8 +78,9 @@ window.FBDietMetadata = (() => {
       const parts = path.split('/').filter(Boolean);
       if (!parts.length) return null;
       const first = parts[0];
-      const system = ['profile.php', 'groups', 'pages', 'watch', 'reel', 'stories', 'story.php', 'share', 'events'];
-      if (system.indexOf(first) === -1) {
+      // Same reserved-route table ui.js uses to gate vanity-handle synthesis: refusing
+      // Facebook routes here keeps a #hashtag or /photos path from surfacing as an author.
+      if (RESERVED_PROFILE_SEGMENTS.indexOf(first.toLowerCase()) === -1) {
         return first;
       }
     } catch (e) {}
