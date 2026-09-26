@@ -47,7 +47,7 @@ If no existing pattern fits, extend the nearest class with a modifier instead of
 #### No Magic Numbers
 
 - **CSS**: colors, timings and dimensions belong in the `:root` custom properties; do not scatter raw values inside component rules.
-- **JavaScript**: tuning knobs and schemas live in shared module constants — `src/shared/defaults.js` (`DEFAULT_SETTINGS`, `DEFAULT_COUNTS`, `GROUP_BY_CATEGORY`, `GROUP_META`) or the owning module's top-level constants (`CATEGORY` in `classify.js`, `LOG_FLUSH_DELAY_MS` / `MAX_PERSISTED_LOGS` in `content.js`). Avoid inline literals and duplicate local copies of shared values.
+- **JavaScript**: tuning knobs and schemas live in shared module constants — `src/shared/defaults.js` (`DEFAULT_SETTINGS`, `DEFAULT_COUNTS`, `GROUP_BY_CATEGORY`, `SETTING_BY_CATEGORY`, `GROUP_META`) or the owning module's top-level constants (`CATEGORY` in `classify.js`, `LOG_FLUSH_DELAY_MS` / `MAX_PERSISTED_LOGS` in `content.js`). Avoid inline literals and duplicate local copies of shared values.
 
 #### Accessibility (a11y) & Focus Visibility
 

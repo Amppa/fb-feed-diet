@@ -457,7 +457,10 @@
   function recordBlock(category) {
     countBuffer.total += 1;
     countBuffer.filtered = (countBuffer.filtered || 0) + 1;
-    if (countBuffer[category] !== undefined) {
+    const group = (DEFAULTS.GROUP_BY_CATEGORY && DEFAULTS.GROUP_BY_CATEGORY[category]) || category;
+    if (countBuffer[group] !== undefined) {
+      countBuffer[group] += 1;
+    } else if (countBuffer[category] !== undefined) {
       countBuffer[category] += 1;
     }
     scheduleCountFlush();
@@ -468,7 +471,10 @@
    */
   function recordAllowed(category) {
     countBuffer.total += 1;
-    if (countBuffer[category] !== undefined) {
+    const group = (DEFAULTS.GROUP_BY_CATEGORY && DEFAULTS.GROUP_BY_CATEGORY[category]) || category;
+    if (countBuffer[group] !== undefined) {
+      countBuffer[group] += 1;
+    } else if (countBuffer[category] !== undefined) {
       countBuffer[category] += 1;
     }
     scheduleCountFlush();

@@ -84,11 +84,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!counts) return;
     if (counters.total) counters.total.textContent = (counts.total || 0).toLocaleString();
     if (counters.filtered) counters.filtered.textContent = (counts.filtered || 0).toLocaleString();
-    // Counts are stored per category; the breakdown shows user-facing groups.
-    if (counters.ads) counters.ads.textContent = ((counts.sponsored || 0) + (counts.marketAds || 0) + (counts.searchingAds || 0)).toLocaleString();
+    if (counters.ads) counters.ads.textContent = (counts.ads || 0).toLocaleString();
     if (counters.suggested) counters.suggested.textContent = (counts.suggested || 0).toLocaleString();
-    if (counters.media) counters.media.textContent = ((counts.stories || 0) + (counts.reels || 0)).toLocaleString();
-    if (counters.other) counters.other.textContent = (counts.suggestedGroup || 0).toLocaleString();
+    if (counters.media) counters.media.textContent = (counts.media || 0).toLocaleString();
+    if (counters.other) counters.other.textContent = (counts.other || 0).toLocaleString();
     if (counters.regular) counters.regular.textContent = (counts.regular || 0).toLocaleString();
     updateHighlighting();
   }
@@ -166,7 +165,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Initialize master switch, diet mode & feature switches
   updateMasterUI(currentSettings.enabled !== false);
-  updateDietModeUI(currentSettings.dietMode || 'lite');
+  updateDietModeUI(currentSettings.dietMode || 'full');
 
   for (const [key, checkbox] of Object.entries(switches)) {
     if (!checkbox) continue;
@@ -311,7 +310,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (res && res.counts) {
         renderCounts(res.counts);
       } else {
-        renderCounts({ date: '', total: 0, filtered: 0, sponsored: 0, suggested: 0, suggestedGroup: 0, marketAds: 0, searchingAds: 0, stories: 0, reels: 0, regular: 0 });
+        renderCounts({ date: '', total: 0, filtered: 0, ads: 0, regular: 0, suggested: 0, media: 0, other: 0 });
       }
     });
   });

@@ -155,7 +155,7 @@ window.FBDietProbe = (() => {
     }
     const isCategoryOn = foldMode !== 'off';
 
-    const activeMode = currentSettings ? (currentSettings.dietMode || 'lite') : 'lite';
+    const activeMode = currentSettings ? (currentSettings.dietMode || 'full') : 'full';
 
     const report = {
       version: extVersion,
@@ -436,7 +436,7 @@ window.FBDietProbe = (() => {
       || (typeof globalThis !== 'undefined' && globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.VERSION);
     const bridge = window.FBDietBridge;
     const currentSettings = bridge && typeof bridge.getSettings === 'function' ? bridge.getSettings() : null;
-    const activeMode = currentSettings ? (currentSettings.dietMode || 'lite') : 'lite';
+    const activeMode = currentSettings ? (currentSettings.dietMode || 'full') : 'full';
     const scope = resolveProbeScope();
 
     const isMediaGroup = classifyResult && (classifyResult.category === 'reels' || classifyResult.category === 'stories' || classifyResult.category === 'suggestedGroup');

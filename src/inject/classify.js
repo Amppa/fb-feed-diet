@@ -13,7 +13,7 @@
  *   classifyFeedUnit(payload, context)    -> { category, unitId, unitTypename, reason, evidence, moduleName }
  *   setRelayReader(fn)                    -> fn(ids, path, options) => value | null
  *   isCategoryEnabled(category, settings) -> boolean
- *   CATEGORY / SETTING_BY_CATEGORY
+ *   CATEGORY / SETTING_BY_CATEGORY (view of the shared defaults table)
  */
 window.FBDietClassify = (() => {
   'use strict';
@@ -27,18 +27,6 @@ window.FBDietClassify = (() => {
     MARKET_ADS: 'marketAds',
     SEARCH_ADS: 'searchingAds',
     REGULAR: 'regular'
-  };
-
-  // Maps a category to the group-level storage key owned by the options page / popup
-  const SETTING_BY_CATEGORY = {
-    sponsored: 'foldAds',
-    suggested: 'foldSuggested',
-    suggestedGroup: 'foldOther',
-    reels: 'foldMedia',
-    stories: 'foldMedia',
-    marketAds: 'foldAds',
-    searchingAds: 'foldAds',
-    regular: 'foldRegular'
   };
 
   // Relay based classification rules (verified against the reference implementation)
@@ -586,10 +574,10 @@ window.FBDietClassify = (() => {
    */
   function getCategoryFoldMode(category, settings) {
     if (!settings || settings.enabled === false) return 'off';
-    const key = SETTING_BY_CATEGORY[category];
-    if (!key) return 'off';
     const defaults = getDefaults();
     if (!defaults || typeof defaults.normalizeFoldMode !== 'function') return 'off';
+    const key = (defaults.SETTING_BY_CATEGORY || {})[category];
+    if (!key) return 'off';
     const schema = defaults.SETTINGS || {};
     const val = settings[key] !== undefined ? settings[key] : (schema[key] !== undefined ? schema[key] : false);
     return defaults.normalizeFoldMode(val, 'off', Boolean(settings.minimizedFoldMode));
@@ -601,7 +589,12 @@ window.FBDietClassify = (() => {
 
   return {
     CATEGORY,
-    SETTING_BY_CATEGORY,
+    // Live view of the shared table so probe.js keeps reading
+    // classify.SETTING_BY_CATEGORY while defaults.js owns the data.
+    get SETTING_BY_CATEGORY() {
+      const defaults = getDefaults();
+      return (defaults && defaults.SETTING_BY_CATEGORY) || {};
+    },
     getCategoryFoldMode,
     SUGGESTED_GROUP_TYPENAMES,
     STORIES_TYPENAMES,

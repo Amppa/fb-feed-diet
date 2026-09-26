@@ -123,7 +123,7 @@ function run(checker) {
     const flushed = await counts.runTimer(3000);
     checker.ok('count flush timer runs', flushed);
     checker.equals('count flush persists the schema totals', counts.storageData.counts && counts.storageData.counts.total, 3);
-    checker.equals('count flush preserves sponsored totals', counts.storageData.counts && counts.storageData.counts.sponsored, 1);
+    checker.equals('count flush preserves ads totals', counts.storageData.counts && counts.storageData.counts.ads, 1);
     checker.equals('count flush preserves suggested totals', counts.storageData.counts && counts.storageData.counts.suggested, 1);
     checker.equals('count flush preserves regular totals', counts.storageData.counts && counts.storageData.counts.regular, 1);
     checker.equals('count flush uses the current date', counts.storageData.counts && counts.storageData.counts.date, today);

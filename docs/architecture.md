@@ -59,8 +59,8 @@ graph TD
 ### Shared Defaults Module (`src/shared/`)
 
 - **`defaults.js` (`globalThis.FB_DIET_DEFAULTS`)**: Single source of truth for configuration, statistics, and multilingual keyword schemas.
-  - Exposes `FB_DIET_DEFAULTS.SETTINGS` (including the fold-scope switch `restrictFoldScope` and the three-state fold bar title `showTitleMode`, default `whenFolded`), `FB_DIET_DEFAULTS.COUNTS`, the named `KEYWORDS` matrices, the user-facing group layer (`GROUP_BY_CATEGORY`, `SETTING_KEYS_BY_GROUP`, `GROUP_ORDER`; STRATEGY.md decision #8), the pure helpers `isFoldScopeAllowed(pathname)` (decision #26) and `normalizeTitleMode(value)` (decision #27), and `VERSION`.
-  - Loaded before all scripts via `manifest.json` (`content_scripts`), `importScripts` (`background.js`), and `<script>` tags (`popup.html`, `options.html`).
+  - Exposes `FB_DIET_DEFAULTS.SETTINGS` (including the fold-scope switch `restrictFoldScope` and the three-state fold bar title `showTitleMode`, default `whenFolded`), `FB_DIET_DEFAULTS.COUNTS`, the named `KEYWORDS` matrices, the user-facing group layer (`GROUP_BY_CATEGORY`, `SETTING_KEYS_BY_GROUP`, `SETTING_BY_CATEGORY`; STRATEGY.md decision #8), the pure helpers `isFoldScopeAllowed(pathname)` (decision #26) and `normalizeTitleMode(value)` (decision #27), and `VERSION`.
+  - Loaded before all scripts via `manifest.json` (`content_scripts` and the ordered `background.scripts` list for the Firefox window context), `importScripts` (`background.js` in the Chrome service worker), and `<script>` tags (`popup.html`, `options.html`).
   - Eliminates configuration and keyword drift across contexts.
 - **`theme.css`**: Shared UI design tokens, universal resets, switches, badges, and card styles linked across extension pages (`options.html`, `popup.html`).
 
@@ -96,9 +96,11 @@ Loaded sequentially at `document_start` before Comet finishes loading:
     - `reels`: the unit's OWN `__typename === 'ShowcaseFeedUnit'` (nested attachment records and the attachment-style module are excluded on purpose)
     - `stories`: the unit's OWN `__typename === 'DiscoverFeedUnit'` (mid-feed Stories row; STRATEGY.md, decision #7); other Stories surfaces plus `marketAds` / `searchingAds` use component-name markers in `fold.js`, not unit classification
   - **User-facing groups** (two-layer model, STRATEGY.md decision #8): fine-grained categories map to 5 groups —
-    `ads` (sponsored + marketAds + searchingAds), `regular` (no-match bucket; stats only, never foldable),
-    `suggested`, `media` (reels + stories), `other` (suggestedGroup).
-    Storage stays per-category with zero migration; Options group switches batch-write the mapped keys
+    `ads` (sponsored + marketAds + searchingAds), `regular` (the no-match bucket; counted by default and folded
+    only when the user turns on `foldRegular`), `suggested`, `media` (reels + stories), `other` (suggestedGroup).
+    Counters are stored per group (`ads`/`regular`/`suggested`/`media`/`other` plus the `date`, `total` and
+    `filtered` base fields); `SETTING_BY_CATEGORY` in defaults.js resolves any category straight to its storage
+    key, and Options group switches batch-write the mapped keys
     (`SETTING_KEYS_BY_GROUP`, "on" only when every mapped key is on). Folded bars and the stats breakdown
     display the group; probe popups show both layers (feed type + group).
     The Options page also provides a Minimized Fold Mode checkbox to switch between the 36px title bar mode (default) and the 18px ultra-slim mode.

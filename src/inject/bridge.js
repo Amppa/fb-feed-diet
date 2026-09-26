@@ -102,10 +102,9 @@ window.FBDietBridge = (() => {
 
   function getUnitVisualState(unitId, defaultMode) {
     const isToggled = Boolean(unitId) && toggledSet.has(unitId);
-    const activeStyle = settings.minimizedFoldMode ? 'mini' : 'title';
     const isDefaultFolded = defaultMode !== 'off';
     const isFolded = isDefaultFolded ? !isToggled : isToggled;
-    return { isFolded, style: activeStyle };
+    return { isFolded };
   }
 
   function isUnitFolded(unitId, defaultFolded) {

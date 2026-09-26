@@ -13,30 +13,7 @@ const DEFAULT_SETTINGS = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFA
 
 const FACEBOOK_URL_PATTERNS = ['*://*.facebook.com/*'];
 
-function getTodayString() {
-  if (globalThis.FB_DIET_DEFAULTS && typeof globalThis.FB_DIET_DEFAULTS.getTodayDateString === 'function') {
-    return globalThis.FB_DIET_DEFAULTS.getTodayDateString();
-  }
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-const DEFAULT_COUNTS = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.COUNTS) || {
-  date: getTodayString(),
-  total: 0,
-  filtered: 0,
-  sponsored: 0,
-  suggested: 0,
-  suggestedGroup: 0,
-  marketAds: 0,
-  searchingAds: 0,
-  stories: 0,
-  reels: 0,
-  regular: 0
-};
+const DEFAULT_COUNTS = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.COUNTS) || {};
 
 // Initialize settings and counts on install/update
 chrome.runtime.onInstalled.addListener(async () => {
@@ -109,7 +86,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'RESET_COUNTS') {
-    const fresh = { ...DEFAULT_COUNTS, date: getTodayString() };
+    const fresh = { ...DEFAULT_COUNTS, date: globalThis.FB_DIET_DEFAULTS.getTodayDateString() };
     chrome.storage.local.set({ counts: fresh }, () => {
       sendResponse({ success: true, counts: fresh });
     });

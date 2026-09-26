@@ -8,41 +8,12 @@
 window.FBDietUI = (() => {
   'use strict';
 
-  const DEFAULTS = globalThis.FB_DIET_DEFAULTS || {};
-
-  const GROUP_BY_CATEGORY = DEFAULTS.GROUP_BY_CATEGORY || {
-    sponsored: 'ads',
-    marketAds: 'ads',
-    searchingAds: 'ads',
-    regular: 'regular',
-    suggested: 'suggested',
-    reels: 'media',
-    stories: 'media',
-    suggestedGroup: 'other'
-  };
-
-  const GROUP_META = DEFAULTS.GROUP_META || {
-    ads: {
-      badgeClass: 'fb-diet-badge-ads',
-      badgeText: 'Ads'
-    },
-    regular: {
-      badgeClass: 'fb-diet-badge-regular',
-      badgeText: 'Regular'
-    },
-    suggested: {
-      badgeClass: 'fb-diet-badge-suggested',
-      badgeText: 'Suggested'
-    },
-    media: {
-      badgeClass: 'fb-diet-badge-media',
-      badgeText: 'Reels & Stories'
-    },
-    other: {
-      badgeClass: 'fb-diet-badge-other',
-      badgeText: 'Other'
-    }
-  };
+  // Same access pattern as the sibling MAIN-world modules (probe.js, dom-suggested.js).
+  // Group mapping and badge metadata come from defaults.js; an unknown or
+  // unclassified category still resolves to 'regular' so bars never throw.
+  const DEFAULTS = window.FB_DIET_DEFAULTS || globalThis.FB_DIET_DEFAULTS || {};
+  const GROUP_BY_CATEGORY = DEFAULTS.GROUP_BY_CATEGORY || {};
+  const GROUP_META = DEFAULTS.GROUP_META || {};
 
   function groupOf(category) {
     return GROUP_BY_CATEGORY[category] || 'regular';
@@ -53,17 +24,6 @@ window.FBDietUI = (() => {
     const proxy = window.FBDietProxy;
     if (!React || !type) return null;
     return proxy.createElement(React, type, props, children);
-  }
-
-  /**
-   * The collapsed notice bar (entire strip is clickable).
-   * Kept for backwards compatibility; delegates to FBDietTitleBar.
-   */
-  function FBDietBar(props) {
-    return FBDietTitleBar(Object.assign({}, props, {
-      isMini: props.isMini !== undefined ? props.isMini : true,
-      showTitle: false
-    }));
   }
 
   const titleBarCache = new Map();
@@ -1050,7 +1010,6 @@ window.FBDietUI = (() => {
     groupOf,
     createEl,
     titleBarCache,
-    FBDietBar,
     FBDietTitleBar,
     getMediaLabel,
     domMetadata: domMetadataExtractor,

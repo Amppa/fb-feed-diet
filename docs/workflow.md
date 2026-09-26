@@ -85,8 +85,7 @@ node tests/run.js
 
 ### Adding New Classification Rules
 
-1. Define the Relay path or prop attribute in `src/inject/classify.js`.
-2. Add the category mapping in `CATEGORY` and `SETTING_BY_CATEGORY`.
-3. Map the category to its user-facing group in `GROUP_BY_CATEGORY` and add its badge metadata to `GROUP_META` (`src/shared/defaults.js`; consumed by `src/inject/ui.js`, which owns the bars and badges — STRATEGY.md, decision #8).
-4. Add corresponding test fixture assertions in `tests/classify.test.js`.
-5. Run `npm test` to verify zero regression across existing rules.
+1. Define the Relay path or prop attribute and the new `CATEGORY` entry in `src/inject/classify.js`.
+2. Map the category in `src/shared/defaults.js`: its user-facing group in `GROUP_BY_CATEGORY`, its storage key in `SETTING_BY_CATEGORY`, and its badge metadata in `GROUP_META` (consumed by `src/inject/ui.js`, which owns the bars and badges — STRATEGY.md, decision #8). `tests/defaults.test.js` pins that the category table agrees with the group layer.
+3. Add corresponding test fixture assertions in `tests/classify.test.js`.
+4. Run `npm test` to verify zero regression across existing rules.

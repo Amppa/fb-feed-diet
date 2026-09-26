@@ -330,14 +330,11 @@ window.FBDietFold = (() => {
       }
 
       const defaultMode = bridge.getFoldMode ? bridge.getFoldMode(category) : (bridge.isEnabled(category) ? 'mini' : 'off');
-      const isLite = settings.dietMode === 'lite';
-      const activeStyle = isLite || settings.minimizedFoldMode ? 'mini' : 'title';
       const visual = bridge.getUnitVisualState
         ? bridge.getUnitVisualState(unitId, defaultMode)
-        : { isFolded: defaultMode !== 'off', style: activeStyle };
+        : { isFolded: defaultMode !== 'off' };
 
       const isFolded = visual.isFolded;
-      const foldStyle = activeStyle;
 
       // Report counters: any folded unit counts toward blocked/filtered
       if (isFolded) {

@@ -40,11 +40,18 @@ function run(checker) {
 
   const counts = defaults && defaults.COUNTS;
   checker.ok('COUNTS object exists', Boolean(counts));
+  // Base metadata plus exactly one counter per user-facing group.
+  checker.equals('COUNTS keys are base metadata plus the 5 group counters',
+    Object.keys(counts || {}).slice().sort().join(','),
+    ['ads', 'date', 'filtered', 'media', 'other', 'regular', 'suggested', 'total'].join(','));
   checker.equals('counts.total is 0', counts && counts.total, 0);
   checker.equals('counts.filtered is 0', counts && counts.filtered, 0);
-  checker.equals('counts.sponsored is 0', counts && counts.sponsored, 0);
-  checker.equals('counts.suggested is 0', counts && counts.suggested, 0);
+  checker.equals('counts.ads is 0', counts && counts.ads, 0);
   checker.equals('counts.regular is 0', counts && counts.regular, 0);
+  checker.equals('counts.suggested is 0', counts && counts.suggested, 0);
+  checker.equals('counts.media is 0', counts && counts.media, 0);
+  checker.equals('counts.other is 0', counts && counts.other, 0);
+  checker.equals('counts does not have legacy sponsored', counts && counts.sponsored, undefined);
   checker.ok('counts.date is a string', typeof (counts && counts.date) === 'string' && counts.date.length >= 8);
 
   /* --- user-facing groups (STRATEGY.md, decision #8) --- */
@@ -64,6 +71,28 @@ function run(checker) {
   checker.equals('media group writes foldMedia', keysByGroup && keysByGroup.media.join(','), 'foldMedia');
   checker.ok('regular group writes foldRegular', Boolean(keysByGroup) && keysByGroup.regular.join(',') === 'foldRegular');
   checker.ok('every mapped key exists in SETTINGS', Boolean(keysByGroup) && Object.values(keysByGroup).every((keys) => keys.every((key) => key in settings)));
+
+  /* --- category -> storage key (SSOT the classifier reads; STRATEGY.md decision #8) --- */
+  const ENGINE_CATEGORIES = ['sponsored', 'marketAds', 'searchingAds', 'regular', 'suggested', 'reels', 'stories', 'suggestedGroup'];
+  const settingByCategory = defaults && defaults.SETTING_BY_CATEGORY;
+  checker.ok('SETTING_BY_CATEGORY exists', Boolean(settingByCategory));
+  checker.equals('SETTING_BY_CATEGORY covers all 8 engine categories',
+    Object.keys(settingByCategory || {}).slice().sort().join(','),
+    ENGINE_CATEGORIES.slice().sort().join(','));
+
+  // Closure check: reading a category's key directly must equal walking it through
+  // the group layer, so the two tables cannot drift apart silently.
+  const closureHolds = ENGINE_CATEGORIES.every((category) => {
+    const group = groupByCategory && groupByCategory[category];
+    const keys = group && keysByGroup && keysByGroup[group];
+    const directKey = settingByCategory && settingByCategory[category];
+    return Boolean(keys) && keys.length > 0 && directKey === keys[0];
+  });
+  checker.ok('SETTING_BY_CATEGORY[cat] equals SETTING_KEYS_BY_GROUP[GROUP_BY_CATEGORY[cat]][0]', closureHolds);
+  checker.ok('every category key exists in SETTINGS', ENGINE_CATEGORIES.every((category) => {
+    const key = settingByCategory && settingByCategory[category];
+    return typeof key === 'string' && key in settings;
+  }));
 
   /* --- group metadata --- */
   const groupMeta = defaults && defaults.GROUP_META;
@@ -116,8 +145,8 @@ function run(checker) {
   checker.equals('title mode always passes through', defaults.normalizeTitleMode('always'), 'always');
   checker.equals('title mode whenFolded passes through', defaults.normalizeTitleMode('whenFolded'), 'whenFolded');
   checker.equals('title mode never passes through', defaults.normalizeTitleMode('never'), 'never');
-  checker.equals('legacy true rolls forward to the new default', defaults.normalizeTitleMode(true), 'whenFolded');
-  checker.equals('legacy false keeps never', defaults.normalizeTitleMode(false), 'never');
+  checker.equals('boolean true falls back to default', defaults.normalizeTitleMode(true), 'whenFolded');
+  checker.equals('boolean false falls back to default', defaults.normalizeTitleMode(false), 'whenFolded');
   checker.equals('unknown value falls back to the new default', defaults.normalizeTitleMode('wat'), 'whenFolded');
   checker.equals('stale preview value falls back to the new default', defaults.normalizeTitleMode('whenExpanded'), 'whenFolded');
   checker.equals('undefined falls back to the new default', defaults.normalizeTitleMode(undefined), 'whenFolded');
