@@ -309,7 +309,7 @@
 
   registerStorageListener();
 
-  // When the tab goes away, drop pending timers and buffers
+  // The tab has gone: drop pending timers and buffers.
   window.addEventListener('pagehide', shutdown, { once: true });
 
   // Debug helpers (isolated world): pick the content script context in DevTools to use them

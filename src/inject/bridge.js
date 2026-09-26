@@ -60,8 +60,6 @@ window.FBDietBridge = (() => {
 
   const toggled = [];
   const toggledSet = new Set();
-  const expanded = toggled;
-  const expandedSet = toggledSet;
   const reportedBlocked = [];
   const reportedBlockedSet = new Set();
   const reportedRegular = [];
@@ -293,7 +291,7 @@ window.FBDietBridge = (() => {
     counts: {
       blocked: reportedBlocked.length,
       regular: reportedRegular.length,
-      expanded: expanded.length
+      expanded: toggled.length
     },
     lastError,
     recent: recentReports.slice(-25)

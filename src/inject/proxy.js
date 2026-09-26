@@ -504,9 +504,7 @@ function wrapFactory(moduleName, factory) {
 
     getErrors() {
       return errors.slice();
-    },
-
-    installDDHook
+    }
   };
 
   installDDHook();

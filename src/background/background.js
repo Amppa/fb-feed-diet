@@ -85,14 +85,4 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true; // Keep message channel open for async response
   }
-
-  if (message.type === 'GET_DATA') {
-    chrome.storage.local.get(['settings', 'counts'], (data) => {
-      sendResponse({
-        settings: data.settings || DEFAULT_SETTINGS,
-        counts: data.counts || DEFAULT_COUNTS
-      });
-    });
-    return true;
-  }
 });

@@ -953,11 +953,6 @@ window.FBDietUI = (() => {
   }
 
   function getMediaLabel(category) {
-    if (typeof window !== 'undefined' && window.FBDietI18N && typeof window.FBDietI18N.t === 'function') {
-      if (category === 'stories') return window.FBDietI18N.t('labelStories');
-      if (category === 'reels') return window.FBDietI18N.t('labelReels');
-      if (category === 'suggestedGroup') return window.FBDietI18N.t('labelSuggestedGroup');
-    }
     const isZh = (() => {
       try {
         const doc = typeof document !== 'undefined' ? document : (typeof window !== 'undefined' ? window.document : null);
@@ -1222,13 +1217,6 @@ window.FBDietUI = (() => {
     createEl,
     titleBarCache,
     FBDietTitleBar,
-    getMediaLabel,
-    domMetadata: domMetadataExtractor,
-    extractAuthorFromDom,
-    extractMessageFromDom,
-    extractGroupFromDom,
-    extractAdUrlFromDom,
-    extractPostUrlFromDom,
-    extractMediaFromDom
+    getMediaLabel
   };
 })();

@@ -13,7 +13,7 @@
  *   classifyFeedUnit(payload, context)    -> { category, unitId, unitTypename, reason, evidence, moduleName }
  *   setRelayReader(fn)                    -> fn(ids, path, options) => value | null
  *   isCategoryEnabled(category, settings) -> boolean
- *   CATEGORY / SETTING_BY_CATEGORY (view of the shared defaults table)
+ *   CATEGORY (the engine's own category names)
  */
 window.FBDietClassify = (() => {
   'use strict';
@@ -43,11 +43,6 @@ window.FBDietClassify = (() => {
   // ordinary friend activity as "suggested" (STRATEGY.md, misclassifications 1 & 2).
   const SUGGESTED_SUBSCRIBE_STATES = ['CAN_SUBSCRIBE'];
   const SUGGESTED_JOIN_STATES = ['CAN_JOIN'];
-  // Only a story_header stored under one of these known suggestion location keys WITH a
-  // non-empty title counts as suggestion evidence. A location-free story_header is NOT
-  // evidence: contextual stories ("X commented on ...") carry a plain story_header too,
-  // and folding those hid real friend activity (STRATEGY.md, misclassifications 1 & 2).
-  const SUGGESTED_STORY_LOCATIONS = ['homepage_stream', 'groups_tab', 'feed'];
 
   // The Reels attachment style wrapper only renders reel attachments INSIDE another story
   // (typically a friend's share of a reel). The record that reaches the classifier from
@@ -486,81 +481,6 @@ window.FBDietClassify = (() => {
     }
   }
 
-  /* ------------------------------------------------------------------ *
-   * Probe report analysis (options page debug card)
-   *
-   * classifyProbeReport re-runs the CURRENT rules over a probe report copied
-   * from a feed 🔍 button. The captured classification is the verdict; the
-   * re-run is a comparison aid. Reports no longer embed a Relay record dump
-   * (see STRATEGY.md, decision #11), and a relayRecord field from an older
-   * report is still honored as a single-record snapshot, so paths that follow
-   * linked records (^ / ^^) cannot resolve and read as null on re-run.
-   * null. Diagnostics must never throw, exactly like the live classifier.
-   * ------------------------------------------------------------------ */
-
-  /**
-   * Reads a Relay-style field path against a serialized record snapshot.
-   * Only the snapshot's own plain fields can be read: a ^ / ^^ hop, an indexed lookup or
-   * a __ref / __refs value needs a linked record that lives outside the snapshot by
-   * design, so such a path resolves to null (see the note above). This is exactly the
-   * subset the classifier asks for — every RELAY_PATHS entry is keyed by a ^ hop, and the
-   * only plain field it reads is `is_sponsored`.
-   */
-  function readSnapshotPath(record, path) {
-    try {
-      if (!record || typeof record !== 'object' || !path) return null;
-      let current = record;
-      for (const segment of String(path).split('.')) {
-        if (segment.indexOf('^') === 0) return null;
-        if (segment.indexOf('[') !== -1) return null;
-        if (current === null || current === undefined || typeof current !== 'object') return null;
-        const field = current[segment];
-        if (field && typeof field === 'object' && typeof field.__ref === 'string') return null;
-        current = field;
-      }
-      if (current && typeof current === 'object') return null;
-      return current === undefined ? null : current;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  /**
-   * Analyzes a probe report object (already parsed from JSON).
-   * Returns { ok, error?, captured, current, relayAvailable }.
-   *   error codes: 'not-an-object' | 'missing-classify' | 'missing-payload'
-   */
-  function classifyProbeReport(report) {
-    const empty = { ok: false, error: null, captured: null, current: null, relayAvailable: false };
-    try {
-      if (!report || typeof report !== 'object' || Array.isArray(report)) {
-        return { ...empty, error: 'not-an-object' };
-      }
-      const captured = report.classify && typeof report.classify === 'object' ? report.classify : null;
-      if (!captured) return { ...empty, error: 'missing-classify' };
-      if (!report.payload || typeof report.payload !== 'object') {
-        return { ...empty, error: 'missing-payload', captured };
-      }
-
-      const relayRecord = report.relayRecord && typeof report.relayRecord === 'object' ? report.relayRecord : null;
-      const previousReader = relayRead;
-      let current;
-      const previousReads = relayReads;
-      try {
-        relayReads = [];
-        relayRead = (ids, path) => readSnapshotPath(relayRecord, path);
-        current = classifyFeedUnit(report.payload, { moduleName: report.moduleName || null });
-      } finally {
-        // Never leak the snapshot reader into the caller's classifier state.
-        relayRead = previousReader;
-        relayReads = previousReads;
-      }
-      return { ok: true, error: null, captured, current, relayAvailable: Boolean(relayRecord) };
-    } catch (e) {
-      return { ...empty, error: 'error:' + (e && e.message ? e.message : String(e)) };
-    }
-  }
-
   /** Shared defaults module: loaded before the MAIN world scripts in every context. */
   function getDefaults() {
     if (typeof window !== 'undefined' && window.FB_DIET_DEFAULTS) return window.FB_DIET_DEFAULTS;
@@ -589,12 +509,6 @@ window.FBDietClassify = (() => {
 
   return {
     CATEGORY,
-    // Live view of the shared table so probe.js keeps reading
-    // classify.SETTING_BY_CATEGORY while defaults.js owns the data.
-    get SETTING_BY_CATEGORY() {
-      const defaults = getDefaults();
-      return (defaults && defaults.SETTING_BY_CATEGORY) || {};
-    },
     getCategoryFoldMode,
     SUGGESTED_GROUP_TYPENAMES,
     STORIES_TYPENAMES,
@@ -608,7 +522,6 @@ window.FBDietClassify = (() => {
     setRelayReader,
     getLastRelayReads: () => relayReads.slice(),
     classifyFeedUnit,
-    classifyProbeReport,
     isCategoryEnabled,
     readProp
   };

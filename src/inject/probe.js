@@ -252,7 +252,7 @@ window.FBDietProbe = (() => {
   /** Fold policy for the effective category: { category, key, enabled, foldMode }. */
   function resolveCategorySetting(ctx) {
     const classifyModule = window.FBDietClassify;
-    const settingKey = (classifyModule && classifyModule.SETTING_BY_CATEGORY && classifyModule.SETTING_BY_CATEGORY[ctx.effectiveCategory]) || null;
+    const settingKey = (defaults.SETTING_BY_CATEGORY && defaults.SETTING_BY_CATEGORY[ctx.effectiveCategory]) || null;
     let foldMode = 'off';
     if (ctx.bridge && typeof ctx.bridge.getFoldMode === 'function') {
       foldMode = ctx.bridge.getFoldMode(ctx.effectiveCategory);

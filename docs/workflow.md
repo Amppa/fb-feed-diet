@@ -46,9 +46,6 @@ npm run package
 
 # Using Node.js directly:
 node scripts/package.js
-
-# Or on Windows using PowerShell:
-powershell -ExecutionPolicy Bypass -File scripts/package.ps1
 ```
 
 The same zip also installs on **Firefox 128+**: Firefox reads `background.scripts` as an event page while Chrome reads `background.service_worker`, so one manifest serves both. Sideload in Firefox via `about:debugging` → *This Firefox* → *Load Temporary Add-on…*.

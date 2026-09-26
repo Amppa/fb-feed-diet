@@ -34,9 +34,9 @@ This hub links the developer documentation for **FB Diet**. Topic files live und
 - **`src/background/`**: Chrome MV3 Service Worker (settings storage sync, cross-tab broadcasts, context menu / badges).
 - **`src/options/` & `src/popup/`**: User configuration dashboards and popup toggle UI.
 - **`src/shared/` & `src/i18n/`**: Shared schemas, settings defaults, version constant, and multilingual localization dictionaries (`en`, `zh-TW`).
-- **`tests/`**: Zero-dependency native Node.js test harness covering pure classification, Relay navigation, proxy wrapping, and fallback logic.
+- **`tests/`**: Zero-dependency native Node.js test harness covering pure classification, Relay navigation, proxy wrapping, and content-script lifecycle.
 - **`docs/`**: Developer deep-dives covering architecture, debugging, conventions, and external research teardowns.
-- **`scripts/`**: Zero-dependency tooling for single-command version bumping (`bump-version.js`) and release packaging (`package.js`, `package.ps1`).
+- **`scripts/`**: Zero-dependency tooling for single-command version bumping (`bump-version.js`) and release packaging (`package.js`).
 
 ---
 
