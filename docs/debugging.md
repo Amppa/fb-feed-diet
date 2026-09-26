@@ -49,21 +49,22 @@ window.__fbDietClearLog();     // wipes the log
 ### Feed Probe Buttons (per-unit diagnostics, Probe v2)
 
 Enable "Show Feed Probe Buttons" in the Options page (or open Facebook with `?fb_diet_debug=1`).
-Every unit flowing through `FBDietFold` then shows a small 🔍 button floating on its left side;
-clicking it copies a compact JSON report of that unit and displays a floating popup (click outside to dismiss)
-showing the feed type, user-facing group, author/group, relation status (`NULL` for missing values),
-title/snippet (40 chars max), and match reason:
+Every unit flowing through `FBDietFold` displays dual diagnostic probe buttons on its top-left side:
+- **Proxy Probe (🔍)**: Inspects the unit via intercepted Relay payload, GraphQL reads, and classifier state.
+- **DOM Probe (🔍D)**: Inspects the unit via live DOM extraction (author, title, media, clean URLs, and signals).
 
-- `classify`: the decision (`category`, `unitId`, `unitTypename`, `reason`, streamlined `evidence` with `id`, `idCount`)
-- `enrichment` (`metadata.js`, best-effort & null-safe): author (id, name, typename, subscribe status),
-  group (id, name, join state, permalink), content (message snippet, title, permalink, raw `createdTime`,
-  ISO `createdAt`, `callToAction`, `feedContext`, `isReshare`), media (attachment count, deduplicated types,
-  `isMultiImage`, `hasVideo`), viewer (`isSelf`: boolean / null)
-- `relayReads`: the exact Relay paths the classifier tried for this unit, with the returned values
-- `recordKeys`: top-level keys of the Relay record (identifies new/modified FB fields without huge dumps)
-- `href` / `version` / `settings`: context snapshot (page URL, extension version, active filter toggles)
-- `scope`: fold-scope context (`restricted` — the `restrictFoldScope` setting, `allowed` — runtime verdict for this path, `path` — `location.pathname`; STRATEGY.md decision #26)
-- `payload`: unit position and `feedUnit.post_id` only (redundant `__id` and `__typename` pruned, [STRATEGY.md](../STRATEGY.md) decisions #11/#13)
+Clicking either button copies a compact, structured diagnostic JSON report to the clipboard and opens a floating popup (click outside to dismiss).
+
+#### Probe Schema (Version 2)
+The probe diagnostic schema uses an independent `schemaVersion: 2` (decoupled from the extension release version, eliminating the need to tie diagnostic parsers to manifest versions):
+- **Part 1 (Environment)**: `schemaVersion` (2), `type` (`proxy` | `dom`), `dietMode`, `scope` (`restricted`, `allowed`, `path`), `at` (`rendered`, `probed`).
+- **Part 2 (Input)**: `feedPosition`, `postId`, `moduleName`, `unitId` (placed at the end of the input block).
+- **Part 3 (Data & Extraction)**:
+  - *Proxy report*: `memory`, `payload`, `classify` (`category`, `categoryEnabled`, `foldMode`, `reason`, `evidence`).
+  - *DOM report*: `urls` (streamlined to `primary` clean URL and optional `synthesized` URL; redundant raw/timestamp/profile URLs pruned), `actor`, `group`, `title`, `media`, `sponsored`, `suggested` (note: redundant `timestamp` text/url is omitted).
+- **Part 4 (Diagnostics & Debug)**:
+  - *Proxy report*: `signals`, `recordKeys`, `relayReads` (exact paths read and non-null values returned).
+  - *DOM report*: `textCandidates` (truncated text snippets), `debug`.
 
 Use it to diagnose missed folds (`classify.category: null` — check `reason`) and wrong folds
 (`reason` maps back to the rule table in [STRATEGY.md](../STRATEGY.md) §3).

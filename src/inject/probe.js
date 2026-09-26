@@ -10,6 +10,7 @@ window.FBDietProbe = (() => {
   'use strict';
 
   const PROBE_MAX_CHARS = 30000;
+  const PROBE_SCHEMA_VERSION = 2;
   const defaults = window.FB_DIET_DEFAULTS || globalThis.FB_DIET_DEFAULTS || {};
   const keywords = defaults.KEYWORDS || {};
   const DIAGNOSTIC_KEYWORDS = Array.isArray(keywords.DIAGNOSTIC) ? keywords.DIAGNOSTIC : [];
@@ -158,7 +159,7 @@ window.FBDietProbe = (() => {
     const activeMode = currentSettings ? (currentSettings.dietMode || 'full') : 'full';
 
     const report = {
-      version: extVersion,
+      schemaVersion: PROBE_SCHEMA_VERSION,
       mode: activeMode,
       dietMode: activeMode,
       categorySetting: {
@@ -362,7 +363,7 @@ window.FBDietProbe = (() => {
 
     const proxyReport = {
       // Part 1: 環境 (Environment)
-      version: rep.version,
+      schemaVersion: PROBE_SCHEMA_VERSION,
       type: 'proxy',
       dietMode: rep.dietMode,
       scope: rep.scope,
@@ -457,28 +458,20 @@ window.FBDietProbe = (() => {
     }
 
     const liveUrls = (domLive && domLive.urls) || {};
-    const rawResolvedUrls = Object.assign({
-      primary: (domLive && domLive.postUrl) || null,
-      raw: liveUrls.raw || null,
-      domPermalink: liveUrls.domPermalink || null,
-      synthesized: liveUrls.synthesized || null,
-      authorProfile: liveUrls.authorProfile || null,
-      groupUrl: liveUrls.groupUrl || null,
-      adUrl: (domLive && domLive.adUrl) || liveUrls.adUrl || null,
-      timestamp: liveUrls.timestamp || (domLive && domLive.timestamp && domLive.timestamp.url) || null
-    }, liveUrls);
-
     let cleanUrls = null;
-    for (const [k, v] of Object.entries(rawResolvedUrls)) {
-      if (v !== null && v !== undefined) {
-        if (!cleanUrls) cleanUrls = {};
-        cleanUrls[k] = v;
-      }
+    const primaryUrl = (domLive && domLive.postUrl) || liveUrls.primary || null;
+    if (primaryUrl) {
+      cleanUrls = cleanUrls || {};
+      cleanUrls.primary = primaryUrl;
+    }
+    if (liveUrls.synthesized) {
+      cleanUrls = cleanUrls || {};
+      cleanUrls.synthesized = liveUrls.synthesized;
     }
 
     const domReport = {
       // Part 1: 環境 (Environment)
-      version: extVersion,
+      schemaVersion: PROBE_SCHEMA_VERSION,
       type: 'dom',
       dietMode: activeMode,
       scope: scope,
@@ -495,7 +488,6 @@ window.FBDietProbe = (() => {
 
       // Part 3: DOM 提取結果 (DOM Extraction & Suggested Detection)
       ...(cleanUrls ? { urls: cleanUrls } : {}),
-      ...((domLive && domLive.timestamp) ? { timestamp: domLive.timestamp } : {}),
       ...((domLive && domLive.actor) ? { actor: domLive.actor } : {}),
       ...((domLive && domLive.group) ? { group: domLive.group } : {}),
       ...((domLive && domLive.title) ? { title: domLive.title } : {}),
@@ -601,12 +593,6 @@ window.FBDietProbe = (() => {
           popup.appendChild(actorRow);
         }
 
-        if (report && report.timestamp && report.timestamp.text) {
-          const timeRow = doc.createElement('div');
-          timeRow.className = 'fb-diet-probe-popup-row';
-          timeRow.textContent = 'Time: ' + report.timestamp.text;
-          popup.appendChild(timeRow);
-        }
 
         if (report && report.title && report.title.text) {
           const titleRow = doc.createElement('div');
@@ -834,6 +820,7 @@ window.FBDietProbe = (() => {
 
   return {
     PROBE_MAX_CHARS,
+    SCHEMA_VERSION: PROBE_SCHEMA_VERSION,
     findDiagnosticSignals,
     buildUnitProbeReport,
     buildProxyProbeReport,

@@ -39,7 +39,8 @@ function run(c) {
   c.ok('proxy report result has report object', typeof proxyReportRes.report === 'object');
   const pr = proxyReportRes.report;
   c.equals('proxy report type is proxy', pr.type, 'proxy');
-  c.equals('proxy report version matches defaults', pr.version, win.FB_DIET_DEFAULTS.VERSION);
+  c.equals('proxy report schemaVersion is 2', pr.schemaVersion, 2);
+  c.equals('proxy report has no app version', pr.version, undefined);
   c.equals('proxy report unitId matches', pr.unitId, 'unit_123');
   c.equals('proxy report postId matches', pr.postId, 'post_98765');
   c.equals('proxy report feedPosition matches', pr.feedPosition, 3);
@@ -64,7 +65,7 @@ function run(c) {
 
   // Test 4-part architectural ordering
   const prKeys = Object.keys(pr);
-  const vIdx = prKeys.indexOf('version');
+  const vIdx = prKeys.indexOf('schemaVersion');
   const scopeIdx = prKeys.indexOf('scope');
   const posIdx = prKeys.indexOf('feedPosition');
   const postIdx = prKeys.indexOf('postId');
@@ -97,7 +98,8 @@ function run(c) {
   c.ok('dom report result has report object', typeof domReportRes.report === 'object');
   const dr = domReportRes.report;
   c.equals('dom report type is dom', dr.type, 'dom');
-  c.equals('dom report version matches defaults', dr.version, win.FB_DIET_DEFAULTS.VERSION);
+  c.equals('dom report schemaVersion is 2', dr.schemaVersion, 2);
+  c.equals('dom report has no app version', dr.version, undefined);
   c.equals('dom report unitId matches', dr.unitId, 'unit_123');
   c.equals('dom report postId matches', dr.postId, 'post_98765');
   c.equals('dom report feedPosition matches', dr.feedPosition, 3);
@@ -105,18 +107,17 @@ function run(c) {
   c.equals('dom report group is Apple 討論社團', dr.group, 'Apple 討論社團');
   c.equals('dom report title text is extracted', dr.title && dr.title.text, 'iPhone 發表會');
   c.equals('dom report media counts images + overlay', dr.media, '[📷 相片 x5]');
-  c.equals('dom report has timestamp text', dr.timestamp && dr.timestamp.text, '剛剛');
-  c.equals('dom report has timestamp url', dr.timestamp && dr.timestamp.url, 'https://www.facebook.com/steve/posts/98765?fbclid=IwAR999');
-  c.equals('dom report urls has timestamp', dr.urls && dr.urls.timestamp, 'https://www.facebook.com/steve/posts/98765?fbclid=IwAR999');
+  c.equals('dom report timestamp is omitted', dr.timestamp, undefined);
   c.ok('dom report has clean primary url', dr.urls && dr.urls.primary && dr.urls.primary.indexOf('fbclid') === -1);
-  c.ok('dom report has raw url with tracking', dr.urls && dr.urls.raw && dr.urls.raw.indexOf('fbclid') !== -1);
+  c.equals('dom report urls omits raw', dr.urls && dr.urls.raw, undefined);
+  c.equals('dom report urls omits timestamp', dr.urls && dr.urls.timestamp, undefined);
   c.ok('dom report has textCandidates array', Array.isArray(dr.textCandidates));
   c.ok('textCandidates are <= 10 items', dr.textCandidates.length <= 10);
   c.ok('textCandidate texts <= 30 chars', dr.textCandidates.every((item) => item.text.length <= 30));
 
   // Test 4-part architectural ordering for DOM report
   const drKeys = Object.keys(dr);
-  const drVIdx = drKeys.indexOf('version');
+  const drVIdx = drKeys.indexOf('schemaVersion');
   const drScopeIdx = drKeys.indexOf('scope');
   const drPosIdx = drKeys.indexOf('feedPosition');
   const drPostIdx = drKeys.indexOf('postId');
@@ -170,7 +171,6 @@ function run(c) {
     c.ok('dom popup element rendered', Boolean(popupDom));
     c.ok('dom popup contains DOM Probe header', popupDom && popupDom.textContent.indexOf('DOM Probe') !== -1);
     c.ok('dom popup contains Author', popupDom && popupDom.textContent.indexOf('賈伯斯') !== -1);
-    c.ok('dom popup contains Time', popupDom && popupDom.textContent.indexOf('剛剛') !== -1);
     c.ok('dom popup contains Title', popupDom && popupDom.textContent.indexOf('iPhone 發表會') !== -1);
     c.ok('dom popup contains Copied message', popupDom && popupDom.textContent.indexOf('已複製 DOM 診斷 JSON') !== -1);
   } finally {
