@@ -270,7 +270,7 @@ function run(c) {
     c.equals('payload.feedUnit __typename removed', reportWithoutEntry.payload.feedUnit.__typename, undefined);
     c.ok('payloadKeys captured', Array.isArray(reportWithoutEntry.payload.payloadKeys));
     c.ok('feedUnitKeys captured', Array.isArray(reportWithoutEntry.payload.feedUnitKeys));
-    c.equals('schemaVersion matches PROBE_SCHEMA_VERSION', reportWithoutEntry.schemaVersion, 2);
+    c.equals('schemaVersion matches PROBE_SCHEMA_VERSION', reportWithoutEntry.schemaVersion, 3);
     c.equals('probe report has no app version', reportWithoutEntry.version, undefined);
     c.ok('at.rendered present', Boolean(reportWithoutEntry.at && reportWithoutEntry.at.rendered));
     c.ok('at.probed present', Boolean(reportWithoutEntry.at && reportWithoutEntry.at.probed));

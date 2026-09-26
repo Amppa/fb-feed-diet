@@ -116,6 +116,7 @@ function makeNode(tag, attrs = {}, children = [], text = '') {
   const node = {
     tagName: tag.toUpperCase(),
     attributes: Object.assign({}, attrs),
+    style: {},
     href: attrs.href,
     children: [],
     parentElement: null,
@@ -174,6 +175,28 @@ function makeNode(tag, attrs = {}, children = [], text = '') {
     querySelector(selector) {
       const result = this.querySelectorAll(selector);
       return result.length ? result[0] : null;
+    },
+    addEventListener(type, cb) {
+      this._listeners = this._listeners || {};
+      this._listeners[type] = (this._listeners[type] || []).concat(cb);
+    },
+    removeEventListener() {},
+    compareDocumentPosition(other) {
+      if (this === other) return 0;
+      let root = this;
+      while (root.parentElement) root = root.parentElement;
+      const allNodes = [];
+      const walk = (n) => {
+        allNodes.push(n);
+        for (const child of n.children) walk(child);
+      };
+      walk(root);
+      const thisIdx = allNodes.indexOf(this);
+      const otherIdx = allNodes.indexOf(other);
+      if (thisIdx === -1 || otherIdx === -1) return 1;
+      if (this.contains(other)) return 20;
+      if (other.contains(this)) return 10;
+      return otherIdx > thisIdx ? 4 : 2;
     }
   };
   for (let i = 0; i < children.length; i++) {

@@ -657,6 +657,180 @@ window.FBDietUI = (() => {
     return null;
   }
 
+  function parseMetricNumber(raw) {
+    if (typeof raw === 'number') return raw;
+    if (!raw || typeof raw !== 'string') return null;
+    const s = raw.trim().replace(/,/g, '');
+    const match = s.match(/([0-9]+(?:\.[0-9]+)?)\s*([kKmM萬万])?/);
+    if (!match) {
+      const intMatch = s.match(/([0-9]+)/);
+      return intMatch ? parseInt(intMatch[1], 10) : null;
+    }
+    const val = parseFloat(match[1]);
+    const unit = match[2];
+    if (!unit) return Math.round(val);
+    const u = unit.toLowerCase();
+    if (u === 'k') return Math.round(val * 1000);
+    if (u === 'm') return Math.round(val * 1000000);
+    if (unit === '萬' || unit === '万') return Math.round(val * 10000);
+    return Math.round(val);
+  }
+
+  function extractButtonCount(btn) {
+    if (!btn) return 0;
+    const spans = btn.querySelectorAll ? btn.querySelectorAll('span[dir="auto"], span') : [];
+    for (const span of spans) {
+      const text = span.textContent ? span.textContent.trim() : '';
+      if (/^[0-9,.]+[kKmM萬万]?$/.test(text)) {
+        const num = parseMetricNumber(text);
+        if (num !== null) return num;
+      }
+    }
+    const fullText = btn.textContent ? btn.textContent.trim() : '';
+    const num = parseMetricNumber(fullText);
+    return num !== null ? num : 0;
+  }
+
+  function extractMetricsFromDom(container) {
+    if (!container || typeof container.querySelector !== 'function') return null;
+    try {
+      // 1. Reactions (讚數)
+      let reactions = 0;
+      let hasReactionsBtn = false;
+      const likeRole = container.querySelector('[data-ad-rendering-role="like_button"]');
+      let likeBtn = null;
+      if (likeRole) {
+        likeBtn = (likeRole.closest && likeRole.closest('[role="button"]')) || likeRole.parentElement;
+      }
+      if (!likeBtn) {
+        const candidates = container.querySelectorAll('[role="button"][aria-label="讚"], [role="button"][aria-label="Like"], [role="button"][aria-label*="讚"]');
+        for (const c of candidates) {
+          if (!c.closest || !c.closest('[data-commentid]')) {
+            likeBtn = c;
+            break;
+          }
+        }
+      }
+      if (likeBtn) {
+        hasReactionsBtn = true;
+        reactions = extractButtonCount(likeBtn);
+      }
+      const toolbarCount = container.querySelector('[aria-label*="傳達了心情"], [aria-label^="讚："], [role="toolbar"] [aria-label*="讚"]');
+      if (toolbarCount) {
+        hasReactionsBtn = true;
+        const tbAria = toolbarCount.getAttribute ? (toolbarCount.getAttribute('aria-label') || '') : '';
+        const tbNum = parseMetricNumber(tbAria || toolbarCount.textContent);
+        if (tbNum !== null && tbNum > reactions) {
+          reactions = tbNum;
+        }
+      }
+
+      // 2. Comments (留言數)
+      let comments = 0;
+      let hasCommentsBtn = false;
+      const commentRole = container.querySelector('[data-ad-rendering-role="comment_button"]');
+      let commentBtn = null;
+      if (commentRole) {
+        commentBtn = (commentRole.closest && commentRole.closest('[role="button"]')) || commentRole.parentElement;
+      }
+      if (!commentBtn) {
+        const candidates = container.querySelectorAll('[role="button"][aria-label="留言"], [role="button"][aria-label="Comment"], [role="button"][aria-label*="留言"]');
+        for (const c of candidates) {
+          if (!c.closest || !c.closest('[data-commentid]')) {
+            commentBtn = c;
+            break;
+          }
+        }
+      }
+      if (commentBtn) {
+        hasCommentsBtn = true;
+        comments = extractButtonCount(commentBtn);
+      } else {
+        const spans = container.querySelectorAll('span, div');
+        for (const s of spans) {
+          const t = s.textContent ? s.textContent.trim() : '';
+          const m = t.match(/([0-9,.]+[kKmM萬万]?)\s*(則留言|comments?)/i);
+          if (m) {
+            hasCommentsBtn = true;
+            comments = parseMetricNumber(m[1]) || 0;
+            break;
+          }
+        }
+      }
+
+      // 3. Shares (轉貼數 / 分享數)
+      let shares = 0;
+      let hasSharesBtn = false;
+      const shareRole = container.querySelector('[data-ad-rendering-role="share_button"]');
+      let shareBtn = null;
+      if (shareRole) {
+        shareBtn = (shareRole.closest && shareRole.closest('[role="button"]')) || shareRole.parentElement;
+      }
+      if (!shareBtn) {
+        const candidates = container.querySelectorAll('[role="button"][aria-label*="分享"], [role="button"][aria-label*="Share"], [role="button"][aria-label*="傳送給朋友"]');
+        for (const c of candidates) {
+          if (!c.closest || !c.closest('[data-commentid]')) {
+            shareBtn = c;
+            break;
+          }
+        }
+      }
+      if (shareBtn) {
+        hasSharesBtn = true;
+        shares = extractButtonCount(shareBtn);
+      } else {
+        const spans = container.querySelectorAll('span, div');
+        for (const s of spans) {
+          const t = s.textContent ? s.textContent.trim() : '';
+          const m = t.match(/([0-9,.]+[kKmM萬万]?)\s*(次分享|shares?)/i);
+          if (m) {
+            hasSharesBtn = true;
+            shares = parseMetricNumber(m[1]) || 0;
+            break;
+          }
+        }
+      }
+
+      if (!hasReactionsBtn && !hasCommentsBtn && !hasSharesBtn) {
+        return null;
+      }
+
+      return {
+        reactions,
+        comments,
+        shares
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function isNodeAtOrAfter(boundaryEl, el) {
+    if (!boundaryEl || !el) return false;
+    if (boundaryEl === el) return true;
+    if (boundaryEl.contains && boundaryEl.contains(el)) return true;
+    if (typeof boundaryEl.compareDocumentPosition === 'function') {
+      try {
+        const pos = boundaryEl.compareDocumentPosition(el);
+        return Boolean(pos & 4); // Node.DOCUMENT_POSITION_FOLLOWING
+      } catch (e) {}
+    }
+    return false;
+  }
+
+  function isBelowContentZone(el, boundaryEl) {
+    if (!el) return false;
+    if (boundaryEl && isNodeAtOrAfter(boundaryEl, el)) return true;
+    if (typeof el.closest !== 'function') return false;
+    return Boolean(
+      el.closest('[data-ad-rendering-role="like_button"], [data-ad-rendering-role="comment_button"], [data-ad-rendering-role="share_button"]') ||
+      el.closest('[role="button"][aria-label="讚"], [role="button"][aria-label="Like"], [role="button"][aria-label="留言"], [role="button"][aria-label="Comment"], [role="button"][aria-label*="分享"], [role="button"][aria-label*="Share"], [role="button"][aria-label*="傳送給朋友"]') ||
+      el.closest('form, [data-commentid], [data-testid*="Comment"], [data-testid="UFI2CommentsList/root_depth_0"], div[contenteditable="true"]') ||
+      el.closest('[role="toolbar"], [data-testid*="UFI"]') ||
+      el.closest('[aria-label*="的身分"], [aria-label*="Comment as"]')
+    );
+  }
+
   function scanTextCandidates(container, author, group) {
     const candidates = [];
     if (!container || typeof container.querySelectorAll !== 'function') return candidates;
@@ -665,52 +839,85 @@ window.FBDietUI = (() => {
       const titleNode = titleObj ? titleObj.node : null;
       let acceptedBodyCount = 0;
 
+      // Locate the top boundary of the actions/comments zone
+      const boundaryEl = container.querySelector ? container.querySelector(
+        '[data-ad-rendering-role="like_button"], [data-ad-rendering-role="comment_button"], [data-ad-rendering-role="share_button"], ' +
+        '[role="toolbar"], [data-testid*="UFI"], ' +
+        '[role="button"][aria-label="讚"], [role="button"][aria-label="Like"], ' +
+        'form, [data-testid*="Comment"], div[contenteditable="true"], [aria-label*="的身分"], [aria-label*="Comment as"]'
+      ) : null;
+
       const elements = container.querySelectorAll('h2, h3, h4, h5, [role="heading"], div[dir="auto"], span[dir="auto"]');
       for (const el of elements) {
         if (candidates.length >= 10) break;
         if (isInsideProbeUi(el)) continue;
 
+        // Boundary cutoff: once we reach or pass the social toolbar / comments zone, STOP scanning!
+        if (isBelowContentZone(el, boundaryEl)) {
+          if (boundaryEl && isNodeAtOrAfter(boundaryEl, el)) {
+            break; // Stop traversal immediately; nothing below the action boundary is post content
+          }
+          continue;
+        }
+
         const rawText = extractTextWithEmojis(el).trim();
         if (!rawText) continue;
+
+        // Metric digits belong to extracted.metrics, not post text candidates
+        if (/^[0-9,.]+[kKmM萬万]?$/.test(rawText)) continue;
 
         // Deduplicate identical immediate text
         if (candidates.some((c) => c.text === rawText.slice(0, 30))) continue;
 
         let status = 'candidate';
+        let reason = '';
         const tag = (el.tagName || (el.getAttribute && el.getAttribute('role')) || 'DIV').toUpperCase();
 
         if (isInsideCommentSection(el)) {
           status = 'skipped:comment-section';
+          reason = 'Inside comment section';
         } else if (titleNode && (titleNode === el || (titleNode.contains && titleNode.contains(el)))) {
           status = 'accepted:post-title';
+          reason = 'Accepted as post title';
         } else if (el.closest && el.closest('header, [data-ad-comet-preview="header"]')) {
           status = 'skipped:in-header';
+          reason = 'Post header (author, timestamp, privacy)';
         } else if (el.closest && el.closest('[role="button"], button, [aria-haspopup="menu"]')) {
           status = 'skipped:ui-button';
+          reason = 'UI interactive button text';
         } else if (isStandaloneDomainOrUrl(rawText)) {
           status = 'skipped:url-domain';
+          reason = 'External URL or domain label';
         } else if (isObfuscatedHash(rawText)) {
           status = 'skipped:obfuscated-hash';
+          reason = 'Obfuscated string or hash token';
         } else if (isUiOrActionText(rawText)) {
           status = 'skipped:ui-branding';
+          reason = 'Platform branding or generic UI label';
         } else if (author && (rawText === author || rawText.includes(author))) {
           status = 'skipped:author-heading';
+          reason = 'Post author name';
         } else if (group && (rawText === group || rawText.includes(group))) {
           status = 'skipped:group-name';
+          reason = 'Group or page name';
         } else if (/([·•\s]|^)(追蹤|Follow|關注|加入|Join)([·•\s]|$)/i.test(rawText)) {
           status = 'skipped:action-text';
+          reason = 'Social action text (Follow, Join)';
         } else if (acceptedBodyCount === 0) {
           status = 'accepted:post-body';
+          reason = 'Accepted as primary post body';
           acceptedBodyCount++;
         } else {
           status = 'secondary:body-text';
+          reason = 'Secondary or continuation body paragraph';
         }
 
         candidates.push({
           index: candidates.length,
           tag,
           text: rawText.slice(0, 30),
-          status
+          status,
+          reason
         });
       }
     } catch (e) {}
@@ -800,6 +1007,7 @@ window.FBDietUI = (() => {
       const titleObj = extractPostTitleFromDom(container, actor, group);
       const textCandidates = scanTextCandidates(container, actor, group);
       const reshare = extractReshareFromDom(container, actor);
+      const metrics = extractMetricsFromDom(container);
 
       return {
         actor,
@@ -811,6 +1019,7 @@ window.FBDietUI = (() => {
         urls,
         adUrl: urls.adUrl || null,
         media: extractMediaFromDom(container, isMediaGroup),
+        metrics,
         textCandidates,
         reshare
       };
@@ -831,6 +1040,8 @@ window.FBDietUI = (() => {
     extractPostUrlFromDom,
     extractAllUrlsFromDom,
     extractMediaFromDom,
+    extractMetricsFromDom,
+    parseMetricNumber,
     scanTextCandidates,
     extractReshareFromDom,
     stripTrackingParams

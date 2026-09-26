@@ -46,7 +46,7 @@ window.__fbDietDumpLog();      // prints & returns the stored entries
 window.__fbDietClearLog();     // wipes the log
 ```
 
-### Feed Probe Buttons (per-unit diagnostics, Probe v2)
+### Feed Probe Buttons (per-unit diagnostics, Probe v3)
 
 Enable "Show Feed Probe Buttons" in the Options page (or open Facebook with `?fb_diet_debug=1`).
 Every unit flowing through `FBDietFold` displays dual diagnostic probe buttons on its top-left side:
@@ -55,16 +55,16 @@ Every unit flowing through `FBDietFold` displays dual diagnostic probe buttons o
 
 Clicking either button copies a compact, structured diagnostic JSON report to the clipboard and opens a floating popup (click outside to dismiss).
 
-#### Probe Schema (Version 2)
-The probe diagnostic schema uses an independent `schemaVersion: 2` (decoupled from the extension release version, eliminating the need to tie diagnostic parsers to manifest versions):
-- **Part 1 (Environment)**: `schemaVersion` (2), `type` (`proxy` | `dom`), `dietMode`, `scope` (`restricted`, `allowed`, `path`), `at` (`rendered`, `probed`).
+#### Probe Schema (Version 3)
+The probe diagnostic schema uses an independent `schemaVersion: 3` (decoupled from the extension release version, eliminating the need to tie diagnostic parsers to manifest versions):
+- **Part 1 (Environment)**: `schemaVersion` (3), `type` (`proxy` | `dom`), `dietMode`, `scope` (`restricted`, `allowed`, `path`), `at` (`rendered`, `probed`).
 - **Part 2 (Input)**: `feedPosition`, `postId`, `moduleName`, `unitId` (placed at the end of the input block).
 - **Part 3 (Data & Extraction)**:
   - *Proxy report*: `memory`, `payload`, `classify` (`category`, `categoryEnabled`, `foldMode`, `reason`, `evidence`).
-  - *DOM report*: `urls` (streamlined to `primary` clean URL and optional `synthesized` URL; redundant raw/timestamp/profile URLs pruned), `actor`, `group`, `title`, `media`, `sponsored`, `suggested` (note: redundant `timestamp` text/url is omitted).
+  - *DOM report (`extracted` 已過濾結構化資料)*: `urls` (streamlined to `synthesized` permalink when constructible and `primary` clean URL; redundant raw/timestamp/profile URLs pruned), `actor`, `group`, `title`, `snippet`, `media`, `reshare`, `suggested` (metrics omitted for maximum conciseness).
 - **Part 4 (Diagnostics & Debug)**:
   - *Proxy report*: `signals`, `recordKeys`, `relayReads` (exact paths read and non-null values returned).
-  - *DOM report*: `textCandidates` (truncated text snippets), `debug`.
+  - *DOM Popup*: Displays Author, Title, Snippet, Media, and a directly clickable `Link` hyperlink pointing to `synthesized` (or `primary`), opening in a new tab.
 
 Use it to diagnose missed folds (`classify.category: null` — check `reason`) and wrong folds
 (`reason` maps back to the rule table in [STRATEGY.md](../STRATEGY.md) §3).

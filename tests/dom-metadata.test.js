@@ -334,12 +334,68 @@ function run(c) {
   ]);
   c.equals('comment subtree is never reported as a reshare', metadata.collect(commentCard, false).reshare, null);
 
-  // A wrapper article that contains the sharer's own header is the unit, not a quoted post
+  // A candidate wrapping the unit header is not a reshare
   const wrappedSharerHeader = makeNode('header', {}, [makeNode('h4', { role: 'heading' }, [makeNode('a', { role: 'link', href: '/sharer.page' }, [], '轉貼的人')])]);
   const wrappedQuotedHeader = makeNode('header', {}, [makeNode('h4', { role: 'heading' }, [makeNode('a', { role: 'link', href: '/original.author' }, [], '原作者')])]);
   const unitWrapper = makeNode('div', { role: 'article' }, [wrappedSharerHeader, makeNode('div', { dir: 'auto' }, [], '一般貼文'), wrappedQuotedHeader]);
   const wrapperCard = makeNode('article', {}, [unitWrapper]);
   c.equals('a candidate wrapping the unit header is not a reshare', metadata.collect(wrapperCard, false).reshare, null);
+
+  // Metrics (Reactions, Comments, Shares) tests
+  c.equals('parseMetricNumber parses integers', metadata.parseMetricNumber('46'), 46);
+  c.equals('parseMetricNumber parses comma numbers', metadata.parseMetricNumber('1,234'), 1234);
+  c.equals('parseMetricNumber parses K suffix', metadata.parseMetricNumber('1.2K'), 1200);
+  c.equals('parseMetricNumber parses 萬 suffix', metadata.parseMetricNumber('3.5萬'), 35000);
+  c.equals('parseMetricNumber parses M suffix', metadata.parseMetricNumber('2M'), 2000000);
+  c.equals('parseMetricNumber parses descriptive text', metadata.parseMetricNumber('2 則留言'), 2);
+  c.equals('parseMetricNumber returns null for non-numbers', metadata.parseMetricNumber('留言'), null);
+
+  // Sample 1: data-ad-rendering-role buttons (46 likes, 2 comments, 1 share)
+  const likeRole1 = makeNode('div', { 'data-ad-rendering-role': 'like_button' });
+  const likeSpan1 = makeNode('span', { dir: 'auto' }, [], '46');
+  const likeBtn1 = makeNode('div', { role: 'button', 'aria-label': '讚' }, [likeRole1, likeSpan1]);
+
+  const commentRole1 = makeNode('div', { 'data-ad-rendering-role': 'comment_button' });
+  const commentSpan1 = makeNode('span', { dir: 'auto' }, [], '2');
+  const commentBtn1 = makeNode('div', { role: 'button', 'aria-label': '留言' }, [commentRole1, commentSpan1]);
+
+  const shareRole1 = makeNode('div', { 'data-ad-rendering-role': 'share_button' });
+  const shareSpan1 = makeNode('span', { dir: 'auto' }, [], '1');
+  const shareBtn1 = makeNode('div', { role: 'button', 'aria-label': '傳送給朋友或在個人檔案上發佈。' }, [shareRole1, shareSpan1]);
+
+  const metricsCard1 = makeNode('article', {}, [likeBtn1, commentBtn1, shareBtn1]);
+  const metrics1 = metadata.extractMetricsFromDom(metricsCard1);
+  c.equals('extracts reactions count from Sample 1', metrics1 && metrics1.reactions, 46);
+  c.equals('extracts comments count from Sample 1', metrics1 && metrics1.comments, 2);
+  c.equals('extracts shares count from Sample 1', metrics1 && metrics1.shares, 1);
+
+  // Sample 2: 277 likes, 17 comments, 3 shares
+  const likeRole2 = makeNode('div', { 'data-ad-rendering-role': 'like_button' });
+  const likeSpan2 = makeNode('span', { dir: 'auto' }, [], '277');
+  const likeBtn2 = makeNode('div', { role: 'button', 'aria-label': '讚' }, [likeRole2, likeSpan2]);
+
+  const commentRole2 = makeNode('div', { 'data-ad-rendering-role': 'comment_button' });
+  const commentSpan2 = makeNode('span', { dir: 'auto' }, [], '17');
+  const commentBtn2 = makeNode('div', { role: 'button', 'aria-label': '留言' }, [commentRole2, commentSpan2]);
+
+  const shareRole2 = makeNode('div', { 'data-ad-rendering-role': 'share_button' });
+  const shareSpan2 = makeNode('span', { dir: 'auto' }, [], '3');
+  const shareBtn2 = makeNode('div', { role: 'button', 'aria-label': '傳送給朋友或在個人檔案上發佈。' }, [shareRole2, shareSpan2]);
+
+  const metricsCard2 = makeNode('article', {}, [likeBtn2, commentBtn2, shareBtn2]);
+  const metrics2 = metadata.extractMetricsFromDom(metricsCard2);
+  c.equals('extracts reactions count from Sample 2', metrics2 && metrics2.reactions, 277);
+  c.equals('extracts comments count from Sample 2', metrics2 && metrics2.comments, 17);
+  c.equals('extracts shares count from Sample 2', metrics2 && metrics2.shares, 3);
+
+  // Card with no metric buttons returns null
+  const emptyCard = makeNode('article', {}, [makeNode('div', {}, [], 'Hello World')]);
+  c.equals('card with no metrics buttons returns null', metadata.extractMetricsFromDom(emptyCard), null);
+
+  // Collect incorporates metrics
+  const fullSnapshot = metadata.collect(metricsCard1, false);
+  c.ok('collect includes metrics', fullSnapshot && typeof fullSnapshot.metrics === 'object');
+  c.equals('collect reports correct reactions', fullSnapshot.metrics && fullSnapshot.metrics.reactions, 46);
 }
 
 module.exports = { run };

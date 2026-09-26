@@ -371,6 +371,16 @@ a[target^="rhcad"],
   white-space: pre-wrap;
 }
 
+.fb-diet-probe-popup-row a {
+  color: #60a5fa !important;
+  text-decoration: underline !important;
+  cursor: pointer !important;
+}
+
+.fb-diet-probe-popup-row a:hover {
+  color: #93c5fd !important;
+}
+
 .fb-diet-probe-popup-spacer {
   height: 10px;
 }

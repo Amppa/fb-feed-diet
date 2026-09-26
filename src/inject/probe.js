@@ -10,7 +10,7 @@ window.FBDietProbe = (() => {
   'use strict';
 
   const PROBE_MAX_CHARS = 30000;
-  const PROBE_SCHEMA_VERSION = 2;
+  const PROBE_SCHEMA_VERSION = 3;
   const defaults = window.FB_DIET_DEFAULTS || globalThis.FB_DIET_DEFAULTS || {};
   const keywords = defaults.KEYWORDS || {};
   const DIAGNOSTIC_KEYWORDS = Array.isArray(keywords.DIAGNOSTIC) ? keywords.DIAGNOSTIC : [];
@@ -459,14 +459,14 @@ window.FBDietProbe = (() => {
 
     const liveUrls = (domLive && domLive.urls) || {};
     let cleanUrls = null;
+    if (liveUrls.synthesized) {
+      cleanUrls = cleanUrls || {};
+      cleanUrls.synthesized = liveUrls.synthesized;
+    }
     const primaryUrl = (domLive && domLive.postUrl) || liveUrls.primary || null;
     if (primaryUrl) {
       cleanUrls = cleanUrls || {};
       cleanUrls.primary = primaryUrl;
-    }
-    if (liveUrls.synthesized) {
-      cleanUrls = cleanUrls || {};
-      cleanUrls.synthesized = liveUrls.synthesized;
     }
 
     const domReport = {
@@ -486,19 +486,17 @@ window.FBDietProbe = (() => {
       ...(moduleName ? { moduleName } : {}),
       unitId: unitId || null,
 
-      // Part 3: DOM 提取結果 (DOM Extraction & Suggested Detection)
-      ...(cleanUrls ? { urls: cleanUrls } : {}),
-      ...((domLive && domLive.actor) ? { actor: domLive.actor } : {}),
-      ...((domLive && domLive.group) ? { group: domLive.group } : {}),
-      ...((domLive && domLive.title) ? { title: domLive.title } : {}),
-      ...((domLive && domLive.snippet) ? { snippet: domLive.snippet } : {}),
-      ...((domLive && domLive.media) ? { media: domLive.media } : {}),
-      ...((domLive && domLive.reshare) ? { reshare: domLive.reshare } : {}),
-      ...(domSuggestedLive ? { suggested: domSuggestedLive } : {}),
-
-      // Part 4: 底層文字候選與偵錯 (Raw Candidates & Debug)
-      textCandidates: (domLive && domLive.textCandidates) || [],
-      ...((domSuggestedLive && domSuggestedLive.debug) ? { debug: domSuggestedLive.debug } : {})
+      // Part 3: 已過濾結構化資料 (Filtered / Extracted)
+      extracted: {
+        ...(cleanUrls ? { urls: cleanUrls } : {}),
+        ...((domLive && domLive.actor) ? { actor: domLive.actor } : {}),
+        ...((domLive && domLive.group) ? { group: domLive.group } : {}),
+        ...((domLive && domLive.title) ? { title: domLive.title } : {}),
+        ...((domLive && domLive.snippet) ? { snippet: domLive.snippet } : {}),
+        ...((domLive && domLive.media) ? { media: domLive.media } : {}),
+        ...((domLive && domLive.reshare) ? { reshare: domLive.reshare } : {}),
+        ...(domSuggestedLive ? { suggested: domSuggestedLive } : {})
+      }
     };
 
     let text = null;
@@ -580,55 +578,66 @@ window.FBDietProbe = (() => {
       const modeStr = (report && (report.dietMode || report.mode) ? (report.dietMode || report.mode).toUpperCase() : 'FULL');
 
       if (mode === 'dom') {
+        const ext = (report && report.extracted) || report || {};
         // DOM Probe Popup
         const headerRow = doc.createElement('div');
         headerRow.className = 'fb-diet-probe-popup-row';
         headerRow.textContent = 'DOM Probe (' + modeStr + ')';
         popup.appendChild(headerRow);
 
-        if (report && report.actor) {
+        if (ext.actor) {
           const actorRow = doc.createElement('div');
           actorRow.className = 'fb-diet-probe-popup-row';
-          actorRow.textContent = 'Author: ' + report.actor + (report.group ? ' · Group: ' + report.group : '');
+          actorRow.textContent = 'Author: ' + ext.actor + (ext.group ? ' · Group: ' + ext.group : '');
           popup.appendChild(actorRow);
         }
 
-
-        if (report && report.title && report.title.text) {
+        if (ext.title && ext.title.text) {
           const titleRow = doc.createElement('div');
           titleRow.className = 'fb-diet-probe-popup-row';
-          titleRow.textContent = 'Title: ' + (report.title.text.length > 40 ? report.title.text.slice(0, 40) + '…' : report.title.text);
+          titleRow.textContent = 'Title: ' + (ext.title.text.length > 40 ? ext.title.text.slice(0, 40) + '…' : ext.title.text);
           popup.appendChild(titleRow);
         }
 
-        if (report && report.snippet) {
+        if (ext.snippet) {
           const snipRow = doc.createElement('div');
           snipRow.className = 'fb-diet-probe-popup-row';
-          snipRow.textContent = 'Snippet: ' + (report.snippet.length > 40 ? report.snippet.slice(0, 40) + '…' : report.snippet);
+          snipRow.textContent = 'Snippet: ' + (ext.snippet.length > 40 ? ext.snippet.slice(0, 40) + '…' : ext.snippet);
           popup.appendChild(snipRow);
         }
 
-        if (report && report.media) {
+        if (ext.media) {
           const mediaRow = doc.createElement('div');
           mediaRow.className = 'fb-diet-probe-popup-row';
-          mediaRow.textContent = 'Media: ' + report.media;
+          mediaRow.textContent = 'Media: ' + ext.media;
           popup.appendChild(mediaRow);
         }
 
-        const primaryUrl = report && report.urls && (report.urls.primary || report.urls.raw);
-        if (primaryUrl) {
+        const targetUrl = ext.urls && (ext.urls.synthesized || ext.urls.primary || ext.urls.raw);
+        if (targetUrl) {
           const linkRow = doc.createElement('div');
           linkRow.className = 'fb-diet-probe-popup-row';
-          linkRow.textContent = 'Link: ' + (primaryUrl.length > 50 ? primaryUrl.slice(0, 50) + '…' : primaryUrl);
+          const linkPrefix = doc.createElement('span');
+          linkPrefix.textContent = 'Link: ';
+          linkRow.appendChild(linkPrefix);
+          const anchor = doc.createElement('a');
+          anchor.href = targetUrl;
+          anchor.target = '_blank';
+          anchor.rel = 'noopener noreferrer';
+          anchor.textContent = targetUrl.length > 50 ? targetUrl.slice(0, 50) + '…' : targetUrl;
+          if (anchor.style) {
+            anchor.style.color = '#60a5fa';
+            anchor.style.textDecoration = 'underline';
+            anchor.style.cursor = 'pointer';
+          }
+          anchor.title = targetUrl;
+          if (typeof anchor.addEventListener === 'function') {
+            anchor.addEventListener('click', (e) => {
+              if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+            });
+          }
+          linkRow.appendChild(anchor);
           popup.appendChild(linkRow);
-        }
-
-        const candCount = report && report.textCandidates ? report.textCandidates.length : 0;
-        if (candCount > 0) {
-          const candRow = doc.createElement('div');
-          candRow.className = 'fb-diet-probe-popup-row';
-          candRow.textContent = 'Candidates: ' + candCount + ' items';
-          popup.appendChild(candRow);
         }
 
         const spacer = doc.createElement('div');

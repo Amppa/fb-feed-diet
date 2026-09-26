@@ -20,8 +20,8 @@ Instead of abruptly wiping elements or breaking your feed, **FB Feed Diet** neat
   - Real-time statistics showing how many distractions have been folded.
   - Category breakdown and a one-click reset in the Options page.
 - **Privacy-First & Ultra-Lightweight**:
-  - Zero external tracking, zero third-party dependencies, and zero data leaves your browser.
-  - Highly optimized (< 50KB) to ensure smooth 60fps scrolling.
+  - Zero data collection, zero telemetry. All settings and statistics stay strictly on your local device.
+  - Highly optimized (< 50KB) with zero third-party dependencies and minimal runtime overhead.
 
 ---
 
@@ -57,9 +57,9 @@ The same package also runs on Firefox — the MAIN-world content scripts require
 
 ## 🔒 Privacy & Permissions
 
-- **Storage (`chrome.storage`)**: Used strictly to save your filter preferences and local counter statistics on your device.
-- **Host Permissions (`*://*.facebook.com/*`)**: Required solely to fold ads and render placeholders on Facebook pages.
-- **No Data Collection**: FB Diet does not collect, track, or transmit any personal data, browsing history, or feed content.
+- **Zero Data Collection**: FB Feed Diet does not collect, track, or transmit any user data, browsing history, or feed content.
+- **100% Local Storage**: All settings and statistics are stored strictly on your local device (`chrome.storage.local`) with no backend servers or external telemetry.
+- **Minimal Permissions**: Host permissions (`*://*.facebook.com/*`) are used solely to detect feed cards and render inline fold bars on Facebook.
 
 ---
 
