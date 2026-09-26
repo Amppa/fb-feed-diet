@@ -46,28 +46,25 @@ window.__fbDietDumpLog();      // prints & returns the stored entries
 window.__fbDietClearLog();     // wipes the log
 ```
 
-### Feed Probe Buttons (per-unit diagnostics, Probe v3)
+### Feed Probe Button (per-unit lifecycle diagnostics, Probe v4)
 
 Enable "Show Feed Probe Buttons" in the Options page (or open Facebook with `?fb_diet_debug=1`).
-Every unit flowing through `FBDietFold` displays dual diagnostic probe buttons on its top-left side:
-- **Proxy Probe (🔍)**: Inspects the unit via intercepted Relay payload, GraphQL reads, and classifier state.
-- **DOM Probe (🔍D)**: Inspects the unit via live DOM extraction (author, title, media, clean URLs, and signals).
+Every unit flowing through `FBDietFold` displays a single 🔍 diagnostic button on its top-left side.
+Clicking it copies one unified lifecycle JSON report to the clipboard and opens a floating popup (click outside to dismiss) with the verdict header (Mode/Filter, Category, Signal, Source, Scope) plus the DOM-phase rows (author/group, title, snippet, media and a directly clickable `Link` hyperlink opening in a new tab).
 
-Clicking either button copies a compact, structured diagnostic JSON report to the clipboard and opens a floating popup (click outside to dismiss).
+#### Probe Schema (Version 4)
+The probe diagnostic schema uses an independent `schemaVersion` (4) that describes the **report shape**, while `env.extVersion` records the **release build** that produced it. The two change at different rates — one release has already carried several schema revisions — so keep both: `schemaVersion` tells a reader how to parse the keys, `env.extVersion` tells which rule table produced the verdict (STRATEGY.md decision #31).
+- **Contract**: `schemaVersion` (4) is always the very first key.
+- **Part 1 (`env`) — what produced this report**: `extVersion` (release build), `dietMode` (`lite` | `full`), `lang` (the page's `<html lang>`, since keyword-based rules are locale-sensitive), `probed` (click time, when every live value below was collected).
+- **Part 2 (`unit`) — which unit this is**: `unitId`, `postId`, `moduleName`, `feedPosition`. `unitId` is the Relay record key (`ids[0]` of the unit) and the only place the complete id appears: paste it into `FBDietRelay.describe('<unitId>')` to dump the record. `postId` comes from `feedUnit.post_id`/`clip_id`/… and serves the permalink; a missing `unitId` (with `verdict.reason: 'no-unit-id'`) means the classifier could not anchor the unit at all — the most common cause of a unit never being folded. Note the persistent `fbDietLog` stores only a truncated id (`…` + last 10 chars), so match it by suffix.
+- **Part 3 (`verdict`) — what was decided**: `category`, `reason`, `settingKey`, `foldMode`, plus the nested `scope` (`restricted`, `allowed`, `path`) that conditioned the verdict (decision #26). This is the post-reconciliation result; compare it with `proxy.initialClassify` to see whether live DOM changed the outcome.
+- **Part 4 (lifecycle phases)**:
+  - *`proxy` — render-time memory input (Props/Relay)*: `renderedAt` (when the unit rendered and its props snapshot was captured; `probed - renderedAt` is how long the unit has been mounted), `initialClassify` (pre-DOM verdict: `category`, `signal`, `unitTypename`, `reason`, `evidence`), `entryCategory`, `relay` (`isReady`, `sourceCount`, `reads`, `recordKeys`), `enrichment`, `payload` (post id, `debug_info`, key lists), `signals`, `moduleHealth` (drift watchdog snapshot). Caveat: `relay.isReady`/`sourceCount`/`lastError` and `moduleHealth` are session-level live values read at `probed`, not render-time data.
+  - *`dom` — live mounted-DOM extraction at click time*: `urls` (streamlined to `primary` clean URL and `synthesized` permalink; redundant raw/timestamp/profile URLs pruned), `extracted` (`actor`, `group`, `title`, `snippet`, `media`, `reshare`, `suggested` with its `debug`).
+- Nesting never exceeds two levels, and null/empty members are omitted throughout, so every present key carries information.
 
-#### Probe Schema (Version 3)
-The probe diagnostic schema uses an independent `schemaVersion: 3` (decoupled from the extension release version, eliminating the need to tie diagnostic parsers to manifest versions):
-- **Part 1 (Environment)**: `schemaVersion` (3), `type` (`proxy` | `dom`), `dietMode`, `scope` (`restricted`, `allowed`, `path`), `at` (`rendered`, `probed`).
-- **Part 2 (Input)**: `feedPosition`, `postId`, `moduleName`, `unitId` (placed at the end of the input block).
-- **Part 3 (Data & Extraction)**:
-  - *Proxy report*: `memory`, `payload`, `classify` (`category`, `categoryEnabled`, `foldMode`, `reason`, `evidence`).
-  - *DOM report (`extracted` 已過濾結構化資料)*: `urls` (streamlined to `synthesized` permalink when constructible and `primary` clean URL; redundant raw/timestamp/profile URLs pruned), `actor`, `group`, `title`, `snippet`, `media`, `reshare`, `suggested` (metrics omitted for maximum conciseness).
-- **Part 4 (Diagnostics & Debug)**:
-  - *Proxy report*: `signals`, `recordKeys`, `relayReads` (exact paths read and non-null values returned).
-  - *DOM Popup*: Displays Author, Title, Snippet, Media, and a directly clickable `Link` hyperlink pointing to `synthesized` (or `primary`), opening in a new tab.
-
-Use it to diagnose missed folds (`classify.category: null` — check `reason`) and wrong folds
-(`reason` maps back to the rule table in [STRATEGY.md](../STRATEGY.md) §3).
+Use it to diagnose missed folds (`verdict.category: 'regular'` with `no-match` — compare `proxy.initialClassify` against `verdict` to spot DOM reconciliation) and wrong folds
+(`verdict.reason` maps back to the rule table in [STRATEGY.md](../STRATEGY.md) §3).
 
 ### Options Appearance Settings
 

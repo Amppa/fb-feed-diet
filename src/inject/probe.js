@@ -1,8 +1,9 @@
 /**
  * FB Diet - Probe Diagnostics Module (MAIN world)
  *
- * Provides per-unit JSON diagnostic reports, keyword signal discovery,
- * copy-to-clipboard interactions, and in-place tooltip popups.
+ * Provides per-unit unified lifecycle JSON diagnostic reports (proxy phase +
+ * dom phase), keyword signal discovery, copy-to-clipboard interactions, and
+ * in-place tooltip popups.
  *
  * Public API: window.FBDietProbe
  */
@@ -10,7 +11,7 @@ window.FBDietProbe = (() => {
   'use strict';
 
   const PROBE_MAX_CHARS = 30000;
-  const PROBE_SCHEMA_VERSION = 3;
+  const PROBE_SCHEMA_VERSION = 4;
   const defaults = window.FB_DIET_DEFAULTS || globalThis.FB_DIET_DEFAULTS || {};
   const keywords = defaults.KEYWORDS || {};
   const DIAGNOSTIC_KEYWORDS = Array.isArray(keywords.DIAGNOSTIC) ? keywords.DIAGNOSTIC : [];
@@ -95,6 +96,21 @@ window.FBDietProbe = (() => {
       // Diagnostics must never break the report
     }
     return { restricted: scopeRestricted, allowed: scopeAllowed, path: scopePath };
+  }
+
+  /**
+   * Page locale as declared by Facebook (`<html lang>`). Keyword and string based
+   * classification is locale-sensitive (STRATEGY.md decision #6), so every report
+   * records the locale the rules actually ran against.
+   */
+  function resolvePageLang() {
+    try {
+      const doc = (typeof window !== 'undefined' && window.document)
+        || (typeof document !== 'undefined' ? document : null);
+      return (doc && doc.documentElement && doc.documentElement.lang) || null;
+    } catch (e) {
+      return null;
+    }
   }
 
   /** Relay post id of the unit, handed to the DOM collector so it can synthesize a permalink. */
@@ -193,6 +209,7 @@ window.FBDietProbe = (() => {
       feedPosition: props && props.payload && typeof props.payload.position === 'number' ? props.payload.position : null,
       moduleName: (props && props.moduleName) || (classifyResult && classifyResult.moduleName) || null,
       signals: findDiagnosticSignals(props && props.payload, props && props.lastCmp),
+      pageLang: resolvePageLang(),
       relayStatus: buildRelayStatus(),
       recordKeys: resolveRecordKeys(unitKey),
       payloadKeys,
@@ -250,285 +267,166 @@ window.FBDietProbe = (() => {
     };
   }
 
-  function buildUnitProbeReport(props, classifyResult, relayReads, container, renderedAt) {
-    const ctx = collectProbeContext(props, classifyResult, relayReads, container, renderedAt);
-    const categorySetting = resolveCategorySetting(ctx);
-    const isCategoryOn = categorySetting.enabled;
-    const foldMode = categorySetting.foldMode;
-    const effectiveCategory = ctx.effectiveCategory;
-
-    const report = {
-      schemaVersion: PROBE_SCHEMA_VERSION,
-      mode: ctx.activeMode,
-      dietMode: ctx.activeMode,
-      categorySetting: categorySetting,
-      at: {
-        rendered: ctx.renderIso,
-        probed: ctx.nowIso
-      },
-      url: {
-        post: ctx.postUrl || null,
-        ad: ctx.adUrl || null
-      },
-      moduleName: ctx.props.moduleName || null,
-      position: ctx.feedPosition
-    };
-
-    if (ctx.props && ctx.props.entryCategory !== null && ctx.props.entryCategory !== undefined) {
-      report.entryCategory = ctx.props.entryCategory;
+  /** Drop null/undefined members (and empty arrays) so phase blocks stay compact. */
+  function compact(obj) {
+    const out = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (v === null || v === undefined) continue;
+      if (Array.isArray(v) && v.length === 0) continue;
+      out[k] = v;
     }
-
-    let normalizedEvidence = ctx.classifyResult && ctx.classifyResult.evidence ? Object.assign({}, ctx.classifyResult.evidence) : null;
-    if (normalizedEvidence && normalizedEvidence.id && ctx.classifyResult && normalizedEvidence.id === ctx.classifyResult.unitId) {
-      delete normalizedEvidence.id;
-    }
-    if (ctx.domSuggestedLive && normalizedEvidence) {
-      normalizedEvidence.domSignal = ctx.domSuggestedLive.text || ctx.domSuggestedLive.reason;
-    }
-
-    const liveSignal = (ctx.domSuggestedLive && ctx.domSuggestedLive.signal) ||
-                       (ctx.classifyResult && (ctx.classifyResult.signal || (ctx.classifyResult.domEvidence && ctx.classifyResult.domEvidence.signal))) ||
-                       null;
-
-    report.classify = ctx.classifyResult
-      ? {
-          category: effectiveCategory,
-          signal: liveSignal,
-          categoryEnabled: isCategoryOn,
-          foldMode: foldMode,
-          unitId: ctx.classifyResult.unitId,
-          unitTypename: ctx.classifyResult.unitTypename,
-          reason: ctx.effectiveReason,
-          evidence: normalizedEvidence,
-          moduleName: ctx.classifyResult.moduleName
-        }
-      : null;
-
-    // Dual-track: (1) memory (Props & Relay store in memory), (2) dom (live rendered DOM)
-    report.memory = {
-      enrichment: ctx.enrichment,
-      relayStatus: ctx.relayStatus
-    };
-
-    const domLive = ctx.domLive;
-    const cached = ctx.cached;
-    report.dom = {
-      actor: (domLive && domLive.actor) || (cached && cached.actorName) || null,
-      snippet: (domLive && domLive.snippet) || (cached && cached.snippetText) || null,
-      group: (domLive && domLive.group) || (cached && cached.groupName) || null,
-      postUrl: ctx.postUrl || null,
-      adUrl: ctx.adUrl || null,
-      media: (domLive && domLive.media) || null,
-      urls: (domLive && domLive.urls) || null,
-      title: (domLive && domLive.title) || null,
-      reshare: (domLive && domLive.reshare) || null,
-      textCandidates: (domLive && domLive.textCandidates) || [],
-      suggested: ctx.domSuggestedLive || null,
-      debug: (ctx.domSuggestedLive && ctx.domSuggestedLive.debug) || null
-    };
-
-    report.payload = {
-      feedUnit: {
-        post_id: ctx.postId,
-        debug_info: ctx.feedUnit && typeof ctx.feedUnit.debug_info === 'string' ? (ctx.feedUnit.debug_info.length > 200 ? ctx.feedUnit.debug_info.slice(0, 200) + '…' : ctx.feedUnit.debug_info) : null,
-        th_dat_spo: ctx.feedUnit && ctx.feedUnit.th_dat_spo !== undefined ? ctx.feedUnit.th_dat_spo : null
-      },
-      payloadKeys: ctx.payloadKeys && ctx.payloadKeys.length ? ctx.payloadKeys : null,
-      feedUnitKeys: ctx.feedUnitKeys && ctx.feedUnitKeys.length ? ctx.feedUnitKeys : null,
-      childrenKeys: ctx.childrenKeys && ctx.childrenKeys.length ? ctx.childrenKeys : null
-    };
-
-    // Diagnostic signals found in props
-    report.signals = ctx.signals;
-
-    // The exact Relay paths the classifier tried for THIS unit
-    report.relayReads = Array.isArray(ctx.relayReads) && ctx.relayReads.length ? ctx.relayReads : null;
-
-    report.recordKeys = ctx.recordKeys;
-
-    // Fold-scope context (STRATEGY.md decision #26): was folding restricted for this
-    // report, what is the runtime verdict, and on which path.
-    report.scope = resolveProbeScope();
-
-    return serializeReport(report);
+    return out;
   }
 
-  function buildProxyProbeReport(props, classifyResult, relayReads, renderedAt) {
-    const ctx = collectProbeContext(props, classifyResult, relayReads, null, renderedAt);
+  /**
+   * Unified lifecycle probe report (schema v4): parser contract, then `env` (what
+   * produced it) → `unit` (which unit) → `verdict` (what was decided, incl. the
+   * fold-scope gate) → the two phases, `proxy` (Props/Relay state captured at
+   * render time) and `dom` (live mounted-DOM extraction at click time).
+   */
+  function buildProbeReport(props, classifyResult, relayReads, container, renderedAt) {
+    const ctx = collectProbeContext(props, classifyResult, relayReads, container, renderedAt);
     const categorySetting = resolveCategorySetting(ctx);
+    const cr = ctx.classifyResult;
 
-    let cleanClassify = null;
-    if (ctx.classifyResult) {
-      cleanClassify = {
-        category: ctx.effectiveCategory,
-        unitTypename: ctx.classifyResult.unitTypename,
-        reason: ctx.effectiveReason
-      };
-      const liveSignal = (ctx.classifyResult.signal || (ctx.classifyResult.domEvidence && ctx.classifyResult.domEvidence.signal)) || null;
-      if (liveSignal) {
-        cleanClassify.signal = liveSignal;
-      }
-      const rawEvidence = ctx.classifyResult.evidence ? Object.assign({}, ctx.classifyResult.evidence) : null;
-      if (rawEvidence && rawEvidence.id && ctx.classifyResult.unitId && rawEvidence.id === ctx.classifyResult.unitId) {
-        delete rawEvidence.id;
-      }
-      if (rawEvidence) {
-        const cleanEvidence = {};
-        for (const [k, v] of Object.entries(rawEvidence)) {
-          if (v !== null && v !== undefined) {
-            cleanEvidence[k] = v;
-          }
-        }
-        if (Object.keys(cleanEvidence).length > 0) {
-          cleanClassify.evidence = cleanEvidence;
-        }
-      }
+    let initialClassify = null;
+    let rawEvidence = cr && cr.evidence ? Object.assign({}, cr.evidence) : null;
+    if (rawEvidence && rawEvidence.id && cr && rawEvidence.id === cr.unitId) {
+      delete rawEvidence.id;
     }
-
-    const cleanMemory = {};
-    if (ctx.enrichment) {
-      cleanMemory.enrichment = ctx.enrichment;
-    }
-    if (ctx.relayStatus) {
-      const rs = {
-        isReady: ctx.relayStatus.isReady,
-        sourceCount: ctx.relayStatus.sourceCount
-      };
-      if (ctx.relayStatus.lastError) {
-        rs.lastError = ctx.relayStatus.lastError;
+    if (rawEvidence) {
+      const cleanEvidence = {};
+      for (const [k, v] of Object.entries(rawEvidence)) {
+        if (v !== null && v !== undefined) cleanEvidence[k] = v;
       }
-      cleanMemory.relayStatus = rs;
+      rawEvidence = Object.keys(cleanEvidence).length ? cleanEvidence : null;
     }
-
-    const cleanPayload = {
-      feedUnit: {
-        post_id: ctx.postId
-      }
-    };
-    if (ctx.feedUnit && typeof ctx.feedUnit.debug_info === 'string' && ctx.feedUnit.debug_info) {
-      cleanPayload.feedUnit.debug_info = ctx.feedUnit.debug_info.length > 200 ? ctx.feedUnit.debug_info.slice(0, 200) + '…' : ctx.feedUnit.debug_info;
+    if (rawEvidence && ctx.domSuggestedLive) {
+      rawEvidence.domSignal = ctx.domSuggestedLive.text || ctx.domSuggestedLive.reason;
     }
-    if (ctx.feedUnit && ctx.feedUnit.th_dat_spo !== null && ctx.feedUnit.th_dat_spo !== undefined) {
-      cleanPayload.feedUnit.th_dat_spo = ctx.feedUnit.th_dat_spo;
-    }
-    if (ctx.payloadKeys && ctx.payloadKeys.length) cleanPayload.payloadKeys = ctx.payloadKeys;
-    if (ctx.feedUnitKeys && ctx.feedUnitKeys.length) cleanPayload.feedUnitKeys = ctx.feedUnitKeys;
-    if (ctx.childrenKeys && ctx.childrenKeys.length) cleanPayload.childrenKeys = ctx.childrenKeys;
-
-    let activeRelayReads = null;
-    if (Array.isArray(relayReads) && relayReads.length > 0) {
-      activeRelayReads = relayReads.filter((item) => {
-        if (typeof item === 'string') return true;
-        return item && item.value !== null && item.value !== undefined;
+    if (cr) {
+      initialClassify = compact({
+        category: cr.category,
+        signal: (cr.signal || (cr.domEvidence && cr.domEvidence.signal)) || null,
+        unitTypename: cr.unitTypename,
+        reason: cr.reason,
+        moduleName: cr.moduleName,
+        evidence: rawEvidence
       });
     }
 
-    const proxyReport = {
-      // Part 1: 環境 (Environment)
-      schemaVersion: PROBE_SCHEMA_VERSION,
-      type: 'proxy',
-      dietMode: ctx.activeMode,
-      scope: resolveProbeScope(),
-      at: {
-        rendered: ctx.renderIso,
-        probed: ctx.nowIso
-      },
-
-      // Part 2: 輸入 (Input Context)
-      feedPosition: ctx.feedPosition,
-      postId: ctx.postId || null,
-      ...(ctx.props && ctx.props.moduleName ? { moduleName: ctx.props.moduleName } : {}),
-      unitId: ctx.unitKey || null,
-
-      // Part 3: 分類與策略結果 (Classification & Policy)
-      classify: cleanClassify,
-      categorySetting: categorySetting,
-
-      // Part 4: 底層除錯數據 (Raw Diagnostics)
-      memory: cleanMemory,
-      payload: cleanPayload
-    };
-
-    if (ctx.props && ctx.props.entryCategory !== null && ctx.props.entryCategory !== undefined) proxyReport.entryCategory = ctx.props.entryCategory;
-    if (ctx.signals && ctx.signals.length) proxyReport.signals = ctx.signals;
-    if (activeRelayReads && activeRelayReads.length) proxyReport.relayReads = activeRelayReads;
-    if (ctx.recordKeys && ctx.recordKeys.length) proxyReport.recordKeys = ctx.recordKeys;
-    if (ctx.postUrl || ctx.adUrl) {
-      proxyReport.url = {};
-      if (ctx.postUrl) proxyReport.url.post = ctx.postUrl;
-      if (ctx.adUrl) proxyReport.url.ad = ctx.adUrl;
+    let relay = null;
+    if (ctx.relayStatus) {
+      relay = compact({
+        isReady: ctx.relayStatus.isReady,
+        sourceCount: ctx.relayStatus.sourceCount,
+        lastError: ctx.relayStatus.lastError,
+        reads: Array.isArray(relayReads) && relayReads.length
+          ? relayReads.filter((item) => typeof item === 'string' || (item && item.value !== null && item.value !== undefined))
+          : null,
+        recordKeys: ctx.recordKeys && ctx.recordKeys.length ? ctx.recordKeys : null
+      });
     }
 
-    // Session-level module drift snapshot: did the hard-coded FEED_UNIT_MODULES names
-    // still match Facebook's loader? (FBDietProxy.getModuleHealth / FBDietFold.checkModuleDrift)
+    const feedUnitInfo = compact({
+      post_id: ctx.postId,
+      debug_info: ctx.feedUnit && typeof ctx.feedUnit.debug_info === 'string' && ctx.feedUnit.debug_info
+        ? (ctx.feedUnit.debug_info.length > 200 ? ctx.feedUnit.debug_info.slice(0, 200) + '…' : ctx.feedUnit.debug_info)
+        : null,
+      th_dat_spo: ctx.feedUnit && ctx.feedUnit.th_dat_spo !== null && ctx.feedUnit.th_dat_spo !== undefined ? ctx.feedUnit.th_dat_spo : null,
+      payloadKeys: ctx.payloadKeys && ctx.payloadKeys.length ? ctx.payloadKeys : null,
+      feedUnitKeys: ctx.feedUnitKeys && ctx.feedUnitKeys.length ? ctx.feedUnitKeys : null,
+      childrenKeys: ctx.childrenKeys && ctx.childrenKeys.length ? ctx.childrenKeys : null
+    });
+
+    let moduleHealth = null;
     try {
       const proxy = window.FBDietProxy;
       if (proxy && typeof proxy.getModuleHealth === 'function') {
         const health = proxy.getModuleHealth();
         const fold = window.FBDietFold;
-        const verdict = fold && typeof fold.checkModuleDrift === 'function' ? fold.checkModuleDrift() : null;
-        const snapshot = {
+        const drift = fold && typeof fold.checkModuleDrift === 'function' ? fold.checkModuleDrift() : null;
+        moduleHealth = compact({
           dCalls: health.dCalls,
           registered: health.registered,
           seen: health.seen,
           patched: health.patched,
-          suspected: Boolean(verdict && verdict.suspected)
-        };
-        if (health.unseen && health.unseen.length) snapshot.unseen = health.unseen;
-        proxyReport.moduleHealth = snapshot;
+          suspected: Boolean(drift && drift.suspected),
+          unseen: health.unseen && health.unseen.length ? health.unseen : null
+        });
       }
     } catch (e) {}
 
-    return serializeReport(proxyReport);
-  }
-
-  function buildDomProbeReport(container, props, classifyResult, renderedAt) {
-    const ctx = collectProbeContext(props, classifyResult, null, container, renderedAt);
-
-    const liveUrls = (ctx.domLive && ctx.domLive.urls) || {};
-    let cleanUrls = null;
-    if (liveUrls.synthesized) {
-      cleanUrls = cleanUrls || {};
-      cleanUrls.synthesized = liveUrls.synthesized;
-    }
-    const primaryUrl = (ctx.domLive && ctx.domLive.postUrl) || liveUrls.primary || null;
-    if (primaryUrl) {
-      cleanUrls = cleanUrls || {};
-      cleanUrls.primary = primaryUrl;
-    }
+    const proxyBlock = compact({
+      renderedAt: ctx.renderIso,
+      initialClassify: initialClassify,
+      entryCategory: ctx.props && ctx.props.entryCategory !== null && ctx.props.entryCategory !== undefined ? ctx.props.entryCategory : null,
+      relay: relay,
+      enrichment: ctx.enrichment,
+      payload: feedUnitInfo,
+      signals: ctx.signals && ctx.signals.length ? ctx.signals : null,
+      moduleHealth: moduleHealth
+    });
 
     const domLive = ctx.domLive;
-    const domReport = {
-      // Part 1: 環境 (Environment)
+    const cached = ctx.cached;
+    const liveUrls = (domLive && domLive.urls) || {};
+    const primaryUrl = (domLive && domLive.postUrl) || liveUrls.primary || null;
+    const urls = compact({
+      primary: primaryUrl,
+      synthesized: liveUrls.synthesized || null,
+      ad: ctx.adUrl
+    });
+    const extracted = compact({
+      actor: (domLive && domLive.actor) || (cached && cached.actorName) || null,
+      group: (domLive && domLive.group) || (cached && cached.groupName) || null,
+      title: (domLive && domLive.title) || null,
+      snippet: (domLive && domLive.snippet) || (cached && cached.snippetText) || null,
+      media: (domLive && domLive.media) || null,
+      reshare: (domLive && domLive.reshare) || null,
+      suggested: ctx.domSuggestedLive || null
+    });
+    const domBlock = compact({
+      urls: Object.keys(urls).length ? urls : null,
+      extracted: Object.keys(extracted).length ? extracted : null
+    });
+
+    const report = {
+      // Parser contract first: it says how to read everything below.
       schemaVersion: PROBE_SCHEMA_VERSION,
-      type: 'dom',
-      dietMode: ctx.activeMode,
-      scope: resolveProbeScope(),
-      at: {
-        rendered: ctx.renderIso,
+
+      // Part 1: 環境 (What produced this report, and when)
+      env: compact({
+        extVersion: defaults.VERSION || null,
+        dietMode: ctx.activeMode,
+        lang: ctx.pageLang,
         probed: ctx.nowIso
-      },
+      }),
 
-      // Part 2: 輸入 (Input Context)
-      feedPosition: ctx.feedPosition,
-      postId: ctx.postId || null,
-      ...(ctx.moduleName ? { moduleName: ctx.moduleName } : {}),
-      unitId: ctx.unitKey || null,
+      // Part 2: 單元識別 (Which unit this report is about)
+      unit: compact({
+        unitId: ctx.unitKey,
+        postId: ctx.postId,
+        moduleName: ctx.props && ctx.props.moduleName ? ctx.props.moduleName : (cr && cr.moduleName) || null,
+        feedPosition: ctx.feedPosition
+      }),
 
-      // Part 3: 已過濾結構化資料 (Filtered / Extracted)
-      extracted: {
-        ...(cleanUrls ? { urls: cleanUrls } : {}),
-        ...((domLive && domLive.actor) ? { actor: domLive.actor } : {}),
-        ...((domLive && domLive.group) ? { group: domLive.group } : {}),
-        ...((domLive && domLive.title) ? { title: domLive.title } : {}),
-        ...((domLive && domLive.snippet) ? { snippet: domLive.snippet } : {}),
-        ...((domLive && domLive.media) ? { media: domLive.media } : {}),
-        ...((domLive && domLive.reshare) ? { reshare: domLive.reshare } : {}),
-        ...(ctx.domSuggestedLive ? { suggested: ctx.domSuggestedLive } : {})
-      }
+      // Part 3: 裁決 (The verdict, with the fold-scope gate that conditioned it)
+      verdict: compact({
+        category: categorySetting.category,
+        reason: ctx.effectiveReason,
+        settingKey: categorySetting.key,
+        foldMode: categorySetting.foldMode,
+        // Fold-scope context (STRATEGY.md decision #26)
+        scope: resolveProbeScope()
+      }),
+
+      // Part 4: 兩階段生命週期 (Lifecycle phases: render-time input, click-time DOM)
+      proxy: proxyBlock,
+      dom: domBlock
     };
 
-    return serializeReport(domReport);
+    return serializeReport(report);
   }
 
   function promptFallbackCopy(payload) {
@@ -597,29 +495,61 @@ window.FBDietProbe = (() => {
     return [spacer, popupRow(doc, '已複製 ' + label + ' 診斷 JSON 到剪貼簿 (Copied)')];
   }
 
-  function renderDomPopup(doc, popup, report) {
-    const modeStr = (report && (report.dietMode || report.mode) ? (report.dietMode || report.mode).toUpperCase() : 'FULL');
-    const ext = (report && report.extracted) || report || {};
+  function renderUnifiedPopup(doc, popup, report, classifyResult, props) {
+    const modeStr = (report && report.env && report.env.dietMode ? report.env.dietMode.toUpperCase() : 'FULL');
+    const verdict = (report && report.verdict) || {};
+    const category = verdict.category
+      || (classifyResult && classifyResult.category)
+      || (props && props.entryCategory)
+      || 'regular';
+    const reason = verdict.reason
+      || (classifyResult && classifyResult.reason)
+      || (props && props.moduleName ? 'component:' + props.moduleName : 'no-match');
 
-    popup.appendChild(popupRow(doc, 'DOM Probe (' + modeStr + ')'));
+    const evidence = classifyResult && classifyResult.evidence;
+    const source = evidence && evidence.source && evidence.source !== 'none' ? evidence.source : null;
+    const mod = (classifyResult && classifyResult.moduleName) || (report && report.unit && report.unit.moduleName) || null;
+    let evidenceText = source || '';
+    if (mod) {
+      evidenceText = evidenceText ? evidenceText + ' (' + mod + ')' : mod;
+    }
+    if (!evidenceText) evidenceText = 'none';
 
-    if (ext.actor) {
-      popup.appendChild(popupRow(doc, 'Author: ' + ext.actor + (ext.group ? ' · Group: ' + ext.group : '')));
+    const ui = window.FBDietUI;
+    const userFacingGroup = ui && typeof ui.groupOf === 'function' ? ui.groupOf(category) : 'regular';
+    const groupMeta = (ui && ui.GROUP_META && ui.GROUP_META[userFacingGroup]) || { badgeText: 'Other' };
+
+    const foldMode = verdict.foldMode || 'off';
+    const statusText = foldMode !== 'off' ? 'ON (' + foldMode + ')' : 'OFF';
+
+    popup.appendChild(popupRow(doc, 'Mode: ' + modeStr + ' · Filter: ' + statusText));
+    popup.appendChild(popupRow(doc, 'Category: ' + groupMeta.badgeText + ' (' + category + ')'));
+    popup.appendChild(popupRow(doc, 'Signal: ' + reason));
+    popup.appendChild(popupRow(doc, 'Source: ' + evidenceText));
+
+    const scope = verdict.scope;
+    if (scope) {
+      popup.appendChild(popupRow(doc, 'Scope: ' + (scope.allowed ? 'home/search/marketplace' : 'groups/profile')));
     }
 
+    const dom = (report && report.dom) || {};
+    const ext = dom.extracted || {};
+    const urls = dom.urls || {};
+
+    if (ext.actor || ext.group) {
+      popup.appendChild(popupRow(doc, 'Author: ' + (ext.actor || '-') + (ext.group ? ' · Group: ' + ext.group : '')));
+    }
     if (ext.title && ext.title.text) {
       popup.appendChild(popupRow(doc, 'Title: ' + (ext.title.text.length > 40 ? ext.title.text.slice(0, 40) + '…' : ext.title.text)));
     }
-
     if (ext.snippet) {
       popup.appendChild(popupRow(doc, 'Snippet: ' + (ext.snippet.length > 40 ? ext.snippet.slice(0, 40) + '…' : ext.snippet)));
     }
-
     if (ext.media) {
       popup.appendChild(popupRow(doc, 'Media: ' + ext.media));
     }
 
-    const targetUrl = ext.urls && (ext.urls.synthesized || ext.urls.primary || ext.urls.raw);
+    const targetUrl = urls.synthesized || urls.primary || urls.ad;
     if (targetUrl) {
       const linkRow = doc.createElement('div');
       linkRow.className = 'fb-diet-probe-popup-row';
@@ -646,57 +576,11 @@ window.FBDietProbe = (() => {
       popup.appendChild(linkRow);
     }
 
-    const footer = popupCopiedFooter(doc, 'DOM');
+    const footer = popupCopiedFooter(doc, '生命週期');
     footer.forEach((node) => popup.appendChild(node));
   }
 
-  function renderProxyPopup(doc, popup, report, classifyResult, props) {
-    const modeStr = (report && (report.dietMode || report.mode) ? (report.dietMode || report.mode).toUpperCase() : 'FULL');
-
-    const category = (report && report.classify && report.classify.category)
-      || (report && report.categorySetting && report.categorySetting.category)
-      || (classifyResult && classifyResult.category)
-      || (props && props.entryCategory)
-      || 'regular';
-    const reason = (report && report.classify && report.classify.reason)
-      || (classifyResult && classifyResult.reason)
-      || (props && props.moduleName ? 'component:' + props.moduleName : 'no-match');
-
-    const evidence = classifyResult && classifyResult.evidence;
-    const source = evidence && evidence.source && evidence.source !== 'none' ? evidence.source : null;
-    const mod = (classifyResult && classifyResult.moduleName) || (props && props.moduleName) || null;
-    let evidenceText = source || '';
-    if (mod) {
-      evidenceText = evidenceText ? evidenceText + ' (' + mod + ')' : mod;
-    }
-    if (!evidenceText) evidenceText = 'none';
-
-    const ui = window.FBDietUI;
-    const userFacingGroup = ui && typeof ui.groupOf === 'function' ? ui.groupOf(category) : 'regular';
-    const groupMeta = (ui && ui.GROUP_META && ui.GROUP_META[userFacingGroup]) || { badgeText: 'Other' };
-
-    const catSetting = report && report.categorySetting;
-    const statusText = catSetting ? (catSetting.enabled ? 'ON (' + catSetting.foldMode + ')' : 'OFF') : 'OFF';
-
-    popup.appendChild(popupRow(doc, 'Mode: ' + modeStr + ' · Filter: ' + statusText));
-    popup.appendChild(popupRow(doc, 'Category: ' + groupMeta.badgeText + ' (' + category + ')'));
-    popup.appendChild(popupRow(doc, 'Signal: ' + reason));
-    popup.appendChild(popupRow(doc, 'Source: ' + evidenceText));
-
-    if (report && report.scope) {
-      popup.appendChild(popupRow(doc, 'Scope: ' + (report.scope.allowed ? 'home/search/marketplace' : 'groups/profile')));
-    }
-
-    const postUrl = report && report.url && (report.url.post || report.url.ad);
-    if (postUrl) {
-      popup.appendChild(popupRow(doc, 'Link: ' + (postUrl.length > 50 ? postUrl.slice(0, 50) + '…' : postUrl)));
-    }
-
-    const footer = popupCopiedFooter(doc, 'Proxy');
-    footer.forEach((node) => popup.appendChild(node));
-  }
-
-  function showProbePopup(holder, classifyResult, props, report, mode) {
+  function showProbePopup(holder, classifyResult, props, report) {
     try {
       const doc = (typeof document !== 'undefined' ? document : null)
         || (typeof window !== 'undefined' && window.document ? window.document : null)
@@ -709,11 +593,7 @@ window.FBDietProbe = (() => {
       popup.className = 'fb-diet-probe-popup';
       popup.title = '點擊外部可關閉提示 (Click outside to dismiss)';
 
-      if (mode === 'dom') {
-        renderDomPopup(doc, popup, report);
-      } else {
-        renderProxyPopup(doc, popup, report, classifyResult, props);
-      }
+      renderUnifiedPopup(doc, popup, report, classifyResult, props);
 
       holder.appendChild(popup);
       activeProbePopup = popup;
@@ -730,8 +610,8 @@ window.FBDietProbe = (() => {
   }
 
   /**
-   * Wraps the unit's render output in a relative holder; the dual probe buttons
-   * (⚡ Proxy and 🔍 DOM) are appended when probe mode is on.
+   * Wraps the unit's render output in a relative holder; the unified lifecycle
+   * probe button (🔍) is appended when probe mode is on.
    */
   function addProbe(element, props, classifyResult, relayReads) {
     try {
@@ -746,33 +626,7 @@ window.FBDietProbe = (() => {
 
       const renderedAt = new Date().toISOString();
 
-      const onProxyClick = (event) => {
-        try {
-          if (event) {
-            if (typeof event.stopPropagation === 'function') event.stopPropagation();
-            if (typeof event.preventDefault === 'function') event.preventDefault();
-          }
-        } catch (e) {}
-
-        const btn = event && (event.currentTarget || event.target);
-        const holder = btn && typeof btn.closest === 'function'
-          ? btn.closest('.fb-diet-probe-holder')
-          : (btn ? btn.parentElement : null);
-
-        const liveProbe = buildProxyProbeReport(props, classifyResult, relayReads, renderedAt);
-        const reportText = liveProbe.text;
-
-        try {
-          console.info('[FB Diet][Probe] Copied PROXY diagnostics to clipboard.');
-        } catch (e) {}
-        copyProbeReport(reportText);
-
-        try {
-          if (holder) showProbePopup(holder, classifyResult, props, liveProbe.report, 'proxy');
-        } catch (e) {}
-      };
-
-      const onDomClick = (event) => {
+      const onProbeClick = (event) => {
         try {
           if (event) {
             if (typeof event.stopPropagation === 'function') event.stopPropagation();
@@ -788,16 +642,16 @@ window.FBDietProbe = (() => {
           ? (holder.querySelector('.fb-diet-fold-hidden, .fb-diet-expand-body') || holder)
           : null;
 
-        const liveProbe = buildDomProbeReport(container, props, classifyResult, renderedAt);
+        const liveProbe = buildProbeReport(props, classifyResult, relayReads, container, renderedAt);
         const reportText = liveProbe.text;
 
         try {
-          console.info('[FB Diet][Probe] Copied DOM diagnostics to clipboard.');
+          console.info('[FB Diet][Probe] Copied lifecycle diagnostics to clipboard.');
         } catch (e) {}
         copyProbeReport(reportText);
 
         try {
-          if (holder) showProbePopup(holder, classifyResult, props, liveProbe.report, 'dom');
+          if (holder) showProbePopup(holder, classifyResult, props, liveProbe.report);
         } catch (e) {}
       };
 
@@ -805,17 +659,12 @@ window.FBDietProbe = (() => {
         return window.FBDietProxy ? window.FBDietProxy.createElement(React, type, p, c) : null;
       };
 
-      const buttonProxy = createEl(
+      const buttonProbe = createEl(
         'button',
-        { className: 'fb-diet-probe-btn fb-diet-probe-btn-proxy', type: 'button', title: 'FB Diet: copy Proxy/Relay diagnostics (JSON)', onClick: onProxyClick },
-        ['⚡']
-      );
-      const buttonDom = createEl(
-        'button',
-        { className: 'fb-diet-probe-btn fb-diet-probe-btn-dom', type: 'button', title: 'FB Diet: copy DOM diagnostics (JSON)', onClick: onDomClick },
+        { className: 'fb-diet-probe-btn fb-diet-probe-btn-unified', type: 'button', title: 'FB Diet: copy lifecycle diagnostics (JSON)', onClick: onProbeClick },
         ['🔍']
       );
-      const buttonGroup = createEl('div', { className: 'fb-diet-probe-group' }, [buttonProxy, buttonDom]);
+      const buttonGroup = createEl('div', { className: 'fb-diet-probe-group' }, [buttonProbe]);
       return createEl('div', { className: 'fb-diet-probe-holder' }, [buttonGroup, element]);
     } catch (e) {
       return element;
@@ -826,9 +675,7 @@ window.FBDietProbe = (() => {
     PROBE_MAX_CHARS,
     SCHEMA_VERSION: PROBE_SCHEMA_VERSION,
     findDiagnosticSignals,
-    buildUnitProbeReport,
-    buildProxyProbeReport,
-    buildDomProbeReport,
+    buildProbeReport,
     promptFallbackCopy,
     copyProbeReport,
     closeActiveProbePopup,

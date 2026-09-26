@@ -235,16 +235,15 @@ function run(c) {
     c.ok('probe on wraps the fold', probed.type === 'div' && probed.props.className === 'fb-diet-probe-holder');
     const probeKids = probed.props.children;
     const probeGroup = Array.isArray(probeKids) && probeKids[0];
-    const probeButtons = probeGroup && probeGroup.props && probeGroup.props.children;
+    const rawButtons = probeGroup && probeGroup.props && probeGroup.props.children;
+    const probeButtons = Array.isArray(rawButtons) ? rawButtons : (rawButtons ? [rawButtons] : null);
     c.ok('probe holder carries button group + fold', Array.isArray(probeKids) && probeKids.length === 2 && probeGroup.props.className === 'fb-diet-probe-group');
-    c.ok('probe group carries dual buttons (proxy and dom)', Array.isArray(probeButtons) && probeButtons.length === 2 && probeButtons[0].props.className.includes('fb-diet-probe-btn-proxy') && probeButtons[1].props.className.includes('fb-diet-probe-btn-dom'));
-    c.ok('proxy probe button carries a click handler', typeof probeButtons[0].props.onClick === 'function');
-    c.ok('dom probe button carries a click handler', typeof probeButtons[1].props.onClick === 'function');
+    c.ok('probe group carries the single unified button', Array.isArray(probeButtons) && probeButtons.length === 1 && probeButtons[0].props.className.includes('fb-diet-probe-btn-unified'));
+    c.ok('unified probe button carries a click handler', typeof probeButtons[0].props.onClick === 'function');
     // Clicking must not throw even inside the test harness
     let clickThrew = false;
     try {
       probeButtons[0].props.onClick({ stopPropagation() {}, preventDefault() {} });
-      probeButtons[1].props.onClick({ stopPropagation() {}, preventDefault() {} });
     } catch (e) {
       clickThrew = true;
     }
@@ -253,7 +252,7 @@ function run(c) {
     t.bridge.setSettings({ debugProbe: false });
     c.ok('probe off restores the plain fold', t.render(payloadOf('u1')).type === t.React.Fragment);
 
-    /* --- probe report shape (Probe v2) --- */
+    /* --- probe report shape (Probe v4 unified lifecycle) --- */
     const classifyRes = {
       category: 'sponsored',
       unitId: 'u1',
@@ -261,25 +260,31 @@ function run(c) {
       reason: 'sponsored_data.ad_id',
       evidence: { ownTypename: 'FeedUnitRoot', adId: 'ad-1', id: 'u1', idCount: 1 }
     };
-    const reportWithoutEntry = t.win.FBDietProbe.buildUnitProbeReport({ payload: { feedUnit: { id: 'u1', __typename: 'FeedUnitRoot', post_id: 'p123' } } }, classifyRes, []).report;
-    c.equals('entryCategory omitted when null', reportWithoutEntry.entryCategory, undefined);
+    const reportWithoutEntry = t.win.FBDietProbe.buildProbeReport({ payload: { feedUnit: { id: 'u1', __typename: 'FeedUnitRoot', post_id: 'p123' } } }, classifyRes, [], null).report;
+    c.equals('entryCategory omitted when null', reportWithoutEntry.proxy.entryCategory, undefined);
     c.equals('settings omitted from report', reportWithoutEntry.settings, undefined);
     c.equals('top-level unitTypename removed', reportWithoutEntry.unitTypename, undefined);
-    c.equals('payload.feedUnit post_id preserved', reportWithoutEntry.payload.feedUnit.post_id, 'p123');
-    c.equals('payload.feedUnit __id removed', reportWithoutEntry.payload.feedUnit.__id, undefined);
-    c.equals('payload.feedUnit __typename removed', reportWithoutEntry.payload.feedUnit.__typename, undefined);
-    c.ok('payloadKeys captured', Array.isArray(reportWithoutEntry.payload.payloadKeys));
-    c.ok('feedUnitKeys captured', Array.isArray(reportWithoutEntry.payload.feedUnitKeys));
-    c.equals('schemaVersion matches PROBE_SCHEMA_VERSION', reportWithoutEntry.schemaVersion, 3);
-    c.equals('probe report has no app version', reportWithoutEntry.version, undefined);
-    c.ok('at.rendered present', Boolean(reportWithoutEntry.at && reportWithoutEntry.at.rendered));
-    c.ok('at.probed present', Boolean(reportWithoutEntry.at && reportWithoutEntry.at.probed));
-    c.ok('memory object present', Boolean(reportWithoutEntry.memory));
-    c.ok('dom object present', Boolean(reportWithoutEntry.dom));
-    c.ok('url object present', Boolean(reportWithoutEntry.url));
-    c.equals('outer enrichment removed', reportWithoutEntry.enrichment, undefined);
+    c.equals('payload.feedUnit post_id preserved', reportWithoutEntry.proxy.payload.post_id, 'p123');
+    c.equals('payload.feedUnit __id removed', reportWithoutEntry.proxy.payload.__id, undefined);
+    c.equals('payload.feedUnit __typename removed', reportWithoutEntry.proxy.payload.__typename, undefined);
+    c.ok('payloadKeys captured', Array.isArray(reportWithoutEntry.proxy.payload.payloadKeys));
+    c.ok('feedUnitKeys captured', Array.isArray(reportWithoutEntry.proxy.payload.feedUnitKeys));
+    c.equals('schemaVersion matches PROBE_SCHEMA_VERSION', reportWithoutEntry.schemaVersion, 4);
+    c.equals('probe report has no bare version key', reportWithoutEntry.version, undefined);
+    c.equals('env.extVersion records the release build', reportWithoutEntry.env.extVersion, t.win.FB_DIET_DEFAULTS.VERSION);
+    c.equals('retired at block removed', reportWithoutEntry.at, undefined);
+    c.ok('env.probed present', Boolean(reportWithoutEntry.env.probed));
+    c.ok('proxy.renderedAt present', Boolean(reportWithoutEntry.proxy.renderedAt));
+    c.ok('unit block carries unitId and postId', reportWithoutEntry.unit.unitId === 'u1' && reportWithoutEntry.unit.postId === 'p123');
+    c.ok('verdict block carries category and default-on ads fold', reportWithoutEntry.verdict.category === 'sponsored' && reportWithoutEntry.verdict.foldMode === 'title' && reportWithoutEntry.verdict.settingKey === 'foldAds');
+    c.equals('redundant mode alias key removed', reportWithoutEntry.mode, undefined);
+    c.equals('verdict carries no redundant enabled boolean', reportWithoutEntry.verdict.enabled, undefined);
+    c.ok('dom phase object present', Boolean(reportWithoutEntry.dom));
+    c.equals('relay block omitted without the relay module', reportWithoutEntry.proxy.relay, undefined);
+    c.equals('memory.enrichment relocated under proxy', reportWithoutEntry.memory, undefined);
+    c.ok('proxy.initialClassify keeps the pre-DOM category', reportWithoutEntry.proxy.initialClassify.category === 'sponsored');
 
-    const reportWithSignals = t.win.FBDietProbe.buildUnitProbeReport({
+    const reportWithSignals = t.win.FBDietProbe.buildProbeReport({
       payload: {
         feedUnit: {
           comet_sections: {
@@ -291,29 +296,29 @@ function run(c) {
           }
         }
       }
-    }, classifyRes, []).report;
-    c.ok('diagnostic signals extracted', Array.isArray(reportWithSignals.signals) && reportWithSignals.signals.length > 0);
-    c.equals('signal path matches', reportWithSignals.signals[0].path, 'feedUnit.comet_sections.header.story.title.text');
-    c.equals('signal value matches', reportWithSignals.signals[0].value, '為你推薦');
+    }, classifyRes, [], null).report;
+    c.ok('diagnostic signals extracted under proxy', Array.isArray(reportWithSignals.proxy.signals) && reportWithSignals.proxy.signals.length > 0);
+    c.equals('signal path matches', reportWithSignals.proxy.signals[0].path, 'feedUnit.comet_sections.header.story.title.text');
+    c.equals('signal value matches', reportWithSignals.proxy.signals[0].value, '為你推薦');
 
-    const reportWithEntry = t.win.FBDietProbe.buildUnitProbeReport({ entryCategory: 'marketAds', payload: { feedUnit: {} } }, classifyRes, []).report;
-    c.equals('entryCategory present when provided', reportWithEntry.entryCategory, 'marketAds');
+    const reportWithEntry = t.win.FBDietProbe.buildProbeReport({ entryCategory: 'marketAds', payload: { feedUnit: {} } }, classifyRes, [], null).report;
+    c.equals('entryCategory present under proxy when provided', reportWithEntry.proxy.entryCategory, 'marketAds');
 
     /* --- probe report scope fields (STRATEGY.md decision #26) --- */
-    c.ok('scope object present', Boolean(reportWithoutEntry.scope) && typeof reportWithoutEntry.scope === 'object');
-    c.equals('scope.restricted reflects the default restriction', reportWithoutEntry.scope.restricted, true);
-    c.equals('scope.path is null without a pathname', reportWithoutEntry.scope.path, null);
+    c.ok('scope nested under verdict', Boolean(reportWithoutEntry.verdict.scope) && typeof reportWithoutEntry.verdict.scope === 'object');
+    c.equals('scope.restricted reflects the default restriction', reportWithoutEntry.verdict.scope.restricted, true);
+    c.equals('scope.path is null without a pathname', reportWithoutEntry.verdict.scope.path, null);
 
     const tScope = setup({});
     tScope.win.FB_DIET_DEFAULTS = loadDefaults();
     tScope.win.location.pathname = '/groups/feed';
-    const outOfScopeReport = tScope.win.FBDietProbe.buildUnitProbeReport({ payload: { feedUnit: {} } }, classifyRes, []).report;
-    c.equals('scope.path captures the page pathname', outOfScopeReport.scope.path, '/groups/feed');
-    c.equals('scope.allowed is false on /groups', outOfScopeReport.scope.allowed, false);
+    const outOfScopeReport = tScope.win.FBDietProbe.buildProbeReport({ payload: { feedUnit: {} } }, classifyRes, [], null).report;
+    c.equals('scope.path captures the page pathname', outOfScopeReport.verdict.scope.path, '/groups/feed');
+    c.equals('scope.allowed is false on /groups', outOfScopeReport.verdict.scope.allowed, false);
     tScope.bridge.setSettings({ restrictFoldScope: false });
-    const unrestrictedReport = tScope.win.FBDietProbe.buildUnitProbeReport({ payload: { feedUnit: {} } }, classifyRes, []).report;
-    c.equals('scope.restricted false when the toggle is off', unrestrictedReport.scope.restricted, false);
-    c.equals('scope.allowed true when the toggle is off', unrestrictedReport.scope.allowed, true);
+    const unrestrictedReport = tScope.win.FBDietProbe.buildProbeReport({ payload: { feedUnit: {} } }, classifyRes, [], null).report;
+    c.equals('scope.restricted false when the toggle is off', unrestrictedReport.verdict.scope.restricted, false);
+    c.equals('scope.allowed true when the toggle is off', unrestrictedReport.verdict.scope.allowed, true);
   }
 
   /* --- 3-tier fold mode: title mode (24px persistent header bar) --- */

@@ -119,9 +119,10 @@ Loaded sequentially at `document_start` before Comet finishes loading:
   - Provides `FBDietTitleBar` (36px default / 18px mini modes, streaming Suspense observer, and expand/collapse control).
   - Reshare detection (`extractReshareFromDom`) applies a structural pre-filter before comparing author names: candidates inside the probe UI or a comment section are skipped, and a candidate that wraps (or sits inside) the unit's own header is the unit itself, not a quoted original post.
 - **`probe.js` (`window.FBDietProbe`)**:
-  - Diagnostic JSON generator and developer inspection layer.
-  - Discovers heuristic signals (keywords, sponsored markers, author names) and generates formatted reports (`formatProbeReport`).
-  - Implements the in-page probe popup, copy-to-clipboard interactions, and tooltip rendering for debugging live feeds.
+  - Diagnostic JSON generator and developer inspection layer: one unified lifecycle report per unit (schema v4, STRATEGY.md decision #31) pairing the `proxy` phase (Props/Relay state captured at render time, stamped by `proxy.renderedAt`) with the `dom` phase (live mounted-DOM extraction at click time) under a shared `collectProbeContext` collection layer.
+  - Report layout is contract-first, then `env` (`extVersion`, `dietMode`, `lang`, `probed`) → `unit` → `verdict` (with the fold-scope gate nested inside) → the two phases; nesting never exceeds two levels.
+  - Discovers heuristic signals (keywords, sponsored markers, author names) and assembles the report via `buildProbeReport` (null/empty members compacted away, hard `PROBE_MAX_CHARS` cap).
+  - Renders the single 🔍 holder button plus the in-page probe popup and copy-to-clipboard interactions for debugging live feeds.
 - **`fold.js` (`window.FBDietFold`)**:
   - Wraps target feed unit components using `React.createElement`.
   - Folded bars and re-fold bars show the user-facing GROUP badge resolved by `ui.js` (`GROUP_META` + `GROUP_BY_CATEGORY` via `groupOf(category)`), not the fine-grained category (STRATEGY.md, decision #8).

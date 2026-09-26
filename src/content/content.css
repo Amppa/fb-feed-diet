@@ -305,9 +305,8 @@ a[target^="rhcad"],
 .fb-diet-probe-group {
   position: absolute;
   top: 4px;
-  left: -52px;
+  left: -26px;
   display: inline-flex;
-  gap: 3px;
   z-index: 9999;
 }
 

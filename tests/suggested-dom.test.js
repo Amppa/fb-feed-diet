@@ -376,27 +376,27 @@ function run(c) {
     c.ok('full mode wraps unclassified unit in fb-diet-full-container', Boolean(fullResult) && fullResult.props && fullResult.props.className === 'fb-diet-full-container');
     c.equals('full-container uses display: contents for zero layout disruption', fullResult.props.style && fullResult.props.style.display, 'contents');
 
-    // 3. Probe report reflects dom.suggested and classifies as suggested
+    // 3. Probe report reflects dom suggested evidence and the final verdict
     const mockContainer = makeNode('div', { role: 'article' }, [
       makeNode('header', {}, [
         makeNode('h4', { role: 'heading' }, [makeNode('a', {}, [], 'Heaven Raven')]),
         makeNode('div', { role: 'button' }, [], '· 追蹤')
       ])
     ]);
-    const probeResult = winTest.FBDietProbe.buildUnitProbeReport(
+    const probeResult = winTest.FBDietProbe.buildProbeReport(
       { payload: { feedUnit: { id: 'u-probe' } } },
       { category: 'suggested', signal: 'Follow', unitId: 'u-probe', reason: 'dom:follow_button', domEvidence: { isSuggested: true, signal: 'Follow', reason: 'dom:follow_button', text: '· 追蹤', debug: { author: 'Heaven Raven' } }, evidence: { ownTypename: 'Story' } },
       null,
       mockContainer
     );
     const probeReport = probeResult && probeResult.report;
-    c.ok('probe report includes dom.suggested', Boolean(probeReport && probeReport.dom && probeReport.dom.suggested));
-    c.equals('probe report dom.suggested reason matches', probeReport.dom.suggested.reason, 'dom:follow_button');
-    c.equals('probe report classify category is suggested', probeReport.classify.category, 'suggested');
-    c.equals('probe report classify signal is Follow', probeReport.classify.signal, 'Follow');
-    c.equals('probe report classify reason is dom:follow_button', probeReport.classify.reason, 'dom:follow_button');
-    c.equals('probe report normalizedEvidence includes domSignal', probeReport.classify.evidence.domSignal, '· 追蹤');
-    c.ok('probe report includes dom.debug', Boolean(probeReport.dom && probeReport.dom.debug));
+    c.ok('probe report includes dom.extracted.suggested', Boolean(probeReport && probeReport.dom && probeReport.dom.extracted && probeReport.dom.extracted.suggested));
+    c.equals('probe report dom suggested reason matches', probeReport.dom.extracted.suggested.reason, 'dom:follow_button');
+    c.equals('probe report verdict category is suggested', probeReport.verdict.category, 'suggested');
+    c.equals('probe report initialClassify signal is Follow', probeReport.proxy.initialClassify.signal, 'Follow');
+    c.equals('probe report verdict reason is dom:follow_button', probeReport.verdict.reason, 'dom:follow_button');
+    c.equals('probe report evidence includes domSignal', probeReport.proxy.initialClassify.evidence.domSignal, '· 追蹤');
+    c.ok('probe report includes suggested debug', Boolean(probeReport.dom.extracted.suggested.debug));
     // 4. Full Mode wraps unclassified unit even when foldSuggested is false
     winTest.FBDietBridge.setSettings({ dietMode: 'full', enabled: true, foldSuggested: false, alwaysShowFoldBar: false });
     const fullResultFoldOff = renderUnit({ feedUnit: { id: 'u-full-off', __typename: 'Story' } });
@@ -404,27 +404,26 @@ function run(c) {
 
     // 5. Probe report classifies unclassified relay unit as suggested when DOM has follow button
     const unclassifiedRelay = { category: null, unitId: 'u-unclass', reason: 'no-match' };
-    const liveProbeResult = winTest.FBDietProbe.buildUnitProbeReport(
+    const liveProbeResult = winTest.FBDietProbe.buildProbeReport(
       { payload: { feedUnit: { id: 'u-unclass' } } },
       unclassifiedRelay,
       null,
       mockContainer
     );
-    c.equals('unclassified relay unit becomes suggested via DOM', liveProbeResult.report.classify.category, 'suggested');
-    c.equals('unclassified relay unit has Follow signal via DOM', liveProbeResult.report.classify.signal, 'Follow');
-    c.equals('unclassified relay unit categorySetting is suggested', liveProbeResult.report.categorySetting.category, 'suggested');
-    c.equals('unclassified relay unit categorySetting enabled is false when foldSuggested is false', liveProbeResult.report.categorySetting.enabled, false);
+    c.equals('unclassified relay unit becomes suggested via DOM', liveProbeResult.report.verdict.category, 'suggested');
+    c.equals('unclassified relay unit keeps null initial category in proxy phase', liveProbeResult.report.proxy.initialClassify.category, undefined);
+    c.equals('unclassified relay unit verdict foldMode is off when foldSuggested is false', liveProbeResult.report.verdict.foldMode, 'off');
 
     // 6. Classified unit (stories) is NOT overridden by DOM suggested in probe report
     const storiesRelay = { category: 'stories', unitId: 'u-stories', unitTypename: 'DiscoverFeedUnit', reason: 'unitTypename:DiscoverFeedUnit' };
-    const storiesProbeResult = winTest.FBDietProbe.buildUnitProbeReport(
+    const storiesProbeResult = winTest.FBDietProbe.buildProbeReport(
       { payload: { feedUnit: { id: 'u-stories', unitTypename: 'DiscoverFeedUnit' } } },
       storiesRelay,
       null,
       mockContainer
     );
-    c.equals('stories unit retains stories category despite DOM buttons', storiesProbeResult.report.classify.category, 'stories');
-    c.equals('stories unit categorySetting is stories', storiesProbeResult.report.categorySetting.category, 'stories');
+    c.equals('stories unit retains stories category despite DOM buttons', storiesProbeResult.report.verdict.category, 'stories');
+    c.equals('stories unit verdict category matches proxy initial', storiesProbeResult.report.proxy.initialClassify.category, 'stories');
 
     // 7. Carousel navigation buttons (上一個項目, 下一個項目) are excluded from being matched as suggested buttons
     const carouselContainer = makeNode('div', { role: 'article' }, [

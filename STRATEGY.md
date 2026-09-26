@@ -55,7 +55,7 @@ sponsored  >  suggestedGroup  >  suggested  >  stories  >  reels  >  regular
 
 ### Topic Index
 - **[Rules & Classification]**: #1, #3, #6, #7, #8, #10, #14, #15, #16, #19
-- **[Probe & Diagnostics]**: #11, #13, #20, #21, #30
+- **[Probe & Diagnostics]**: #11, #13, #20, #21, #30, #31, #32
 - **[Core & Interception]**: #4, #5, #9, #24, #26, #28, #29
 - **[UI & Appearance Mode]**: #17, #18, #22, #23, #25, #27
 
@@ -128,6 +128,7 @@ sponsored  >  suggestedGroup  >  suggested  >  stories  >  reels  >  regular
 - Structured probe report into two distinct lifecycle phases:
   - `memory`: Initial render GraphQL/Props/Relay state.
   - `dom`: Live DOM scraping upon clicking 🔍 (author, snippet, group, direct post/ad URLs).
+- *(Superseded by Decisions #31 and #32: the two phases now ship as the `proxy` and `dom` blocks of one unified report behind a single 🔍 button.)*
 
 ### [UI] Decision #24 & #25: Decouple Title Display (`showFeedTitle`) & Instant Sync
 - Background script pushes `PUSH_SETTINGS` to broadcast live visual preference updates across all tabs without reloading.
@@ -161,6 +162,17 @@ Three DOM-side false-positive sources were closed without removing the underlyin
 - **Permalink synthesis (`ui.js`)**: a post URL is only synthesized from a Relay-supplied id (`relayPostIdHint`: `post_id`, `clip_id`, `story.post_id`, `mf_story_key`) matching `/^[A-Za-z0-9_-]{4,}$/`; ids are never parsed out of DOM text. The host must be proven: an explicit group id, an author link of the form `/groups/<gid>/user/<uid>` (`authorIdentityFromProfileUrl`), or a `/groups/…` page path yield `/groups/<gid>/permalink/<id>/`; otherwise a non-reserved vanity handle is required for `/<handle>/posts/<id>`. A stray group link inside the unit is no longer sufficient — the old `groupUrl` synthesis fallback is retired (`groupUrl` survives as report-only evidence) — so a group *mention* in a post body cannot turn a personal permalink into a group permalink.
 - **Reshare source detection (`ui.js`)**: `extractReshareFromDom` applies a structural pre-filter before comparing author names. Candidates come from `[role="article"]`, `blockquote`, `div[class*="quote"]`; the container itself, anything inside the probe UI or the comment section, and anything equal to / containing / contained by the unit's own `header` are skipped. Only then must the inner author differ from the main author — so a commenter's name or the sharer's own header can no longer be reported as the reshared original.
 
+### [Probe] Decision #31: Unified Lifecycle Probe (Schema v4)
+- The dual ⚡ Proxy / 🔍 DOM buttons collapse into a single 🔍 button emitting one v4 report that carries both lifecycle phases as sibling blocks (`proxy`, `dom`); the `type` discriminator is gone with it.
+- **Top-level layout**: `schemaVersion` stays the very first key, followed by `env` (`extVersion`, `dietMode`, `lang`, `probed`), `unit` (`postId`, `unitId`, `feedPosition`, `moduleName`), and `verdict` (`category`, `reason`, `settingKey`, `foldMode`, `scope`).
+- **Two lifecycle phases**:
+  - `proxy`: Props/Relay state captured at render time, stamped with `renderedAt`, containing `moduleName`, `entryCategory`, `initialClassify`, `relay`, `payload`, `signals`, `recordKeys`, `moduleHealth`.
+  - `dom`: Live mounted-DOM extraction at click time, containing `extracted` (actor, group, title, snippet, media, reshare, suggested), clean `urls` (`primary`, `synthesized`).
+- Redundant keys retired with the version bump: the `mode`/`dietMode` alias pair (only `dietMode` remains) and `categorySetting.enabled` (derivable from `foldMode !== 'off'`).
+- The three legacy builders (`buildUnitProbeReport` / `buildProxyProbeReport` / `buildDomProbeReport`) are removed outright — product code calls `addProbe`, and tests call `FBDietProbe.buildProbeReport`.
+- Null/empty members are compacted away at assembly, keeping clipboard payloads information-dense (typical unified report ≈ 1.4 KB, far below `PROBE_MAX_CHARS`).
+- Compatibility: the probe JSON is clipboard-only diagnostics (never persisted, never parsed by the extension), so v3→v4 needs no migration or dual-read window. `PROBE_SCHEMA_VERSION` is now 4.
+
 ---
 
 ## 4. Known Misclassification Pitfalls (False Positives)
@@ -181,9 +193,9 @@ Three DOM-side false-positive sources were closed without removing the underlyin
 
 ### Diagnostic Tools
 1. **Persistent Log**: `chrome.storage.local.get('fbDietLog')` (stores last 300 classification events). Access via console: `__fbDietDumpLog()`.
-2. **Feed Probe (🔍 Button)**: Enable in Options. Click 🔍 on any post to inspect the floating bubble and copy the probe JSON:
-   - Check `classify.category` (`regular` with `no-match` vs `null` with `no-unit-id`).
-   - Check `relayReads` and unpeeled candidate records.
+2. **Feed Probe (🔍 Button)**: Enable in Options. Click 🔍 on any post to inspect the floating bubble and copy the unified lifecycle probe JSON (schema v4):
+   - Check `verdict.category` (`regular` with `no-match` vs a missing `proxy.initialClassify` with `no-unit-id`), and compare `proxy.initialClassify` against `verdict` to spot DOM reconciliation.
+   - Check `proxy.relay.reads` / `proxy.relay.recordKeys` and unpeeled candidate records.
 3. **Verbose Console**: Append `?fb_diet_debug=1` to any Facebook URL.
 4. **Drift Watchdog**: `[FB Diet][Drift] … FEED_UNIT_MODULES looks stale` in the console means no registered module matched after ≥300 intercepted definitions (Relay ready, scope allowed). Confirm with `FBDietFold.getStatus().drift` (`dCalls` / `seen` / `patched`) and `FBDietProxy.getModuleHealth()` (`unseen` lists module names that never appeared) before touching `FEED_UNIT_MODULES`.
 5. **Detailed Guide**: Refer to [docs/debugging.md](docs/debugging.md) for full DevTools workflows.
