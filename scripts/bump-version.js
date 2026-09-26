@@ -22,6 +22,7 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const PACKAGE_PATH = path.join(ROOT_DIR, 'package.json');
 const MANIFEST_PATH = path.join(ROOT_DIR, 'manifest.json');
 const DEFAULTS_PATH = path.join(ROOT_DIR, 'src', 'shared', 'defaults.js');
+const TEST_PATH = path.join(ROOT_DIR, 'tests', 'bump-version.test.js');
 
 const SEMVER_REGEX = /^(\d+)\.(\d+)\.(\d+)$/;
 
@@ -108,6 +109,14 @@ function run() {
   defaultsContent = defaultsContent.replace(versionConstRegex, `$1${newVersion}$3`);
   fs.writeFileSync(DEFAULTS_PATH, defaultsContent, 'utf8');
   console.log(`  ✓ Updated src/shared/defaults.js`);
+
+  // 4. Update tests/bump-version.test.js if present
+  if (fs.existsSync(TEST_PATH)) {
+    let testContent = fs.readFileSync(TEST_PATH, 'utf8');
+    testContent = testContent.replace(/(current version is )(\d+\.\d+\.\d+)(', manifest\.version, ')(\d+\.\d+\.\d+)(')/, `$1${newVersion}$3${newVersion}$5`);
+    fs.writeFileSync(TEST_PATH, testContent, 'utf8');
+    console.log(`  ✓ Updated tests/bump-version.test.js`);
+  }
 
   console.log(`\nSuccessfully bumped to v${newVersion}!`);
 }
