@@ -27,6 +27,12 @@ window.FBDietUI = (() => {
   }
 
   const titleBarCache = new Map();
+  // Folded bars stay mounted for the life of the tab (STRATEGY.md squash design), so an
+  // uncapped cache would grow with every unit the user ever scrolls past. Map iteration
+  // order gives FIFO eviction for free; a miss just re-runs the scan.
+  const TITLE_BAR_CACHE_MAX = 300;
+  const TITLE_BAR_SCAN_TIMEOUT_MS = 4000;
+  const TITLE_BAR_SCAN_THROTTLE_MS = 200;
 
   const NON_AUTHOR_TEXTS = new Set([
     '為你推薦', '为你推荐', 'Suggested for you', '推薦貼文', '推荐帖子', 'Suggested post',
@@ -822,7 +828,14 @@ window.FBDietUI = (() => {
                 groupName: foundGroup || '',
                 adUrl: foundAdUrl || ''
               };
-              if (unitId) titleBarCache.set(unitId, newData);
+              if (unitId) {
+                titleBarCache.set(unitId, newData);
+                while (titleBarCache.size > TITLE_BAR_CACHE_MAX) {
+                  const oldest = titleBarCache.keys().next();
+                  if (oldest.done) break;
+                  titleBarCache.delete(oldest.value);
+                }
+              }
               setDomData(newData);
               if (foundActor && (foundMsg || foundMedia)) {
                 if (observer) {
@@ -838,11 +851,21 @@ window.FBDietUI = (() => {
           if (scan()) return;
 
           const MutationObs = window.MutationObserver || (typeof MutationObserver !== 'undefined' ? MutationObserver : null);
+          let scanTimer = null;
+
+          // Mutation bursts on a streaming post would otherwise re-run the full subtree
+          // sweep per batch, so coalesce them into one scan.
+          const scheduleScan = () => {
+            if (!active || scanTimer) return;
+            scanTimer = setTimeout(() => {
+              scanTimer = null;
+              scan();
+            }, TITLE_BAR_SCAN_THROTTLE_MS);
+          };
+
           if (MutationObs) {
             try {
-              observer = new MutationObs(() => {
-                scan();
-              });
+              observer = new MutationObs(scheduleScan);
               observer.observe(container, { childList: true, subtree: true, characterData: true });
             } catch (e) {}
           }
@@ -850,12 +873,24 @@ window.FBDietUI = (() => {
           const delays = [50, 150, 400, 1000, 2500];
           const timers = delays.map((d) => setTimeout(scan, d));
 
+          // A folded unit is never unmounted, so the effect cleanup below cannot be the
+          // only way to stop listening: posts that never reveal a body would otherwise
+          // keep a subtree observer for the life of the tab.
+          const stopTimer = setTimeout(() => {
+            if (observer) {
+              try { observer.disconnect(); } catch (e) {}
+              observer = null;
+            }
+          }, TITLE_BAR_SCAN_TIMEOUT_MS);
+
           return () => {
             active = false;
             if (observer) {
               try { observer.disconnect(); } catch (e) {}
             }
+            if (scanTimer) clearTimeout(scanTimer);
             timers.forEach((t) => clearTimeout(t));
+            clearTimeout(stopTimer);
           };
         }, [unitId, showTitle, isExpanded]);
       }
