@@ -16,6 +16,18 @@ window.FBDietProbe = (() => {
   const DIAGNOSTIC_KEYWORDS = Array.isArray(keywords.DIAGNOSTIC) ? keywords.DIAGNOSTIC : [];
   let activeProbePopup = null;
 
+  /** Serialize a report with a circular-safe fallback and a hard size cap. */
+  function serializeReport(report) {
+    let text = null;
+    try {
+      text = JSON.stringify(report, null, 2);
+    } catch (e) {
+      text = '{"error":"probe serialization failed: ' + String(e && e.message ? e.message : e) + '"}';
+    }
+    if (text.length > PROBE_MAX_CHARS) text = text.slice(0, PROBE_MAX_CHARS) + '\n…[truncated]';
+    return { text, report };
+  }
+
   function findDiagnosticSignals(payload, lastCmp) {
     if ((!payload || typeof payload !== 'object') && (!lastCmp || typeof lastCmp !== 'object')) return null;
     const matches = [];
@@ -91,14 +103,24 @@ window.FBDietProbe = (() => {
     return postId ? { postId } : null;
   }
 
-  function buildUnitProbeReport(props, classifyResult, relayReads, container, renderedAt) {
-    const feedUnit = props.payload && props.payload.feedUnit;
+  /**
+   * Shared live collection layer for the three report builders: memory enrichment,
+   * DOM metadata, suggested detection and the effective-category verdict are each
+   * gathered once per report so the builders can never drift apart.
+   */
+  function collectProbeContext(props, classifyResult, relayReads, container, renderedAt) {
     const nowIso = new Date().toISOString();
     const renderIso = renderedAt || nowIso;
 
-    const unitKey = classifyResult && (classifyResult.unitId || (classifyResult.evidence && classifyResult.evidence.id));
+    const feedUnit = props && props.payload && props.payload.feedUnit;
     const ui = window.FBDietUI;
+    const bridge = window.FBDietBridge;
+    const currentSettings = bridge && typeof bridge.getSettings === 'function' ? bridge.getSettings() : null;
+    const activeMode = currentSettings ? (currentSettings.dietMode || 'full') : 'full';
+
+    const unitKey = classifyResult && (classifyResult.unitId || (classifyResult.evidence && classifyResult.evidence.id));
     const cached = unitKey && ui && ui.titleBarCache ? ui.titleBarCache.get(unitKey) : null;
+
     const isMediaGroup = classifyResult && (classifyResult.category === 'reels' || classifyResult.category === 'stories' || classifyResult.category === 'suggestedGroup');
     const domMetadata = window.FBDietDOMMetadata;
     const domLive = container && domMetadata && typeof domMetadata.collect === 'function'
@@ -106,29 +128,23 @@ window.FBDietProbe = (() => {
       : null;
 
     // Structured context from Props / Relay store (initial)
-    let initialEnrichment = null;
+    let enrichment = null;
     try {
       const metadata = window.FBDietMetadata;
       if (metadata && typeof metadata.collect === 'function') {
-        initialEnrichment = metadata.collect(classifyResult, props);
+        enrichment = metadata.collect(classifyResult, props);
       }
     } catch (e) {}
 
     // URLs: extract postUrl & adUrl
-    const adUrl = (domLive && domLive.adUrl) || (cached && cached.adUrl) || (initialEnrichment && initialEnrichment.content && initialEnrichment.content.permalink && initialEnrichment.content.permalink.indexOf('/ads/') !== -1 ? initialEnrichment.content.permalink : null);
-    let postUrl = (domLive && domLive.postUrl) || (cached && cached.postUrl) || (initialEnrichment && initialEnrichment.content && initialEnrichment.content.permalink && initialEnrichment.content.permalink.indexOf('/ads/') === -1 ? initialEnrichment.content.permalink : null);
+    const adUrl = (domLive && domLive.adUrl) || (cached && cached.adUrl) || (enrichment && enrichment.content && enrichment.content.permalink && enrichment.content.permalink.indexOf('/ads/') !== -1 ? enrichment.content.permalink : null);
+    let postUrl = (domLive && domLive.postUrl) || (cached && cached.postUrl) || (enrichment && enrichment.content && enrichment.content.permalink && enrichment.content.permalink.indexOf('/ads/') === -1 ? enrichment.content.permalink : null);
 
     const postId = (relayPostIdHint(feedUnit) || {}).postId || null;
-    const authorHandle = (initialEnrichment && initialEnrichment.actor && (initialEnrichment.actor.username || initialEnrichment.actor.id)) || null;
+    const authorHandle = (enrichment && enrichment.actor && (enrichment.actor.username || enrichment.actor.id)) || null;
     if (!postUrl && postId && authorHandle) {
       postUrl = 'https://www.facebook.com/' + authorHandle + '/posts/' + postId;
     }
-
-    const extVersion = (typeof window !== 'undefined' && window.FB_DIET_DEFAULTS && window.FB_DIET_DEFAULTS.VERSION)
-      || (typeof globalThis !== 'undefined' && globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.VERSION)
-    const bridge = window.FBDietBridge;
-    const currentSettings = bridge && typeof bridge.getSettings === 'function' ? bridge.getSettings() : null;
-    const classifyModule = window.FBDietClassify;
 
     let domSuggestedLive = (classifyResult && classifyResult.domEvidence) || null;
     const detector = window.FBDietDOMSuggested;
@@ -147,125 +163,62 @@ window.FBDietProbe = (() => {
     const effectiveCategory = isDomSuggested ? 'suggested' : baseCategory;
     const effectiveReason = isDomSuggested ? (domSuggestedLive.reason || 'dom:suggested') : (classifyResult ? classifyResult.reason : null);
 
-    const settingKey = (classifyModule && classifyModule.SETTING_BY_CATEGORY && classifyModule.SETTING_BY_CATEGORY[effectiveCategory]) || null;
-    let foldMode = 'off';
-    if (bridge && typeof bridge.getFoldMode === 'function') {
-      foldMode = bridge.getFoldMode(effectiveCategory);
-    } else if (classifyModule && typeof classifyModule.getCategoryFoldMode === 'function') {
-      foldMode = classifyModule.getCategoryFoldMode(effectiveCategory, currentSettings);
-    }
-    const isCategoryOn = foldMode !== 'off';
-
-    const activeMode = currentSettings ? (currentSettings.dietMode || 'full') : 'full';
-
-    const report = {
-      schemaVersion: PROBE_SCHEMA_VERSION,
-      mode: activeMode,
-      dietMode: activeMode,
-      categorySetting: {
-        category: effectiveCategory,
-        key: settingKey,
-        enabled: isCategoryOn,
-        foldMode: foldMode
-      },
-      at: {
-        rendered: renderIso,
-        probed: nowIso
-      },
-      url: {
-        post: postUrl || null,
-        ad: adUrl || null
-      },
-      moduleName: props.moduleName || null,
-      position: props.payload && typeof props.payload.position === 'number' ? props.payload.position : null
-    };
-
-    if (props && props.entryCategory !== null && props.entryCategory !== undefined) {
-      report.entryCategory = props.entryCategory;
-    }
-
-    let normalizedEvidence = classifyResult && classifyResult.evidence ? Object.assign({}, classifyResult.evidence) : null;
-    if (normalizedEvidence && normalizedEvidence.id && classifyResult && normalizedEvidence.id === classifyResult.unitId) {
-      delete normalizedEvidence.id;
-    }
-    if (domSuggestedLive && normalizedEvidence) {
-      normalizedEvidence.domSignal = domSuggestedLive.text || domSuggestedLive.reason;
-    }
-
-    const liveSignal = (domSuggestedLive && domSuggestedLive.signal) ||
-                       (classifyResult && (classifyResult.signal || (classifyResult.domEvidence && classifyResult.domEvidence.signal))) ||
-                       null;
-
-    report.classify = classifyResult
-      ? {
-          category: effectiveCategory,
-          signal: liveSignal,
-          categoryEnabled: isCategoryOn,
-          foldMode: foldMode,
-          unitId: classifyResult.unitId,
-          unitTypename: classifyResult.unitTypename,
-          reason: effectiveReason,
-          evidence: normalizedEvidence,
-          moduleName: classifyResult.moduleName
-        }
+    const payloadKeys = props && props.payload && typeof props.payload === 'object' ? Object.keys(props.payload) : null;
+    const feedUnitKeys = feedUnit && typeof feedUnit === 'object' ? Object.keys(feedUnit) : null;
+    const childrenProps = props && props.payload && props.payload.children && typeof props.payload.children === 'object'
+      ? (props.payload.children.props || (Array.isArray(props.payload.children) && props.payload.children[0] ? props.payload.children[0].props : null))
       : null;
+    const childrenKeys = childrenProps && typeof childrenProps === 'object' ? Object.keys(childrenProps) : null;
 
-    // Dual-track: (1) memory (Props & Relay store in memory), (2) dom (live rendered DOM)
-    report.memory = {
-      enrichment: initialEnrichment,
-      relayStatus: null
+    return {
+      nowIso,
+      renderIso,
+      props,
+      classifyResult,
+      relayReads,
+      feedUnit,
+      bridge,
+      currentSettings,
+      activeMode,
+      unitKey,
+      cached,
+      domLive,
+      domSuggestedLive,
+      enrichment,
+      adUrl,
+      postUrl,
+      postId,
+      effectiveCategory,
+      effectiveReason,
+      feedPosition: props && props.payload && typeof props.payload.position === 'number' ? props.payload.position : null,
+      moduleName: (props && props.moduleName) || (classifyResult && classifyResult.moduleName) || null,
+      signals: findDiagnosticSignals(props && props.payload, props && props.lastCmp),
+      relayStatus: buildRelayStatus(),
+      recordKeys: resolveRecordKeys(unitKey),
+      payloadKeys,
+      feedUnitKeys,
+      childrenKeys
     };
+  }
+
+  /** Relay store health snapshot, shared by the unit and proxy reports. */
+  function buildRelayStatus() {
+    let relayStatus = null;
     try {
       const relay = window.FBDietRelay;
       if (relay) {
-        report.memory.relayStatus = {
+        relayStatus = {
           isReady: typeof relay.isReady === 'function' ? relay.isReady() : false,
           sourceCount: typeof relay.getSourceCount === 'function' ? relay.getSourceCount() : 0,
           lastError: typeof relay.getLastError === 'function' ? relay.getLastError() : null
         };
       }
     } catch (e) {}
+    return relayStatus;
+  }
 
-    report.dom = {
-      actor: (domLive && domLive.actor) || (cached && cached.actorName) || null,
-      snippet: (domLive && domLive.snippet) || (cached && cached.snippetText) || null,
-      group: (domLive && domLive.group) || (cached && cached.groupName) || null,
-      postUrl: postUrl || null,
-      adUrl: adUrl || null,
-      media: (domLive && domLive.media) || null,
-      urls: (domLive && domLive.urls) || null,
-      title: (domLive && domLive.title) || null,
-      reshare: (domLive && domLive.reshare) || null,
-      textCandidates: (domLive && domLive.textCandidates) || [],
-      suggested: domSuggestedLive || null,
-      debug: (domSuggestedLive && domSuggestedLive.debug) || null
-    };
-
-    const payloadKeys = props.payload && typeof props.payload === 'object' ? Object.keys(props.payload) : null;
-    const feedUnitKeys = feedUnit && typeof feedUnit === 'object' ? Object.keys(feedUnit) : null;
-    const childrenProps = props.payload && props.payload.children && typeof props.payload.children === 'object'
-      ? (props.payload.children.props || (Array.isArray(props.payload.children) && props.payload.children[0] ? props.payload.children[0].props : null))
-      : null;
-    const childrenKeys = childrenProps && typeof childrenProps === 'object' ? Object.keys(childrenProps) : null;
-
-    report.payload = {
-      feedUnit: {
-        post_id: postId,
-        debug_info: feedUnit && typeof feedUnit.debug_info === 'string' ? (feedUnit.debug_info.length > 200 ? feedUnit.debug_info.slice(0, 200) + '…' : feedUnit.debug_info) : null,
-        th_dat_spo: feedUnit && feedUnit.th_dat_spo !== undefined ? feedUnit.th_dat_spo : null
-      },
-      payloadKeys: payloadKeys && payloadKeys.length ? payloadKeys : null,
-      feedUnitKeys: feedUnitKeys && feedUnitKeys.length ? feedUnitKeys : null,
-      childrenKeys: childrenKeys && childrenKeys.length ? childrenKeys : null
-    };
-
-    // Diagnostic signals found in props
-    report.signals = findDiagnosticSignals(props.payload, props.lastCmp);
-
-    // The exact Relay paths the classifier tried for THIS unit
-    report.relayReads = Array.isArray(relayReads) && relayReads.length ? relayReads : null;
-
-    // Top-level keys of the Relay record
+  /** Top-level keys of the Relay record for this unit, when the store can describe it. */
+  function resolveRecordKeys(unitKey) {
     let recordKeys = null;
     try {
       const relay = window.FBDietRelay;
@@ -276,43 +229,152 @@ window.FBDietProbe = (() => {
         }
       }
     } catch (e) {}
-    report.recordKeys = recordKeys;
+    return recordKeys;
+  }
+
+  /** Fold policy for the effective category: { category, key, enabled, foldMode }. */
+  function resolveCategorySetting(ctx) {
+    const classifyModule = window.FBDietClassify;
+    const settingKey = (classifyModule && classifyModule.SETTING_BY_CATEGORY && classifyModule.SETTING_BY_CATEGORY[ctx.effectiveCategory]) || null;
+    let foldMode = 'off';
+    if (ctx.bridge && typeof ctx.bridge.getFoldMode === 'function') {
+      foldMode = ctx.bridge.getFoldMode(ctx.effectiveCategory);
+    } else if (classifyModule && typeof classifyModule.getCategoryFoldMode === 'function') {
+      foldMode = classifyModule.getCategoryFoldMode(ctx.effectiveCategory, ctx.currentSettings);
+    }
+    return {
+      category: ctx.effectiveCategory,
+      key: settingKey,
+      enabled: foldMode !== 'off',
+      foldMode: foldMode
+    };
+  }
+
+  function buildUnitProbeReport(props, classifyResult, relayReads, container, renderedAt) {
+    const ctx = collectProbeContext(props, classifyResult, relayReads, container, renderedAt);
+    const categorySetting = resolveCategorySetting(ctx);
+    const isCategoryOn = categorySetting.enabled;
+    const foldMode = categorySetting.foldMode;
+    const effectiveCategory = ctx.effectiveCategory;
+
+    const report = {
+      schemaVersion: PROBE_SCHEMA_VERSION,
+      mode: ctx.activeMode,
+      dietMode: ctx.activeMode,
+      categorySetting: categorySetting,
+      at: {
+        rendered: ctx.renderIso,
+        probed: ctx.nowIso
+      },
+      url: {
+        post: ctx.postUrl || null,
+        ad: ctx.adUrl || null
+      },
+      moduleName: ctx.props.moduleName || null,
+      position: ctx.feedPosition
+    };
+
+    if (ctx.props && ctx.props.entryCategory !== null && ctx.props.entryCategory !== undefined) {
+      report.entryCategory = ctx.props.entryCategory;
+    }
+
+    let normalizedEvidence = ctx.classifyResult && ctx.classifyResult.evidence ? Object.assign({}, ctx.classifyResult.evidence) : null;
+    if (normalizedEvidence && normalizedEvidence.id && ctx.classifyResult && normalizedEvidence.id === ctx.classifyResult.unitId) {
+      delete normalizedEvidence.id;
+    }
+    if (ctx.domSuggestedLive && normalizedEvidence) {
+      normalizedEvidence.domSignal = ctx.domSuggestedLive.text || ctx.domSuggestedLive.reason;
+    }
+
+    const liveSignal = (ctx.domSuggestedLive && ctx.domSuggestedLive.signal) ||
+                       (ctx.classifyResult && (ctx.classifyResult.signal || (ctx.classifyResult.domEvidence && ctx.classifyResult.domEvidence.signal))) ||
+                       null;
+
+    report.classify = ctx.classifyResult
+      ? {
+          category: effectiveCategory,
+          signal: liveSignal,
+          categoryEnabled: isCategoryOn,
+          foldMode: foldMode,
+          unitId: ctx.classifyResult.unitId,
+          unitTypename: ctx.classifyResult.unitTypename,
+          reason: ctx.effectiveReason,
+          evidence: normalizedEvidence,
+          moduleName: ctx.classifyResult.moduleName
+        }
+      : null;
+
+    // Dual-track: (1) memory (Props & Relay store in memory), (2) dom (live rendered DOM)
+    report.memory = {
+      enrichment: ctx.enrichment,
+      relayStatus: ctx.relayStatus
+    };
+
+    const domLive = ctx.domLive;
+    const cached = ctx.cached;
+    report.dom = {
+      actor: (domLive && domLive.actor) || (cached && cached.actorName) || null,
+      snippet: (domLive && domLive.snippet) || (cached && cached.snippetText) || null,
+      group: (domLive && domLive.group) || (cached && cached.groupName) || null,
+      postUrl: ctx.postUrl || null,
+      adUrl: ctx.adUrl || null,
+      media: (domLive && domLive.media) || null,
+      urls: (domLive && domLive.urls) || null,
+      title: (domLive && domLive.title) || null,
+      reshare: (domLive && domLive.reshare) || null,
+      textCandidates: (domLive && domLive.textCandidates) || [],
+      suggested: ctx.domSuggestedLive || null,
+      debug: (ctx.domSuggestedLive && ctx.domSuggestedLive.debug) || null
+    };
+
+    report.payload = {
+      feedUnit: {
+        post_id: ctx.postId,
+        debug_info: ctx.feedUnit && typeof ctx.feedUnit.debug_info === 'string' ? (ctx.feedUnit.debug_info.length > 200 ? ctx.feedUnit.debug_info.slice(0, 200) + '…' : ctx.feedUnit.debug_info) : null,
+        th_dat_spo: ctx.feedUnit && ctx.feedUnit.th_dat_spo !== undefined ? ctx.feedUnit.th_dat_spo : null
+      },
+      payloadKeys: ctx.payloadKeys && ctx.payloadKeys.length ? ctx.payloadKeys : null,
+      feedUnitKeys: ctx.feedUnitKeys && ctx.feedUnitKeys.length ? ctx.feedUnitKeys : null,
+      childrenKeys: ctx.childrenKeys && ctx.childrenKeys.length ? ctx.childrenKeys : null
+    };
+
+    // Diagnostic signals found in props
+    report.signals = ctx.signals;
+
+    // The exact Relay paths the classifier tried for THIS unit
+    report.relayReads = Array.isArray(ctx.relayReads) && ctx.relayReads.length ? ctx.relayReads : null;
+
+    report.recordKeys = ctx.recordKeys;
 
     // Fold-scope context (STRATEGY.md decision #26): was folding restricted for this
     // report, what is the runtime verdict, and on which path.
     report.scope = resolveProbeScope();
 
-    let text = null;
-    try {
-      text = JSON.stringify(report, null, 2);
-    } catch (e) {
-      text = '{"error":"probe serialization failed: ' + String(e && e.message ? e.message : e) + '"}';
-    }
-    if (text.length > PROBE_MAX_CHARS) text = text.slice(0, PROBE_MAX_CHARS) + '\n…[truncated]';
-    return { text, report };
+    return serializeReport(report);
   }
 
   function buildProxyProbeReport(props, classifyResult, relayReads, renderedAt) {
-    const full = buildUnitProbeReport(props, classifyResult, relayReads, null, renderedAt);
-    const rep = full.report;
-    const feedUnit = props && props.payload && props.payload.feedUnit;
-    const postId = (feedUnit && (feedUnit.post_id || feedUnit.clip_id || (feedUnit.story && feedUnit.story.post_id) || feedUnit.mf_story_key)) || null;
-    const unitId = classifyResult && (classifyResult.unitId || (classifyResult.evidence && classifyResult.evidence.id));
-    const feedPosition = props && props.payload && typeof props.payload.position === 'number' ? props.payload.position : null;
+    const ctx = collectProbeContext(props, classifyResult, relayReads, null, renderedAt);
+    const categorySetting = resolveCategorySetting(ctx);
 
     let cleanClassify = null;
-    if (rep.classify) {
+    if (ctx.classifyResult) {
       cleanClassify = {
-        category: rep.classify.category,
-        unitTypename: rep.classify.unitTypename,
-        reason: rep.classify.reason
+        category: ctx.effectiveCategory,
+        unitTypename: ctx.classifyResult.unitTypename,
+        reason: ctx.effectiveReason
       };
-      if (rep.classify.signal) {
-        cleanClassify.signal = rep.classify.signal;
+      const liveSignal = (ctx.classifyResult.signal || (ctx.classifyResult.domEvidence && ctx.classifyResult.domEvidence.signal)) || null;
+      if (liveSignal) {
+        cleanClassify.signal = liveSignal;
       }
-      if (rep.classify.evidence) {
+      const rawEvidence = ctx.classifyResult.evidence ? Object.assign({}, ctx.classifyResult.evidence) : null;
+      if (rawEvidence && rawEvidence.id && ctx.classifyResult.unitId && rawEvidence.id === ctx.classifyResult.unitId) {
+        delete rawEvidence.id;
+      }
+      if (rawEvidence) {
         const cleanEvidence = {};
-        for (const [k, v] of Object.entries(rep.classify.evidence)) {
+        for (const [k, v] of Object.entries(rawEvidence)) {
           if (v !== null && v !== undefined) {
             cleanEvidence[k] = v;
           }
@@ -324,38 +386,38 @@ window.FBDietProbe = (() => {
     }
 
     const cleanMemory = {};
-    if (rep.memory) {
-      if (rep.memory.enrichment) {
-        cleanMemory.enrichment = rep.memory.enrichment;
+    if (ctx.enrichment) {
+      cleanMemory.enrichment = ctx.enrichment;
+    }
+    if (ctx.relayStatus) {
+      const rs = {
+        isReady: ctx.relayStatus.isReady,
+        sourceCount: ctx.relayStatus.sourceCount
+      };
+      if (ctx.relayStatus.lastError) {
+        rs.lastError = ctx.relayStatus.lastError;
       }
-      if (rep.memory.relayStatus) {
-        const rs = {
-          isReady: rep.memory.relayStatus.isReady,
-          sourceCount: rep.memory.relayStatus.sourceCount
-        };
-        if (rep.memory.relayStatus.lastError) {
-          rs.lastError = rep.memory.relayStatus.lastError;
-        }
-        cleanMemory.relayStatus = rs;
-      }
+      cleanMemory.relayStatus = rs;
     }
 
-    const cleanPayload = {};
-    if (rep.payload) {
-      if (rep.payload.feedUnit) {
-        const fu = { post_id: postId };
-        if (rep.payload.feedUnit.debug_info) fu.debug_info = rep.payload.feedUnit.debug_info;
-        if (rep.payload.feedUnit.th_dat_spo !== null && rep.payload.feedUnit.th_dat_spo !== undefined) fu.th_dat_spo = rep.payload.feedUnit.th_dat_spo;
-        cleanPayload.feedUnit = fu;
+    const cleanPayload = {
+      feedUnit: {
+        post_id: ctx.postId
       }
-      if (rep.payload.payloadKeys && rep.payload.payloadKeys.length) cleanPayload.payloadKeys = rep.payload.payloadKeys;
-      if (rep.payload.feedUnitKeys && rep.payload.feedUnitKeys.length) cleanPayload.feedUnitKeys = rep.payload.feedUnitKeys;
-      if (rep.payload.childrenKeys && rep.payload.childrenKeys.length) cleanPayload.childrenKeys = rep.payload.childrenKeys;
+    };
+    if (ctx.feedUnit && typeof ctx.feedUnit.debug_info === 'string' && ctx.feedUnit.debug_info) {
+      cleanPayload.feedUnit.debug_info = ctx.feedUnit.debug_info.length > 200 ? ctx.feedUnit.debug_info.slice(0, 200) + '…' : ctx.feedUnit.debug_info;
     }
+    if (ctx.feedUnit && ctx.feedUnit.th_dat_spo !== null && ctx.feedUnit.th_dat_spo !== undefined) {
+      cleanPayload.feedUnit.th_dat_spo = ctx.feedUnit.th_dat_spo;
+    }
+    if (ctx.payloadKeys && ctx.payloadKeys.length) cleanPayload.payloadKeys = ctx.payloadKeys;
+    if (ctx.feedUnitKeys && ctx.feedUnitKeys.length) cleanPayload.feedUnitKeys = ctx.feedUnitKeys;
+    if (ctx.childrenKeys && ctx.childrenKeys.length) cleanPayload.childrenKeys = ctx.childrenKeys;
 
     let activeRelayReads = null;
-    if (Array.isArray(rep.relayReads) && rep.relayReads.length > 0) {
-      activeRelayReads = rep.relayReads.filter((item) => {
+    if (Array.isArray(relayReads) && relayReads.length > 0) {
+      activeRelayReads = relayReads.filter((item) => {
         if (typeof item === 'string') return true;
         return item && item.value !== null && item.value !== undefined;
       });
@@ -365,33 +427,36 @@ window.FBDietProbe = (() => {
       // Part 1: 環境 (Environment)
       schemaVersion: PROBE_SCHEMA_VERSION,
       type: 'proxy',
-      dietMode: rep.dietMode,
-      scope: rep.scope,
-      at: rep.at,
+      dietMode: ctx.activeMode,
+      scope: resolveProbeScope(),
+      at: {
+        rendered: ctx.renderIso,
+        probed: ctx.nowIso
+      },
 
       // Part 2: 輸入 (Input Context)
-      feedPosition: feedPosition,
-      postId: postId || null,
-      ...(rep.moduleName ? { moduleName: rep.moduleName } : {}),
-      unitId: unitId || null,
+      feedPosition: ctx.feedPosition,
+      postId: ctx.postId || null,
+      ...(ctx.props && ctx.props.moduleName ? { moduleName: ctx.props.moduleName } : {}),
+      unitId: ctx.unitKey || null,
 
       // Part 3: 分類與策略結果 (Classification & Policy)
       classify: cleanClassify,
-      categorySetting: rep.categorySetting,
+      categorySetting: categorySetting,
 
       // Part 4: 底層除錯數據 (Raw Diagnostics)
       memory: cleanMemory,
       payload: cleanPayload
     };
 
-    if (rep.entryCategory !== undefined) proxyReport.entryCategory = rep.entryCategory;
-    if (rep.signals && rep.signals.length) proxyReport.signals = rep.signals;
+    if (ctx.props && ctx.props.entryCategory !== null && ctx.props.entryCategory !== undefined) proxyReport.entryCategory = ctx.props.entryCategory;
+    if (ctx.signals && ctx.signals.length) proxyReport.signals = ctx.signals;
     if (activeRelayReads && activeRelayReads.length) proxyReport.relayReads = activeRelayReads;
-    if (rep.recordKeys && rep.recordKeys.length) proxyReport.recordKeys = rep.recordKeys;
-    if (rep.url && (rep.url.post || rep.url.ad)) {
+    if (ctx.recordKeys && ctx.recordKeys.length) proxyReport.recordKeys = ctx.recordKeys;
+    if (ctx.postUrl || ctx.adUrl) {
       proxyReport.url = {};
-      if (rep.url.post) proxyReport.url.post = rep.url.post;
-      if (rep.url.ad) proxyReport.url.ad = rep.url.ad;
+      if (ctx.postUrl) proxyReport.url.post = ctx.postUrl;
+      if (ctx.adUrl) proxyReport.url.ad = ctx.adUrl;
     }
 
     // Session-level module drift snapshot: did the hard-coded FEED_UNIT_MODULES names
@@ -414,77 +479,41 @@ window.FBDietProbe = (() => {
       }
     } catch (e) {}
 
-    let text = null;
-    try {
-      text = JSON.stringify(proxyReport, null, 2);
-    } catch (e) {
-      text = '{"error":"proxy probe serialization failed: ' + String(e && e.message ? e.message : e) + '"}';
-    }
-    if (text.length > PROBE_MAX_CHARS) text = text.slice(0, PROBE_MAX_CHARS) + '\n…[truncated]';
-    return { text, report: proxyReport };
+    return serializeReport(proxyReport);
   }
 
   function buildDomProbeReport(container, props, classifyResult, renderedAt) {
-    const nowIso = new Date().toISOString();
-    const renderIso = renderedAt || nowIso;
-    const feedUnit = props && props.payload && props.payload.feedUnit;
-    const postId = (relayPostIdHint(feedUnit) || {}).postId || null;
-    const unitId = classifyResult && (classifyResult.unitId || (classifyResult.evidence && classifyResult.evidence.id));
-    const feedPosition = props && props.payload && typeof props.payload.position === 'number' ? props.payload.position : null;
-    const moduleName = (props && props.moduleName) || (classifyResult && classifyResult.moduleName) || null;
+    const ctx = collectProbeContext(props, classifyResult, null, container, renderedAt);
 
-    const extVersion = (typeof window !== 'undefined' && window.FB_DIET_DEFAULTS && window.FB_DIET_DEFAULTS.VERSION)
-      || (typeof globalThis !== 'undefined' && globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.VERSION);
-    const bridge = window.FBDietBridge;
-    const currentSettings = bridge && typeof bridge.getSettings === 'function' ? bridge.getSettings() : null;
-    const activeMode = currentSettings ? (currentSettings.dietMode || 'full') : 'full';
-    const scope = resolveProbeScope();
-
-    const isMediaGroup = classifyResult && (classifyResult.category === 'reels' || classifyResult.category === 'stories' || classifyResult.category === 'suggestedGroup');
-    const domMetadata = window.FBDietDOMMetadata;
-    const domLive = container && domMetadata && typeof domMetadata.collect === 'function'
-      ? domMetadata.collect(container, isMediaGroup, relayPostIdHint(feedUnit))
-      : null;
-
-    let domSuggestedLive = (classifyResult && classifyResult.domEvidence) || null;
-    const detector = window.FBDietDOMSuggested;
-    if ((!domSuggestedLive || !domSuggestedLive.debug) && container && detector && typeof detector.detect === 'function') {
-      try {
-        const live = detector.detect(container);
-        if (live) {
-          domSuggestedLive = domSuggestedLive ? Object.assign({}, live, domSuggestedLive) : live;
-        }
-      } catch (e) {}
-    }
-
-    const liveUrls = (domLive && domLive.urls) || {};
+    const liveUrls = (ctx.domLive && ctx.domLive.urls) || {};
     let cleanUrls = null;
     if (liveUrls.synthesized) {
       cleanUrls = cleanUrls || {};
       cleanUrls.synthesized = liveUrls.synthesized;
     }
-    const primaryUrl = (domLive && domLive.postUrl) || liveUrls.primary || null;
+    const primaryUrl = (ctx.domLive && ctx.domLive.postUrl) || liveUrls.primary || null;
     if (primaryUrl) {
       cleanUrls = cleanUrls || {};
       cleanUrls.primary = primaryUrl;
     }
 
+    const domLive = ctx.domLive;
     const domReport = {
       // Part 1: 環境 (Environment)
       schemaVersion: PROBE_SCHEMA_VERSION,
       type: 'dom',
-      dietMode: activeMode,
-      scope: scope,
+      dietMode: ctx.activeMode,
+      scope: resolveProbeScope(),
       at: {
-        rendered: renderIso,
-        probed: nowIso
+        rendered: ctx.renderIso,
+        probed: ctx.nowIso
       },
 
       // Part 2: 輸入 (Input Context)
-      feedPosition: feedPosition,
-      postId: postId || null,
-      ...(moduleName ? { moduleName } : {}),
-      unitId: unitId || null,
+      feedPosition: ctx.feedPosition,
+      postId: ctx.postId || null,
+      ...(ctx.moduleName ? { moduleName: ctx.moduleName } : {}),
+      unitId: ctx.unitKey || null,
 
       // Part 3: 已過濾結構化資料 (Filtered / Extracted)
       extracted: {
@@ -495,18 +524,11 @@ window.FBDietProbe = (() => {
         ...((domLive && domLive.snippet) ? { snippet: domLive.snippet } : {}),
         ...((domLive && domLive.media) ? { media: domLive.media } : {}),
         ...((domLive && domLive.reshare) ? { reshare: domLive.reshare } : {}),
-        ...(domSuggestedLive ? { suggested: domSuggestedLive } : {})
+        ...(ctx.domSuggestedLive ? { suggested: ctx.domSuggestedLive } : {})
       }
     };
 
-    let text = null;
-    try {
-      text = JSON.stringify(domReport, null, 2);
-    } catch (e) {
-      text = '{"error":"dom probe serialization failed: ' + String(e && e.message ? e.message : e) + '"}';
-    }
-    if (text.length > PROBE_MAX_CHARS) text = text.slice(0, PROBE_MAX_CHARS) + '\n…[truncated]';
-    return { text, report: domReport };
+    return serializeReport(domReport);
   }
 
   function promptFallbackCopy(payload) {
@@ -562,6 +584,118 @@ window.FBDietProbe = (() => {
     closeActiveProbePopup();
   }
 
+  function popupRow(doc, text) {
+    const row = doc.createElement('div');
+    row.className = 'fb-diet-probe-popup-row';
+    row.textContent = text;
+    return row;
+  }
+
+  function popupCopiedFooter(doc, label) {
+    const spacer = doc.createElement('div');
+    spacer.className = 'fb-diet-probe-popup-spacer';
+    return [spacer, popupRow(doc, '已複製 ' + label + ' 診斷 JSON 到剪貼簿 (Copied)')];
+  }
+
+  function renderDomPopup(doc, popup, report) {
+    const modeStr = (report && (report.dietMode || report.mode) ? (report.dietMode || report.mode).toUpperCase() : 'FULL');
+    const ext = (report && report.extracted) || report || {};
+
+    popup.appendChild(popupRow(doc, 'DOM Probe (' + modeStr + ')'));
+
+    if (ext.actor) {
+      popup.appendChild(popupRow(doc, 'Author: ' + ext.actor + (ext.group ? ' · Group: ' + ext.group : '')));
+    }
+
+    if (ext.title && ext.title.text) {
+      popup.appendChild(popupRow(doc, 'Title: ' + (ext.title.text.length > 40 ? ext.title.text.slice(0, 40) + '…' : ext.title.text)));
+    }
+
+    if (ext.snippet) {
+      popup.appendChild(popupRow(doc, 'Snippet: ' + (ext.snippet.length > 40 ? ext.snippet.slice(0, 40) + '…' : ext.snippet)));
+    }
+
+    if (ext.media) {
+      popup.appendChild(popupRow(doc, 'Media: ' + ext.media));
+    }
+
+    const targetUrl = ext.urls && (ext.urls.synthesized || ext.urls.primary || ext.urls.raw);
+    if (targetUrl) {
+      const linkRow = doc.createElement('div');
+      linkRow.className = 'fb-diet-probe-popup-row';
+      const linkPrefix = doc.createElement('span');
+      linkPrefix.textContent = 'Link: ';
+      linkRow.appendChild(linkPrefix);
+      const anchor = doc.createElement('a');
+      anchor.href = targetUrl;
+      anchor.target = '_blank';
+      anchor.rel = 'noopener noreferrer';
+      anchor.textContent = targetUrl.length > 50 ? targetUrl.slice(0, 50) + '…' : targetUrl;
+      if (anchor.style) {
+        anchor.style.color = '#60a5fa';
+        anchor.style.textDecoration = 'underline';
+        anchor.style.cursor = 'pointer';
+      }
+      anchor.title = targetUrl;
+      if (typeof anchor.addEventListener === 'function') {
+        anchor.addEventListener('click', (e) => {
+          if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        });
+      }
+      linkRow.appendChild(anchor);
+      popup.appendChild(linkRow);
+    }
+
+    const footer = popupCopiedFooter(doc, 'DOM');
+    footer.forEach((node) => popup.appendChild(node));
+  }
+
+  function renderProxyPopup(doc, popup, report, classifyResult, props) {
+    const modeStr = (report && (report.dietMode || report.mode) ? (report.dietMode || report.mode).toUpperCase() : 'FULL');
+
+    const category = (report && report.classify && report.classify.category)
+      || (report && report.categorySetting && report.categorySetting.category)
+      || (classifyResult && classifyResult.category)
+      || (props && props.entryCategory)
+      || 'regular';
+    const reason = (report && report.classify && report.classify.reason)
+      || (classifyResult && classifyResult.reason)
+      || (props && props.moduleName ? 'component:' + props.moduleName : 'no-match');
+
+    const evidence = classifyResult && classifyResult.evidence;
+    const source = evidence && evidence.source && evidence.source !== 'none' ? evidence.source : null;
+    const mod = (classifyResult && classifyResult.moduleName) || (props && props.moduleName) || null;
+    let evidenceText = source || '';
+    if (mod) {
+      evidenceText = evidenceText ? evidenceText + ' (' + mod + ')' : mod;
+    }
+    if (!evidenceText) evidenceText = 'none';
+
+    const ui = window.FBDietUI;
+    const userFacingGroup = ui && typeof ui.groupOf === 'function' ? ui.groupOf(category) : 'regular';
+    const groupMeta = (ui && ui.GROUP_META && ui.GROUP_META[userFacingGroup]) || { badgeText: 'Other' };
+
+    const catSetting = report && report.categorySetting;
+    const statusText = catSetting ? (catSetting.enabled ? 'ON (' + catSetting.foldMode + ')' : 'OFF') : 'OFF';
+
+    popup.appendChild(popupRow(doc, 'Mode: ' + modeStr + ' · Filter: ' + statusText));
+    popup.appendChild(popupRow(doc, 'Category: ' + groupMeta.badgeText + ' (' + category + ')'));
+    popup.appendChild(popupRow(doc, 'Signal: ' + reason));
+    popup.appendChild(popupRow(doc, 'Source: ' + evidenceText));
+
+    if (report && report.scope) {
+      popup.appendChild(popupRow(doc, 'Scope: ' + (report.scope.allowed ? 'home/search/marketplace' : 'groups/profile')));
+    }
+
+    const postUrl = report && report.url && (report.url.post || report.url.ad);
+    if (postUrl) {
+      popup.appendChild(popupRow(doc, 'Link: ' + (postUrl.length > 50 ? postUrl.slice(0, 50) + '…' : postUrl)));
+    }
+
+    const footer = popupCopiedFooter(doc, 'Proxy');
+    footer.forEach((node) => popup.appendChild(node));
+  }
+
   function showProbePopup(holder, classifyResult, props, report, mode) {
     try {
       const doc = (typeof document !== 'undefined' ? document : null)
@@ -575,149 +709,10 @@ window.FBDietProbe = (() => {
       popup.className = 'fb-diet-probe-popup';
       popup.title = '點擊外部可關閉提示 (Click outside to dismiss)';
 
-      const modeStr = (report && (report.dietMode || report.mode) ? (report.dietMode || report.mode).toUpperCase() : 'FULL');
-
       if (mode === 'dom') {
-        const ext = (report && report.extracted) || report || {};
-        // DOM Probe Popup
-        const headerRow = doc.createElement('div');
-        headerRow.className = 'fb-diet-probe-popup-row';
-        headerRow.textContent = 'DOM Probe (' + modeStr + ')';
-        popup.appendChild(headerRow);
-
-        if (ext.actor) {
-          const actorRow = doc.createElement('div');
-          actorRow.className = 'fb-diet-probe-popup-row';
-          actorRow.textContent = 'Author: ' + ext.actor + (ext.group ? ' · Group: ' + ext.group : '');
-          popup.appendChild(actorRow);
-        }
-
-        if (ext.title && ext.title.text) {
-          const titleRow = doc.createElement('div');
-          titleRow.className = 'fb-diet-probe-popup-row';
-          titleRow.textContent = 'Title: ' + (ext.title.text.length > 40 ? ext.title.text.slice(0, 40) + '…' : ext.title.text);
-          popup.appendChild(titleRow);
-        }
-
-        if (ext.snippet) {
-          const snipRow = doc.createElement('div');
-          snipRow.className = 'fb-diet-probe-popup-row';
-          snipRow.textContent = 'Snippet: ' + (ext.snippet.length > 40 ? ext.snippet.slice(0, 40) + '…' : ext.snippet);
-          popup.appendChild(snipRow);
-        }
-
-        if (ext.media) {
-          const mediaRow = doc.createElement('div');
-          mediaRow.className = 'fb-diet-probe-popup-row';
-          mediaRow.textContent = 'Media: ' + ext.media;
-          popup.appendChild(mediaRow);
-        }
-
-        const targetUrl = ext.urls && (ext.urls.synthesized || ext.urls.primary || ext.urls.raw);
-        if (targetUrl) {
-          const linkRow = doc.createElement('div');
-          linkRow.className = 'fb-diet-probe-popup-row';
-          const linkPrefix = doc.createElement('span');
-          linkPrefix.textContent = 'Link: ';
-          linkRow.appendChild(linkPrefix);
-          const anchor = doc.createElement('a');
-          anchor.href = targetUrl;
-          anchor.target = '_blank';
-          anchor.rel = 'noopener noreferrer';
-          anchor.textContent = targetUrl.length > 50 ? targetUrl.slice(0, 50) + '…' : targetUrl;
-          if (anchor.style) {
-            anchor.style.color = '#60a5fa';
-            anchor.style.textDecoration = 'underline';
-            anchor.style.cursor = 'pointer';
-          }
-          anchor.title = targetUrl;
-          if (typeof anchor.addEventListener === 'function') {
-            anchor.addEventListener('click', (e) => {
-              if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-            });
-          }
-          linkRow.appendChild(anchor);
-          popup.appendChild(linkRow);
-        }
-
-        const spacer = doc.createElement('div');
-        spacer.className = 'fb-diet-probe-popup-spacer';
-        popup.appendChild(spacer);
-
-        const copiedRow = doc.createElement('div');
-        copiedRow.className = 'fb-diet-probe-popup-row';
-        copiedRow.textContent = '已複製 DOM 診斷 JSON 到剪貼簿 (Copied)';
-        popup.appendChild(copiedRow);
+        renderDomPopup(doc, popup, report);
       } else {
-        // Proxy Probe Popup
-        const category = (report && report.classify && report.classify.category)
-          || (report && report.categorySetting && report.categorySetting.category)
-          || (classifyResult && classifyResult.category)
-          || (props && props.entryCategory)
-          || 'regular';
-        const reason = (report && report.classify && report.classify.reason)
-          || (classifyResult && classifyResult.reason)
-          || (props && props.moduleName ? 'component:' + props.moduleName : 'no-match');
-
-        const evidence = classifyResult && classifyResult.evidence;
-        const source = evidence && evidence.source && evidence.source !== 'none' ? evidence.source : null;
-        const mod = (classifyResult && classifyResult.moduleName) || (props && props.moduleName) || null;
-        let evidenceText = source || '';
-        if (mod) {
-          evidenceText = evidenceText ? evidenceText + ' (' + mod + ')' : mod;
-        }
-        if (!evidenceText) evidenceText = 'none';
-
-        const ui = window.FBDietUI;
-        const userFacingGroup = ui && typeof ui.groupOf === 'function' ? ui.groupOf(category) : 'regular';
-        const groupMeta = (ui && ui.GROUP_META && ui.GROUP_META[userFacingGroup]) || { badgeText: 'Other' };
-
-        const catSetting = report && report.categorySetting;
-        const statusText = catSetting ? (catSetting.enabled ? 'ON (' + catSetting.foldMode + ')' : 'OFF') : 'OFF';
-
-        const modeRow = doc.createElement('div');
-        modeRow.className = 'fb-diet-probe-popup-row';
-        modeRow.textContent = 'Mode: ' + modeStr + ' · Filter: ' + statusText;
-        popup.appendChild(modeRow);
-
-        const catRow = doc.createElement('div');
-        catRow.className = 'fb-diet-probe-popup-row';
-        catRow.textContent = 'Category: ' + groupMeta.badgeText + ' (' + category + ')';
-        popup.appendChild(catRow);
-
-        const signalRow = doc.createElement('div');
-        signalRow.className = 'fb-diet-probe-popup-row';
-        signalRow.textContent = 'Signal: ' + reason;
-        popup.appendChild(signalRow);
-
-        const sourceRow = doc.createElement('div');
-        sourceRow.className = 'fb-diet-probe-popup-row';
-        sourceRow.textContent = 'Source: ' + evidenceText;
-        popup.appendChild(sourceRow);
-
-        if (report && report.scope) {
-          const scopeRow = doc.createElement('div');
-          scopeRow.className = 'fb-diet-probe-popup-row';
-          scopeRow.textContent = 'Scope: ' + (report.scope.allowed ? 'home/search/marketplace' : 'groups/profile');
-          popup.appendChild(scopeRow);
-        }
-
-        const postUrl = report && report.url && (report.url.post || report.url.ad);
-        if (postUrl) {
-          const linkRow = doc.createElement('div');
-          linkRow.className = 'fb-diet-probe-popup-row';
-          linkRow.textContent = 'Link: ' + (postUrl.length > 50 ? postUrl.slice(0, 50) + '…' : postUrl);
-          popup.appendChild(linkRow);
-        }
-
-        const spacer = doc.createElement('div');
-        spacer.className = 'fb-diet-probe-popup-spacer';
-        popup.appendChild(spacer);
-
-        const copiedRow = doc.createElement('div');
-        copiedRow.className = 'fb-diet-probe-popup-row';
-        copiedRow.textContent = '已複製 Proxy 診斷 JSON 到剪貼簿 (Copied)';
-        popup.appendChild(copiedRow);
+        renderProxyPopup(doc, popup, report, classifyResult, props);
       }
 
       holder.appendChild(popup);
