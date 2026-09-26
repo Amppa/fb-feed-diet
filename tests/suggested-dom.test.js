@@ -4,6 +4,12 @@ const { Checker, createFakeReact, createWindow, loadInject, loadDefaults, create
 const FEED_MODULE = 'CometFeedUnitErrorBoundary.react';
 
 /** Simple simulated DOM node builder for unit testing DOM extractors. */
+/**
+ * Local node double, deliberately NOT the harness `makeNode`: this one resolves
+ * space-separated descendant chains ('div[role="button"] span'), which the shared
+ * double does not. Merging the two requires upgrading the harness matcher first,
+ * otherwise selectors here would silently stop matching.
+ */
 function makeNode(tag, attrs = {}, children = [], text = '') {
   const el = {
     tagName: tag.toUpperCase(),
