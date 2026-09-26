@@ -20,11 +20,7 @@ graph TD
     end
 
     subgraph ISOLATED World [ISOLATED World - document_idle]
-        CS[content.js<br/>Coordinator & Fallback]
-        DET[detector.js<br/>DOM Text Scanner]
-        FALL[fallback.js<br/>DOM Observer Scanner]
-        CS --- DET
-        CS --- FALL
+        CS[content.js<br/>Storage & Settings Bridge]
     end
 
     subgraph Extension Core [Extension Context]
@@ -111,7 +107,7 @@ Loaded sequentially at `document_start` before Comet finishes loading:
   - Accepts immediate settings push via `window.__fbDietSetSettings`.
 - **`dom-suggested.js` (`window.FBDietDOMSuggested`)**:
   - MAIN-world Full Mode suggested-post detector for rendered DOM, including action buttons, recommendation headers, reshare exclusions, and verified/menu/privacy guards.
-  - Uses the named `FB_DIET_DEFAULTS.KEYWORDS` matrices and remains separate from the ISOLATED-world `detector.js`.
+  - Uses the named `FB_DIET_DEFAULTS.KEYWORDS` matrices.
 - **`ui.js` (`window.FBDietUI`, `window.FBDietDOMMetadata`)**:
   - React UI components and group badges for placeholder bars.
   - Embeds mounted-DOM metadata extraction (`window.FBDietDOMMetadata`) directly to eliminate multi-script injection ordering and reload desync risks.
@@ -136,20 +132,15 @@ Loaded sequentially at `document_start` before Comet finishes loading:
   - Tracks diagnostic hydration statistics (`getStatus().hydration`).
   - Preserves Relay query subscriptions and React component identity.
 
-### Isolated World Modules (`src/content/`)
+### Isolated World Module (`src/content/`)
 
 - **`content.js`**:
-  - Listens for `fb-diet/main` messages (`ready`, `blocked`, `allowed`, `regular`).
+  - Pure bridge: it owns no folding. `src/content/fallback.js` and `detector.js` were retired (STRATEGY.md decision #32), so the MAIN world proxy is the single classification and folding engine.
+  - Listens for `fb-diet/main` messages (`ready`, `hello`, `blocked`, `allowed`, `regular`) and answers every settings change with `announceToMain()`.
   - Persists a capped diagnostic log of classification events to `chrome.storage.local` (`fbDietLog`, last 300 entries, batched flush).
   - Manages a 3-second throttled buffer (`countBuffer`) to batch-update `chrome.storage.local`.
-  - Disables DOM scanning as soon as `ready` is received from MAIN world.
-  - Implements `shutdown()`: called on context invalidation to gracefully halt observers and timers.
-- **`detector.js` (`window.FBDietDetector`)**:
-  - Fallback text parser using the shared `FB_DIET_DEFAULTS.KEYWORDS` matrices (Sponsored, Suggested, etc.).
-  - Handles SVG text masking, aria-labels, and obfuscated spans.
-- **`fallback.js` (`window.FBDietDOMFallback`)**:
-  - DOM fallback scanner used when the MAIN world proxy never reports in (STRATEGY.md, decision #26).
-  - `scanPage` honours `restrictFoldScope` with a `wasInFoldScope` transition flag: the scan runs only inside the allowlist; leaving the scope restores all folded elements once and clears stale `data-fb-diet-fingerprint` values (so recycled SPA nodes can re-fold); while out of scope each scan costs a single pathname comparison.
+  - Observes `chrome.storage.onChanged` as the single settings channel (STRATEGY.md decision #33).
+  - Implements `shutdown()`: called on context invalidation to drop pending timers and buffers, keeping an orphaned script silent.
 
 ### Background Service Worker (`src/background/`)
 

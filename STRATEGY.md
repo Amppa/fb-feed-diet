@@ -55,8 +55,8 @@ sponsored  >  suggestedGroup  >  suggested  >  stories  >  reels  >  regular
 
 ### Topic Index
 - **[Rules & Classification]**: #1, #3, #6, #7, #8, #10, #14, #15, #16, #19
-- **[Probe & Diagnostics]**: #11, #13, #20, #21, #30, #31, #32
-- **[Core & Interception]**: #4, #5, #9, #24, #26, #28, #29
+- **[Probe & Diagnostics]**: #11, #13, #20, #21, #30, #31
+- **[Core & Interception]**: #4, #5, #9, #24, #26, #28, #29, #32, #33
 - **[UI & Appearance Mode]**: #17, #18, #22, #23, #25, #27
 
 ### Decisions Summary (#1 ~ #30)
@@ -128,7 +128,7 @@ sponsored  >  suggestedGroup  >  suggested  >  stories  >  reels  >  regular
 - Structured probe report into two distinct lifecycle phases:
   - `memory`: Initial render GraphQL/Props/Relay state.
   - `dom`: Live DOM scraping upon clicking 🔍 (author, snippet, group, direct post/ad URLs).
-- *(Superseded by Decisions #31 and #32: the two phases now ship as the `proxy` and `dom` blocks of one unified report behind a single 🔍 button.)*
+- *(Superseded by Decision #31: the two phases now ship as the `proxy` and `dom` blocks of one unified report behind a single 🔍 button.)*
 
 ### [UI] Decision #24 & #25: Decouple Title Display (`showFeedTitle`) & Instant Sync
 - Background script pushes `PUSH_SETTINGS` to broadcast live visual preference updates across all tabs without reloading.
@@ -157,6 +157,7 @@ sponsored  >  suggestedGroup  >  suggested  >  stories  >  reels  >  regular
 
 ### [Probe] Decision #30: DOM Fallback & Probe Hardening
 Three DOM-side false-positive sources were closed without removing the underlying fallbacks (commits 69bc9bf, 4df6f7a, 9aa953c):
+- *(The `detector.js` bullet below is historical: the engine it hardened was retired by Decision #32. The permalink-synthesis and reshare rules remain in force in `ui.js`.)*
 
 - **Ad-link matching (`detector.js`)**: the fallback no longer matches the bare substrings `/ads/` and `ad_id`. Organic permalinks carry `thread_id` / `load_id`, which contain `ad_id`, and any external site's `/ads/about` page matched as well — both folded real posts. A link must now either pass `AD_LINK_HREF_RE` (an `/ads/` path segment on facebook.com or relative) or carry `ad_id` as an actual query parameter (`/[?&]ad_id=/`).
 - **Permalink synthesis (`ui.js`)**: a post URL is only synthesized from a Relay-supplied id (`relayPostIdHint`: `post_id`, `clip_id`, `story.post_id`, `mf_story_key`) matching `/^[A-Za-z0-9_-]{4,}$/`; ids are never parsed out of DOM text. The host must be proven: an explicit group id, an author link of the form `/groups/<gid>/user/<uid>` (`authorIdentityFromProfileUrl`), or a `/groups/…` page path yield `/groups/<gid>/permalink/<id>/`; otherwise a non-reserved vanity handle is required for `/<handle>/posts/<id>`. A stray group link inside the unit is no longer sufficient — the old `groupUrl` synthesis fallback is retired (`groupUrl` survives as report-only evidence) — so a group *mention* in a post body cannot turn a personal permalink into a group permalink.
@@ -172,6 +173,21 @@ Three DOM-side false-positive sources were closed without removing the underlyin
 - The three legacy builders (`buildUnitProbeReport` / `buildProxyProbeReport` / `buildDomProbeReport`) are removed outright — product code calls `addProbe`, and tests call `FBDietProbe.buildProbeReport`.
 - Null/empty members are compacted away at assembly, keeping clipboard payloads information-dense (typical unified report ≈ 1.4 KB, far below `PROBE_MAX_CHARS`).
 - Compatibility: the probe JSON is clipboard-only diagnostics (never persisted, never parsed by the extension), so v3→v4 needs no migration or dual-read window. `PROBE_SCHEMA_VERSION` is now 4.
+
+### [Core] Decision #32: Retire the ISOLATED-world DOM Fallback Engine
+`src/content/fallback.js` and `src/content/detector.js` (≈590 lines plus two suites) are deleted. The extension is now single-engine: the MAIN world React/Relay proxy classifies and folds, and the content script is only a storage/settings bridge.
+
+- **Why quality, not dead code**: the fallback decided by crude visible-text and href substring matching, which is exactly the false-positive class this project keeps paying to remove (Decisions #1, #6, #30, misclassification table). Keeping a second, looser engine meant the same href could be an ad to one engine and organic to the other — four different ad-href strictness levels existed at once.
+- **What was live**: only `startObservation()` was ever unwired (the incremental observer was deliberately disabled earlier, pinned by a test that made calling it throw). `scanPage()` still ran once per settings change whenever the proxy had not announced itself, so this removal does drop the degraded mode for the case where MAIN world injection fails. That case is now explicitly "no folding, tell the user": the Drift Watchdog (#29) logs `[FB Diet][Drift]` without needing a fallback to paper over it.
+- **Fold bar ownership**: `.fb-diet-placeholder` / `.fb-diet-folded-original` were emitted only by the fallback (the MAIN world emits `.fb-diet-titlebar`), so their CSS went with it. `probe-css.test.js` previously pinned a *fallback-only* selector as a contract; it now pins the titlebar selector and asserts the retired class names cannot come back.
+
+### [Core] Decision #33: Single-path Settings Synchronization
+One settings write now causes exactly one fan-out: `chrome.storage.local.set` → `storage.onChanged`.
+
+- The background kept `storage.onChanged` as the only broadcaster; the redundant `PUSH_SETTINGS` runtime message (options page) and its handler are gone, as is the per-tab `chrome.tabs.sendMessage('SETTINGS_CHANGED')` and the content script listener for it.
+- Before this, one toggle produced two `pushSettingsToFacebookTabs()` passes (2× `executeScript` + 2× `sendMessage` per tab), and the content script applied the update twice — visible as fold bars flickering and re-rendering.
+- `popup.js` already relied on the storage write alone and synced correctly, which is what proved the extra channel was dead weight rather than a requirement.
+- The two remaining paths are deliberate and cover different failure modes: background `executeScript` into the MAIN world (works even if the content script is orphaned) and the content script's own `storage.onChanged` → `postMessage` (works after an extension reload, where injection is unavailable).
 
 ---
 

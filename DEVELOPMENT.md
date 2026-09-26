@@ -30,7 +30,7 @@ This hub links the developer documentation for **FB Diet**. Topic files live und
 ## 🛠️ Project Structure
 
 - **`src/inject/`**: Injected into Facebook's `MAIN` world (hooks `window.__d`, reads Relay store, extracts probe metadata, evaluates deterministic classification rules, renders React fold placeholders). Full Mode suggested detection lives in `dom-suggested.js`; mounted-DOM metadata extraction is embedded in `ui.js` (`window.FBDietDOMMetadata`) to eliminate script injection desyncs.
-- **`src/content/`**: Runs in the `ISOLATED` extension world (DOM fallback heuristics, storage synchronization, throttled stats reporting, `postMessage` bridge).
+- **`src/content/`**: Runs in the `ISOLATED` extension world as a pure bridge (storage synchronization, throttled stats reporting, `postMessage` relay). All classification and folding happens in the `MAIN` world.
 - **`src/background/`**: Chrome MV3 Service Worker (settings storage sync, cross-tab broadcasts, context menu / badges).
 - **`src/options/` & `src/popup/`**: User configuration dashboards and popup toggle UI.
 - **`src/shared/` & `src/i18n/`**: Shared schemas, settings defaults, version constant, and multilingual localization dictionaries (`en`, `zh-TW`).
