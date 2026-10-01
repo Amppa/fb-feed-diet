@@ -32,7 +32,7 @@ function run(c) {
           // Scalar fields are read with the plain path: Relay throws on getLinkedRecord() for a
           // field that is not a link, so the old '^wwwURL' / '^created_time' never resolved.
           'wwwURL': 'https://www.facebook.com/1001/posts/999',
-          '^message.text': 'x'.repeat(200),
+          '^message.text': 'x'.repeat(600),
           'created_time': 1700000000
         };
         const list = Array.isArray(paths) ? paths : [paths];
@@ -58,7 +58,7 @@ function run(c) {
     c.equals('group join state', e.group.joinState, 'CAN_JOIN');
     c.equals('group permalink', e.group.permalink, 'https://www.facebook.com/groups/g1');
     c.equals('permalink from wwwURL', e.content.permalink, 'https://www.facebook.com/1001/posts/999');
-    c.equals('message truncated to snippet', e.content.message.length, 120);
+    c.equals('message truncated to snippet', e.content.message.length, 500);
     c.equals('createdTime raw timestamp', e.content.createdTime, 1700000000);
     c.equals('createdAt formatted ISO', e.content.createdAt, '2023-11-14T22:13:20.000Z');
     c.equals('content.post_id not in content', e.content.post_id, undefined);

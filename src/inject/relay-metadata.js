@@ -25,7 +25,7 @@ window.FBDietRelayMetadata = (() => {
   const DEFAULTS = window.FB_DIET_DEFAULTS || globalThis.FB_DIET_DEFAULTS || {};
   const RESERVED_PROFILE_SEGMENTS = DEFAULTS.RESERVED_PROFILE_SEGMENTS || [];
 
-  const MESSAGE_SNIPPET = 120;
+  const MESSAGE_SNIPPET = 500;
   const URL_MAX_LEN = 1000;
 
   function relayApi() {
@@ -87,7 +87,7 @@ window.FBDietRelayMetadata = (() => {
       if (RESERVED_PROFILE_SEGMENTS.indexOf(first.toLowerCase()) === -1) {
         return first;
       }
-    } catch (e) {}
+    } catch (e) { }
     return null;
   }
 
@@ -373,7 +373,7 @@ window.FBDietRelayMetadata = (() => {
             title = clean(val);
             break;
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     }
 
@@ -404,9 +404,9 @@ window.FBDietRelayMetadata = (() => {
         ctx.readFromRecords('call_to_action.type'),
         ctx.readFromRecords('action_links.0.title'),
         ctx.readFromRecords('action_links.0.text'),
-      // `action_links` is a plural link, so it needs `^^`; the single-link marker makes Relay
-      // throw (invariant #696) on both getLinkedRecord and the getValue fallback.
-      readPath(ctx.ids, ['^call_to_action.type', '^^action_links[0].title', '^^action_links[0].text'])
+        // `action_links` is a plural link, so it needs `^^`; the single-link marker makes Relay
+        // throw (invariant #696) on both getLinkedRecord and the getValue fallback.
+        readPath(ctx.ids, ['^call_to_action.type', '^^action_links[0].title', '^^action_links[0].text'])
       ])),
       feedContext: clean(firstNonEmpty([
         ctx.readFromRecords('feed_context.text'),

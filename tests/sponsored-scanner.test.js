@@ -235,6 +235,35 @@ function run(c) {
     c.equals('it folds as sponsored on DOM evidence alone', blocked[blocked.length - 1].payload.category + ':' + blocked[blocked.length - 1].payload.reason, 'sponsored:dom:plain_text');
   }
 
+  /* --- a module-declared unit arms the sponsorship slot alone --- */
+  {
+    // entryCategory is structural (this IS the tray): surface and suggested can never change
+    // the verdict, so sweeping them per pass is pure waste. Only the unconditional
+    // sponsorship override (decision #39) still can, so it stays armed.
+    const t = setup({});
+    t.win.FBDietBridge.setSettings(DOM);
+    let surfaceCalls = 0;
+    const realSurfaceDetect = t.win.FBDietDOMSurface.detect;
+    t.win.FBDietDOMSurface.detect = (...args) => {
+      surfaceCalls += 1;
+      return realSurfaceDetect.apply(t.win.FBDietDOMSurface, args);
+    };
+    const props = {
+      lastCmp: { type: 'div', props: { children: 'stories tray' } },
+      moduleName: 'StoriesTray.react',
+      entryCategory: 'stories',
+      payload: { feedUnit: { id: 'tray-1', __typename: 'Story' } }
+    };
+    t.React.resetHooks();
+    t.win.FBDietFold.FoldUnit(props);
+    t.React.resetHooks();
+    t.React.setRef(0, t.container);
+    t.win.FBDietFold.FoldUnit(props);
+    c.equals('a declared tray never sweeps the surface detector', surfaceCalls, 0);
+    c.equals('a declared tray never sweeps the suggested detector', t.suggestedCalls.n, 0);
+    c.ok('a declared tray still arms the sponsorship override', t.sponsoredCalls.length >= 1);
+  }
+
   /* --- REGRESSION: DOM-only must render a bar and a probe, not the bare source --- */
   {
     // A unit the DOM has not caught has category null in this pipeline, and null used to end the

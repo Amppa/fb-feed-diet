@@ -48,6 +48,8 @@ function run(c) {
 
   equals(c, 'store captured through the construct trap', relay.isReady(), true);
   equals(c, 'one source remembered', relay.getSourceCount(), 1);
+  equals(c, 'first capture broadcasts relay-ready once',
+    win.__events.filter((e) => e && e.type === 'fb-diet:relay-ready').length, 1);
 
   /* --- path grammar --- */
   equals(c, 'plain field chain on plain objects', relay.read('u1', 'sponsored_data.ad_id'), 'ad-123');
@@ -76,6 +78,8 @@ function run(c) {
   }
   equals(c, 'source ring buffer bounded', relay.getSourceCount(), 6);
   c.ok('newest source still readable', Boolean(relay.describe('batch')));
+  equals(c, 'later captures never re-broadcast relay-ready',
+    win.__events.filter((e) => e && e.type === 'fb-diet:relay-ready').length, 1);
 
   /* --- capture diagnostics: what the probe report shows as proxy.relay.capture --- */
   const stats = relay.getCaptureStats();
@@ -181,6 +185,8 @@ function run(c) {
     PreStore.get('u1');
     equals(c, 'a store that predates the wrap is captured on first get()', preWin.FBDietRelay.getSourceCount(), 1);
     equals(c, 'the pre-wrap store is readable', preWin.FBDietRelay.read('u1', 'sponsored_data.ad_id'), 'ad-123');
+    equals(c, 'prototype capture also broadcasts relay-ready once',
+      preWin.__events.filter((e) => e && e.type === 'fb-diet:relay-ready').length, 1);
   }
 
   /* --- the prototype path re-reads one store constantly: the early-out must not reorder --- */

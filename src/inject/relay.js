@@ -74,11 +74,23 @@ window.FBDietRelay = (() => {
     // cost an indexOf plus a splice/unshift to arrive at the same array, so return immediately.
     if (sources[0] === instance) return;
 
+    const wasReady = ready;
     const index = sources.indexOf(instance);
     if (index !== -1) sources.splice(index, 1);
     sources.unshift(instance);
     if (sources.length > MAX_SOURCES) sources.length = MAX_SOURCES;
     ready = true;
+    // Wake-up broadcast: units that rendered before the first store capture resolved
+    // to `no-unit-id` / regular. They have no other re-render trigger, so the first
+    // capture wakes them for a re-verdict. Event bus only (no DOM reads), so the
+    // relay zero-DOM invariant (decision #40) still holds.
+    if (!wasReady && typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      try {
+        window.dispatchEvent(new CustomEvent('fb-diet:relay-ready', {
+          detail: { sourceCount: sources.length }
+        }));
+      } catch (e) {}
+    }
   }
 
   /**

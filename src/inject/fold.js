@@ -612,12 +612,28 @@ window.FBDietFold = (() => {
     // the per-detector evidence shapes, not just the winning category.
     const [domScan, setDomScan] = typeof React.useState === 'function' ? React.useState({ suggested: null, sponsored: null, surface: null }) : [{ suggested: null, sponsored: null, surface: null }, function noop() {}];
     const containerRef = (React && typeof React.useRef === 'function') ? React.useRef(null) : { current: null };
+    // Set when the relay verdict was undecided because the store was not captured yet.
+    // The relay-ready broadcast clears it via a re-render; a plain boolean ref (not state)
+    // so marking it never schedules a render by itself.
+    const pendingStoreRef = (React && typeof React.useRef === 'function') ? React.useRef(false) : { current: false };
 
     if (typeof React.useEffect === 'function') {
       React.useEffect(() => {
         const refresh = () => setTick((value) => value + 1);
         window.addEventListener('fb-diet:settings-changed', refresh);
         return () => window.removeEventListener('fb-diet:settings-changed', refresh);
+      }, []);
+    }
+
+    if (typeof React.useEffect === 'function') {
+      React.useEffect(() => {
+        const onRelayReady = () => {
+          if (pendingStoreRef.current) {
+            setTick((value) => value + 1);
+          }
+        };
+        window.addEventListener('fb-diet:relay-ready', onRelayReady);
+        return () => window.removeEventListener('fb-diet:relay-ready', onRelayReady);
       }, []);
     }
 
@@ -676,16 +692,22 @@ window.FBDietFold = (() => {
             }
             // A decided sponsorship is likewise unbeatable from this side.
             if (domScan.sponsored && domScan.sponsored.isSponsored) return;
+            // A module-declared category is structural (this IS the tray / side ad), so the
+            // surface and suggested slots can never change the verdict — only the
+            // unconditional sponsorship override still can (decision #39). Arm the sponsored
+            // slot alone instead of sweeping all three detectors per pass.
+            const entryDeclared = Boolean(props.entryCategory);
             const skip = {
-              suggested: Boolean(domScan.suggested && domScan.suggested.isSuggested),
+              suggested: entryDeclared || Boolean(domScan.suggested && domScan.suggested.isSuggested),
               sponsored: Boolean(domScan.sponsored && domScan.sponsored.isSponsored),
-              surface: Boolean(domScan.surface && domScan.surface.isSurface)
+              surface: entryDeclared || Boolean(domScan.surface && domScan.surface.isSurface)
             };
             if (skip.suggested && skip.sponsored && skip.surface) return;
             return setupDomObserver(containerRef, {
               skip,
               // A decided surface IS a tray, so the veto is already proven without a walk.
-              vetoYes: Boolean(domScan.surface && domScan.surface.isSurface),
+              // A declared entry category is structural for the same reason.
+              vetoYes: entryDeclared || Boolean(domScan.surface && domScan.surface.isSurface),
               onResult: (slot, detected) => {
                 mergeScan(slot, detected);
               }
@@ -741,8 +763,27 @@ window.FBDietFold = (() => {
         // `dom` mode is not here: an undecided unit there displays as `regular` (it has to be
         // counted against something) and renders the ordinary regular bar, so the diagnostic mode
         // can see a unit its engine looked at and did not fold.
+        //
+        // Store-not-ready yet (vs genuinely unidentifiable): skip the regular report so the
+        // relay-ready wake-up does not double-count regular-then-blocked, and mark the unit
+        // pending so the broadcast re-renders it once the store lands.
+        const relay = window.FBDietRelay;
+        // No relay module (unit-test harness, partially loaded MAIN world): behave as before
+        // and report regular — no wake-up will ever arrive, so pending would leak.
+        const relayReady = !relay || typeof relay.isReady !== 'function' || relay.isReady();
+        if (!relayReady) {
+          pendingStoreRef.current = true;
+          return addProbe(rendered, props, verdict, reads);
+        }
+        pendingStoreRef.current = false;
         if (typeof bridge.reportRegular === 'function') bridge.reportRegular(store || verdictReport(props, verdict));
         return addProbe(rendered, props, verdict, reads);
+      }
+
+      // A resolved relay verdict clears the pending flag: the wake-up has served its purpose
+      // (or was never needed because the store was already captured).
+      if (mode === 'relay') {
+        pendingStoreRef.current = false;
       }
 
       const defaultMode = bridge.getFoldMode ? bridge.getFoldMode(category) : (bridge.isEnabled(category) ? 'mini' : 'off');

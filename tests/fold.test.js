@@ -234,6 +234,31 @@ function run(c) {
     c.ok('suggested also reported', blocked.indexOf('suggested') !== -1);
   }
 
+  /* --- relay-ready wake-up: store-not-ready units stay pending without a regular report --- */
+  {
+    // A unit the store cannot identify (no id) with the store not yet captured: pending,
+    // untouched, and NOT counted as regular — the relay-ready broadcast re-renders it later
+    // instead of double-counting regular-then-blocked.
+    const t = setup({});
+    t.win.FBDietRelay = { isReady: () => false };
+    const out = t.render({ feedUnit: {} });
+    c.ok('store-not-ready unit renders untouched', out.__source === true);
+    c.equals('no regular report while pending', countMessages(t.win, 'regular'), 0);
+    c.ok('relay-ready listener armed',
+      Array.isArray(t.win.__listeners['fb-diet:relay-ready']) && t.win.__listeners['fb-diet:relay-ready'].length >= 1);
+
+    // The same unit once the store lands: reported as regular exactly once (genuine no-id).
+    t.win.FBDietRelay = { isReady: () => true };
+    t.render({ feedUnit: {} });
+    c.equals('regular reported once the store is ready', countMessages(t.win, 'regular'), 1);
+
+    // No relay module at all (harness default): legacy behaviour, regular reported immediately.
+    const bare = setup({});
+    const bareOut = bare.render({ feedUnit: {} });
+    c.ok('no-relay-module unit renders untouched', bareOut.__source === true);
+    c.equals('no-relay-module unit still reports regular', countMessages(bare.win, 'regular'), 1);
+  }
+
   /* --- resolveVerdict: the DOM sponsorship override (STRATEGY.md decision #39) --- */
   {
     // resolveVerdict is exported as a pure function precisely so this rule can be checked

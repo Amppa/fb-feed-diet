@@ -1,7 +1,17 @@
 // scripts/sync-public.js
-// Synchronizes the clean, public extension source to the public GitHub repository.
-// Completely excludes internal documentation (docs/, STRATEGY.md, etc.) and testcase captures.
-// Forces a single clean commit on the public repository, purging past commit history.
+// Cumulative clean sync to the public GitHub repository.
+//
+// Unlike the original single-commit workflow, this keeps the public history:
+// it clones the public mirror, overlays only the whitelisted public files from
+// this checkout, and fast-forward pushes ONE new commit per release. No force-push.
+//
+// Security model is unchanged: sensitive paths are never copied (allowlist, not
+// denylist), and a pre-commit assertion aborts if any forbidden path is present
+// in the staging tree — whether from this checkout or from a polluted mirror.
+//
+// Usage:
+//   node scripts/sync-public.js [extra-message]
+//   npm run sync:public
 
 const fs = require('fs');
 const path = require('path');
@@ -28,33 +38,43 @@ const PUBLIC_INCLUDES = [
   'scripts'
 ];
 
-console.log('🚀 [Sync Public] Starting clean export for public repository...');
+// 3. Paths that must NEVER appear in the public tree. Checked before every commit.
+const FORBIDDEN_PATHS = [
+  'docs',
+  'STRATEGY.md',
+  'DEVELOPMENT.md',
+  'AGENTS.md',
+  'design',
+  'release',
+  'tests/testcase',
+  '.kilo'
+];
 
-// Ensure clean temp working directory
-if (fs.existsSync(TEMP_DIR)) {
-  fs.rmSync(TEMP_DIR, { recursive: true, force: true });
+function sh(cmd, cwd) {
+  return execSync(cmd, { cwd: cwd || ROOT_DIR, stdio: 'pipe' }).toString().trim();
 }
-fs.mkdirSync(TEMP_DIR, { recursive: true });
 
-// Copy allowed items
-for (const item of PUBLIC_INCLUDES) {
-  const srcPath = path.join(ROOT_DIR, item);
-  const destPath = path.join(TEMP_DIR, item);
-  if (fs.existsSync(srcPath)) {
-    fs.cpSync(srcPath, destPath, { recursive: true });
-    console.log(`  + Copied: ${item}`);
+function copyWhitelist(destDir) {
+  for (const item of PUBLIC_INCLUDES) {
+    const srcPath = path.join(ROOT_DIR, item);
+    const destPath = path.join(destDir, item);
+    if (fs.existsSync(srcPath)) {
+      fs.rmSync(destPath, { recursive: true, force: true });
+      fs.cpSync(srcPath, destPath, { recursive: true });
+      console.log(`  + Copied: ${item}`);
+    }
+  }
+  // tests/testcase/ is git-ignored locally so it never arrives via git, but a
+  // working tree copy could still carry it — remove explicitly either way.
+  const testcaseDir = path.join(destDir, 'tests', 'testcase');
+  if (fs.existsSync(testcaseDir)) {
+    fs.rmSync(testcaseDir, { recursive: true, force: true });
+    console.log('  - Excluded: tests/testcase/');
   }
 }
 
-// Remove sensitive testcase directory if it was copied inside tests/
-const testcaseDir = path.join(TEMP_DIR, 'tests', 'testcase');
-if (fs.existsSync(testcaseDir)) {
-  fs.rmSync(testcaseDir, { recursive: true, force: true });
-  console.log('  - Excluded: tests/testcase/');
-}
-
-// Create a minimal public .gitignore
-const publicGitignore = `# Dependencies & OS files
+function writePublicGitignore(destDir) {
+  const publicGitignore = `# Dependencies & OS files
 node_modules/
 .DS_Store
 Thumbs.db
@@ -63,38 +83,74 @@ Thumbs.db
 release/
 .public-sync-temp/
 `;
-fs.writeFileSync(path.join(TEMP_DIR, '.gitignore'), publicGitignore, 'utf8');
+  fs.writeFileSync(path.join(destDir, '.gitignore'), publicGitignore, 'utf8');
+}
 
-// Initialize a brand new, clean git repository
-console.log('🧹 [Sync Public] Creating clean git history (purging previous commits)...');
-try {
-  execSync('git init', { cwd: TEMP_DIR, stdio: 'pipe' });
-  execSync('git branch -M master', { cwd: TEMP_DIR, stdio: 'pipe' });
-  execSync('git add .', { cwd: TEMP_DIR, stdio: 'pipe' });
-  
-  // Read the version for the clean commit message. manifest.json is the field Chrome installs,
-  // so it is the one that has to match the commit. A missing or unreadable file is fatal rather
-  // than falling back to a hardcoded number: a stale default would quietly label this release
-  // with a version nobody shipped.
-  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'manifest.json'), 'utf8'));
-  const version = manifest.version;
-  if (!version) throw new Error('manifest.json has no version field');
+function assertCleanTree(destDir) {
+  const violations = FORBIDDEN_PATHS.filter((rel) => fs.existsSync(path.join(destDir, rel)));
+  if (violations.length > 0) {
+    throw new Error(`forbidden paths present in public tree: ${violations.join(', ')}`);
+  }
+}
 
-  execSync(`git commit -m "Release v${version} (clean source)"`, { cwd: TEMP_DIR, stdio: 'pipe' });
+function run() {
+  const extraMessage = (process.argv[2] || '').trim();
+  console.log('[Sync Public] Cumulative clean sync to public repository...');
 
-  console.log(`📡 [Sync Public] Force pushing to ${PUBLIC_REPO_URL}...`);
-  execSync(`git remote add origin ${PUBLIC_REPO_URL}`, { cwd: TEMP_DIR, stdio: 'pipe' });
-  
-  // Force push to replace GitHub master with this clean commit
-  execSync('git push -f origin master', { cwd: TEMP_DIR, stdio: 'inherit' });
-
-  console.log('✅ [Sync Public] Success! Public GitHub history purged and updated.');
-} catch (err) {
-  console.error('❌ [Sync Public] Error during sync:', err.message);
-  process.exit(1);
-} finally {
-  // Always clean up temp directory
+  // Fresh clone of the public mirror, so its history is preserved and extended.
   if (fs.existsSync(TEMP_DIR)) {
     fs.rmSync(TEMP_DIR, { recursive: true, force: true });
   }
+  console.log('[Sync Public] Cloning public mirror...');
+  sh(`git clone --branch master ${PUBLIC_REPO_URL} "${TEMP_DIR}"`, ROOT_DIR);
+
+  try {
+    copyWhitelist(TEMP_DIR);
+    writePublicGitignore(TEMP_DIR);
+    assertCleanTree(TEMP_DIR);
+
+    sh('git add -A', TEMP_DIR);
+    const pending = sh('git status --porcelain', TEMP_DIR);
+    if (!pending) {
+      console.log('[Sync Public] Already in sync — public mirror needs no new commit.');
+      return;
+    }
+
+    // manifest.json is the field Chrome installs, so it names the release. A
+    // missing or unreadable version is fatal rather than falling back to a
+    // hardcoded number: a stale default would quietly label this release
+    // with a version nobody shipped.
+    const manifest = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'manifest.json'), 'utf8'));
+    const version = manifest.version;
+    if (!version) throw new Error('manifest.json has no version field');
+
+    const message = extraMessage
+      ? `Release v${version}: ${extraMessage} (clean source)`
+      : `Release v${version} (clean source)`;
+    sh(`git commit -m "${message.replace(/"/g, '')}"`, TEMP_DIR);
+
+    console.log(`[Sync Public] Pushing to ${PUBLIC_REPO_URL} (fast-forward, no --force)...`);
+    sh('git push origin master', TEMP_DIR);
+
+    console.log('[Sync Public] Success! Public history extended by one clean commit.');
+  } finally {
+    // Always clean up temp directory
+    if (fs.existsSync(TEMP_DIR)) {
+      fs.rmSync(TEMP_DIR, { recursive: true, force: true });
+    }
+  }
 }
+
+if (require.main === module) {
+  try {
+    run();
+  } catch (err) {
+    if (fs.existsSync(TEMP_DIR)) {
+      fs.rmSync(TEMP_DIR, { recursive: true, force: true });
+    }
+    console.error('[Sync Public] Error during sync:', err.message);
+    process.exit(1);
+  }
+}
+
+module.exports = { PUBLIC_INCLUDES, FORBIDDEN_PATHS, assertCleanTree };
