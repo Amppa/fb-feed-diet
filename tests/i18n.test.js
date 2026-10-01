@@ -12,6 +12,35 @@ function loadI18n(win, navigatorLang) {
   return win.FBDietI18N;
 }
 
+/**
+ * A document double for `applyTo`: elements carry a `dataset` plus writable text/title/
+ * placeholder and a recording `setAttribute`, which is exactly the surface the four walks touch.
+ * `tests/harness.js` makeNode is deliberately not used here — it models a rendered DOM node
+ * (attributes in, text out) and has no `dataset` or `setAttribute`, so it cannot express
+ * "this module wrote into the page".
+ */
+function makeI18nDoc(elementsBySelector) {
+  return {
+    documentElement: { lang: '' },
+    querySelectorAll(selector) {
+      return elementsBySelector[selector] || [];
+    }
+  };
+}
+
+function makeI18nEl(dataset) {
+  return {
+    dataset,
+    textContent: '',
+    title: '',
+    placeholder: '',
+    attrs: {},
+    setAttribute(name, value) {
+      this.attrs[name] = value;
+    }
+  };
+}
+
 function run(c) {
   const win = createWindow();
 
@@ -88,6 +117,15 @@ function run(c) {
     'en-only: [] zh-only: []'
   );
 
+  /* --- the key count is pinned, because the shape cannot report a repeat --- */
+  //
+  // Each locale is merged from three group objects (COMMON / POPUP / OPTIONS). A key listed in
+  // two groups is silently overwritten by the last spread — no test above can see it, because both
+  // locales would still agree and the key would still resolve. The count is what notices: a
+  // repeat makes it one short. Adding a key means raising this number on purpose.
+  c.equals('en key count is what the three groups declare', enKeys.length, 50);
+  c.equals('zh-TW key count matches', zhKeys.length, 50);
+
   /* --- feed-only keys were trimmed from the shared module --- */
   c.equals('feed badge keys removed', i18n.t('badgeSponsored', 'zh-TW'), 'badgeSponsored');
   c.equals('probe unknown badge key replaced by labelRegular', i18n.t('probeCategoryUnknown', 'zh-TW'), 'probeCategoryUnknown');
@@ -98,6 +136,60 @@ function run(c) {
     'retired fold-mode keys resolve to their own name',
     retiredKeys.every((key) => i18n.t(key, 'en') === key && i18n.t(key, 'zh-TW') === key)
   );
+
+  /* --- applyTo(): the one walk both pages call --- */
+  //
+  // It is the only DOM-aware part of the module, so these cases are about the four attributes it
+  // owns, the language it stamps on <html>, and the fact that it survives a document it cannot
+  // walk — the module is loaded in a sandbox with no document at all, so the guard is load-bearing.
+  {
+    const title = makeI18nEl({ i18n: 'optionsSubtitle' });
+    const ariaTitle = makeI18nEl({ i18nTitle: 'langToggleTitle' });
+    const placeholder = makeI18nEl({ i18nPlaceholder: 'resetOptionsTitle' });
+    const toggle = makeI18nEl({ i18n: 'masterToggleTitle', i18nAria: 'masterToggleTitle' });
+    const doc = makeI18nDoc({
+      '[data-i18n]': [title, toggle],
+      '[data-i18n-title]': [ariaTitle],
+      '[data-i18n-placeholder]': [placeholder],
+      '[data-i18n-aria]': [toggle]
+    });
+
+    i18n.applyTo(doc);
+
+    c.equals('applyTo writes textContent', title.textContent, '臉書減肥: 對廣告與推薦內容縮短顯示');
+    c.equals('applyTo writes title', ariaTitle.title, '切換語言');
+    c.equals('applyTo writes placeholder', placeholder.placeholder, '重設所有計數統計');
+    c.equals('applyTo writes aria-label', toggle.attrs['aria-label'], '總開關');
+    c.equals('applyTo also translates textContent on an aria element', toggle.textContent, '總開關');
+    c.equals('applyTo stamps documentElement.lang', doc.documentElement.lang, 'zh-TW');
+
+    // The two walks are independent, so one element carrying both attributes gets both written.
+    c.equals(
+      'one element can take both a text and an aria-label write',
+      [toggle.textContent, toggle.attrs['aria-label']].join(' | '),
+      '總開關 | 總開關'
+    );
+
+    i18n.setLang('en');
+    i18n.applyTo(doc);
+    c.equals('applyTo follows a language switch', ariaTitle.title, 'Switch language');
+    c.equals('…including the aria-label', toggle.attrs['aria-label'], 'Master Toggle');
+    c.equals('…and the lang attribute', doc.documentElement.lang, 'en');
+    i18n.setLang('zh-TW');
+
+    c.ok('applyTo survives no argument', (() => { i18n.applyTo(); return true; })());
+    c.ok('applyTo survives a document without querySelectorAll', (() => { i18n.applyTo({}); return true; })());
+    c.ok(
+      'applyTo survives a throwing document instead of propagating',
+      (() => {
+        i18n.applyTo({
+          documentElement: {},
+          querySelectorAll() { throw new Error('detached'); }
+        });
+        return true;
+      })()
+    );
+  }
 
   /* --- every dictionary key needs a consumer in src/ (no dead entries) --- */
   function sourceFiles(dir) {

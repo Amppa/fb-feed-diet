@@ -121,21 +121,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (select.selectedIndex === -1) select.selectedIndex = 0;
   }
 
-  // Applies all data-i18n / data-i18n-title translations for the active language.
+  // The dictionary module owns the attribute contract. What stays here is this page's own work:
+  // its document title, the language switch's active state, and the dynamic status labels.
   function applyTranslations() {
     if (!i18n) return;
     const lang = i18n.getLang();
-    document.documentElement.lang = lang;
+    i18n.applyTo(document);
     document.title = i18n.t('optionsTitle');
-    document.querySelectorAll('[data-i18n]').forEach((el) => {
-      el.textContent = i18n.t(el.dataset.i18n);
-    });
-    document.querySelectorAll('[data-i18n-title]').forEach((el) => {
-      el.title = i18n.t(el.dataset.i18nTitle);
-    });
-    document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
-      el.placeholder = i18n.t(el.dataset.i18nPlaceholder);
-    });
     langSegments.forEach((btn) => {
       btn.classList.toggle('is-active', btn.dataset.lang === lang);
     });

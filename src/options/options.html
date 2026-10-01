@@ -23,13 +23,13 @@
       </div>
       <div class="header-action">
         <div class="lang-switch" id="langSwitch" title="Switch language" data-i18n-title="langToggleTitle" role="button"
-          tabindex="0" aria-label="Switch language">
+          tabindex="0" aria-label="Switch language" data-i18n-aria="langToggleTitle">
           <span class="lang-segment" data-lang="en">EN</span>
           <span class="lang-segment" data-lang="zh-TW">繁中</span>
         </div>
         <span class="master-status-label" id="masterStatus" data-i18n="masterStatusActive">Active</span>
         <label class="switch main-toggle" title="Master Toggle" data-i18n-title="masterToggleTitle">
-          <input type="checkbox" id="enabled" aria-label="Master Toggle">
+          <input type="checkbox" id="enabled" aria-label="Master Toggle" data-i18n-aria="masterToggleTitle">
           <span class="slider round"></span>
         </label>
       </div>
@@ -96,7 +96,7 @@
         </div>
         <span class="fold-state-emoji" aria-hidden="true"></span>
         <label class="switch">
-          <input type="checkbox" id="groupRegular" aria-label="Regular posts">
+          <input type="checkbox" id="groupRegular" aria-label="Regular posts" data-i18n-aria="groupRegularTitle">
           <span class="slider round"></span>
         </label>
       </div>
@@ -115,7 +115,7 @@
         </div>
         <span class="fold-state-emoji" aria-hidden="true"></span>
         <label class="switch">
-          <input type="checkbox" id="groupSuggested" aria-label="Suggested by Facebook">
+          <input type="checkbox" id="groupSuggested" aria-label="Suggested by Facebook" data-i18n-aria="groupSuggestedTitle">
           <span class="slider round"></span>
         </label>
       </div>
@@ -134,7 +134,7 @@
         </div>
         <span class="fold-state-emoji" aria-hidden="true"></span>
         <label class="switch">
-          <input type="checkbox" id="groupMedia" aria-label="Reels and Stories">
+          <input type="checkbox" id="groupMedia" aria-label="Reels and Stories" data-i18n-aria="groupMediaTitle">
           <span class="slider round"></span>
         </label>
       </div>
@@ -153,7 +153,7 @@
         </div>
         <span class="fold-state-emoji" aria-hidden="true"></span>
         <label class="switch">
-          <input type="checkbox" id="groupAds" aria-label="Ads">
+          <input type="checkbox" id="groupAds" aria-label="Ads" data-i18n-aria="groupAdsTitle">
           <span class="slider round"></span>
         </label>
       </div>
@@ -172,7 +172,7 @@
         </div>
         <span class="fold-state-emoji" aria-hidden="true"></span>
         <label class="switch">
-          <input type="checkbox" id="groupOther" aria-label="Other">
+          <input type="checkbox" id="groupOther" aria-label="Other" data-i18n-aria="groupOtherTitle">
           <span class="slider round"></span>
         </label>
       </div>
@@ -198,7 +198,8 @@
           </div>
         </div>
         <label class="switch">
-          <input type="checkbox" id="restrictFoldScope" aria-label="Only Filter on Home, Search & Marketplace">
+          <input type="checkbox" id="restrictFoldScope" aria-label="Only Filter on Home, Search & Marketplace"
+            data-i18n-aria="featFoldScopeTitle">
           <span class="slider round"></span>
         </label>
       </div>
@@ -214,7 +215,8 @@
           </div>
         </div>
         <label class="switch">
-          <input type="checkbox" id="alwaysShowFoldBar" aria-label="Show Header on Expanded Posts">
+          <input type="checkbox" id="alwaysShowFoldBar" aria-label="Show Header on Expanded Posts"
+          data-i18n-aria="featAlwaysShowBarTitle">
           <span class="slider round"></span>
         </label>
       </div>
@@ -229,7 +231,8 @@
               only when folded</div>
           </div>
         </div>
-        <select class="feature-select" id="showTitleMode" aria-label="Header Snippet Display">
+        <select class="feature-select" id="showTitleMode" aria-label="Header Snippet Display"
+              data-i18n-aria="featTitleModeTitle">
           <option value="always" data-i18n="featTitleModeAlways">Always Show</option>
           <option value="whenFolded" data-i18n="featTitleModeWhenFolded">Only When Folded (Default)</option>
           <option value="never" data-i18n="featTitleModeNever">Always Hide</option>
@@ -247,7 +250,8 @@
           </div>
         </div>
         <label class="switch">
-          <input type="checkbox" id="minimizedFoldMode" aria-label="Minimized Header (18px)">
+          <input type="checkbox" id="minimizedFoldMode" aria-label="Minimized Header (18px)"
+          data-i18n-aria="featMinimizedFoldTitle">
           <span class="slider round"></span>
         </label>
       </div>
@@ -263,7 +267,7 @@
               recommendations that carry no relationship field</div>
           </div>
         </div>
-        <select class="feature-select" id="dietMode" aria-label="Detection Source">
+        <select class="feature-select" id="dietMode" aria-label="Detection Source" data-i18n-aria="featDetectionTitle">
           <option value="relay" data-i18n="featDetectionRelay">Relay Only (Default)</option>
           <option value="dom" data-i18n="featDetectionDomOnly">DOM Only</option>
         </select>
@@ -279,7 +283,7 @@
           </div>
         </div>
         <label class="switch">
-          <input type="checkbox" id="debugProbe" aria-label="Enable Feed Probe (Debug)">
+          <input type="checkbox" id="debugProbe" aria-label="Enable Feed Probe (Debug)" data-i18n-aria="featProbeTitle">
           <span class="slider round"></span>
         </label>
       </div>

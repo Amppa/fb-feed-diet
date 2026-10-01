@@ -10,16 +10,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const i18n = window.FBDietI18N;
 
-  // Apply all data-i18n / data-i18n-title texts for the active language.
+  // The dictionary module owns the attribute contract; this page has nothing to add to it.
   function applyTranslations() {
     if (!i18n) return;
-    document.documentElement.lang = i18n.getLang();
-    document.querySelectorAll('[data-i18n]').forEach((el) => {
-      el.textContent = i18n.t(el.dataset.i18n);
-    });
-    document.querySelectorAll('[data-i18n-title]').forEach((el) => {
-      el.title = i18n.t(el.dataset.i18nTitle);
-    });
+    i18n.applyTo(document);
   }
 
   const SHARED_DEFAULTS = globalThis.FB_DIET_DEFAULTS || {};

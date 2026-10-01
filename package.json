@@ -1,6 +1,6 @@
 {
   "name": "fb-diet",
-  "version": "2.9.0",
+  "version": "2.9.1",
   "description": "Clean up Facebook sponsored posts, suggested content, and ads with lightweight folding placeholders and live stats.",
   "keywords": [
     "facebook",
@@ -14,6 +14,7 @@
     "test": "node tests/run.js",
     "package": "node scripts/package.js",
     "bump-version": "node scripts/bump-version.js",
-    "bump_version": "node scripts/bump-version.js"
+    "bump_version": "node scripts/bump-version.js",
+    "sync:public": "node scripts/sync-public.js"
   }
 }
