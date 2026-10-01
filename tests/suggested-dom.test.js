@@ -234,8 +234,10 @@ function run(c) {
     c.equals('signal is Other for generic recommendation label', res && res.signal, 'Other');
   }
 
-  /* --- Positive 7: Unrecognized extra Action button in author row -> signal: Other --- */
+  /* --- Retired 7: Unrecognized extra Action button in author row no longer folds --- */
   {
+    // The extra-button fallback is abolished: only explicit Follow / Join semantics fold.
+    // A localized action button ("訂閱頻道") is logged in buttonsFound and declined.
     const authorLink = makeNode('a', { role: 'link' }, [], 'Some Creator');
     const heading = makeNode('h4', { role: 'heading' }, [authorLink]);
     const customActionBtn = makeNode('div', { role: 'button' }, [], '訂閱頻道');
@@ -243,13 +245,10 @@ function run(c) {
     const card = makeNode('div', { role: 'article' }, [header]);
 
     const res = detector.detect(card);
-    c.ok('detects extra Action button in author row', Boolean(res) && res.isSuggested === true);
-    c.equals('signal is Other', res && res.signal, 'Other');
-    c.equals('reason is dom:other_extra_button', res && res.reason, 'dom:other_extra_button');
-    c.ok('debug log captures author and button info', Boolean(res && res.debug && res.debug.primaryAuthor === 'Some Creator'));
+    c.equals('an unrecognized action button is declined', res, null);
   }
 
-  /* --- Positive 8: Extra button with SVG icon in author row -> signal: Other (dom:other_svg_icon) --- */
+  /* --- Retired 8: Extra button with SVG icon in author row no longer folds --- */
   {
     const authorLink = makeNode('a', { role: 'link' }, [], 'Brand Page');
     const heading = makeNode('h4', { role: 'heading' }, [authorLink]);
@@ -259,9 +258,7 @@ function run(c) {
     const card = makeNode('div', { role: 'article' }, [header]);
 
     const res = detector.detect(card);
-    c.ok('detects SVG icon button in author row', Boolean(res) && res.isSuggested === true);
-    c.equals('signal is Other for svg icon', res && res.signal, 'Other');
-    c.equals('reason is dom:other_svg_icon', res && res.reason, 'dom:other_svg_icon');
+    c.equals('an icon-only button is declined', res, null);
   }
 
   /* --- REGRESSION: a content-surface pill is not a recommendation cue --- */
@@ -283,9 +280,9 @@ function run(c) {
     // The surface label can also arrive as the accessible name.
     c.equals('a "Reels and short videos" aria is not a suggestion', detector.detect(cardFor('', 'Reels and short videos')), null);
 
-    // The rule is exact-match, so a post that merely mentions a reel is still judged on its own
-    // evidence — the exclusion must not become a substring filter.
-    c.ok('a longer label is not swallowed by the exclusion', Boolean(detector.detect(cardFor('Reels of my week', ''))));
+    // Without the extra-button fallback, a non-Follow/Join label declines no matter how
+    // specific it reads — explicit semantics are the only thing that folds.
+    c.equals('a longer non-cue label is declined', detector.detect(cardFor('Reels of my week', '')), null);
     c.ok('a real follow button is still a suggestion', Boolean(detector.detect(cardFor('追蹤', ''))));
     c.ok('a Follow aria is still a suggestion', Boolean(detector.detect(cardFor('', 'Follow'))));
   }
@@ -548,7 +545,7 @@ function run(c) {
     const fullResultFoldOff = renderUnit({ feedUnit: { id: 'u-full-off', __typename: 'Story' } });
     c.ok('dom mode wraps unclassified unit even when foldSuggested is false', Boolean(fullResultFoldOff) && fullResultFoldOff.props && fullResultFoldOff.props.className === 'fb-diet-full-container');
 
-    // 5. Probe report classifies unclassified relay unit as suggested when DOM has follow button
+    // 5. Probe report retains render-time verdict while reporting live DOM observation
     const unclassifiedRelay = { category: null, unitId: 'u-unclass', reason: 'dom:no-verdict', source: 'dom', display: { category: 'regular', substituted: true } };
     const liveProbeResult = winTest.FBDietProbe.buildProbeReport(
       { payload: { feedUnit: { id: 'u-unclass' } } },
@@ -556,10 +553,12 @@ function run(c) {
       null,
       mockContainer
     );
-    c.equals('unclassified relay unit becomes suggested via DOM', liveProbeResult.report.verdict.category, 'suggested');
-    c.equals('unclassified relay unit keeps null initial category in relay phase', liveProbeResult.report.relay.initialClassify.category, undefined);
-    c.equals('unclassified relay unit verdict foldMode is off when foldSuggested is false', liveProbeResult.report.verdict.foldMode, 'off');
-    c.equals('unclassified relay unit verdict detectionSource is probe_fallback', liveProbeResult.report.verdict.detectionSource, 'probe_fallback');
+    c.equals('unclassified unit keeps null initial category in relay phase', liveProbeResult.report.relay.initialClassify.category, undefined);
+    c.equals('unclassified unit retains undecided verdict category as regular', liveProbeResult.report.verdict.category, 'regular');
+    c.equals('unclassified unit retains render reason', liveProbeResult.report.verdict.reason, 'dom:no-verdict');
+    c.equals('unclassified unit retains render detectionSource', liveProbeResult.report.verdict.detectionSource, 'dom');
+    c.equals('unclassified unit verdict foldMode is off when foldSuggested is false', liveProbeResult.report.verdict.foldMode, 'off');
+    c.ok('live follow button is still reported under dom.extracted', Boolean(liveProbeResult.report.dom && liveProbeResult.report.dom.extracted && liveProbeResult.report.dom.extracted.suggested && liveProbeResult.report.dom.extracted.suggested.isSuggested));
 
     // 6. Classified unit (stories) is NOT overridden by DOM suggested in probe report
     // A store verdict is what `relay` mode produces, so the mode is set before the report is

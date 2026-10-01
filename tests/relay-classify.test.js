@@ -401,6 +401,149 @@ function run(c) {
   );
   equals(c, 'lastCmp join group action folded', r.category, 'suggested');
   equals(c, 'lastCmp join group reason', r.reason, 'action_links:join_group');
+
+  /* --- stage 2: the props answer is never re-asked from the store (A1) --- */
+  // Once the payload carries an explicit subscribe state or join state, that field is RESOLVED —
+  // whatever the value is. NOT_SUBSCRIBED, IS_MEMBER and IS_SUBSCRIBED are answers, not
+  // absences, so asking the store for them again is a read for a question the payload closed.
+  //
+  // The store below deliberately holds the answers that would WIN if the field were re-asked, so
+  // these tests would fail loudly under a classifier that ignored the props: a re-asked
+  // subscribe_status comes back CAN_SUBSCRIBE and a re-asked join state comes back CAN_JOIN,
+  // and the unit would be reported as `suggested` instead of `regular`.
+  calls.length = 0;
+  calls.mapValue = (path) => (path === P.SPONSORED_PATH || path === '^sponsored_data.client_token' || path === 'is_sponsored' ? null : path === P.SUBSCRIBE_PATH ? 'CAN_SUBSCRIBE' : path === P.JOIN_PATH ? 'CAN_JOIN' : null);
+  r = C.classify({
+    feedUnit: feedUnitOf({
+      __typename: 'Story',
+      actors: [{ subscribe_status: 'IS_SUBSCRIBED' }],
+      to: { viewer_forum_join_state: 'IS_MEMBER' }
+    })
+  });
+  equals(c, 'a followed actor in a joined group settles as regular', r.category, 'regular');
+  equals(c, '…despite the store holding a can-subscribe for the same field', r.evidence.subscribeStatus, 'IS_SUBSCRIBED');
+  equals(c, '…and the props value is the join evidence too', r.evidence.joinState, 'IS_MEMBER');
+  equals(c, '…both reported as read from the props', r.evidence.source, 'props');
+  c.ok('…so no read ever touches actors', calls.every((call) => call.path.indexOf('actors') === -1));
+  c.ok('…and join is never asked for', calls.every((call) => call.path !== P.JOIN_PATH));
+  c.ok('…leaving the ad probe as the whole read cost of this unit',
+    calls.length > 0 && calls.every((call) => call.path === P.SPONSORED_PATH || call.path === '^sponsored_data.client_token' || call.path === 'is_sponsored'));
+
+  // The join bypass on its own, with subscribe genuinely unresolved so the store does answer that
+  // field. The join read is skipped anyway, and its CAN_JOIN never reaches the verdict.
+  calls.length = 0;
+  calls.mapValue = (path) => (path === P.SPONSORED_PATH || path === '^sponsored_data.client_token' || path === 'is_sponsored' ? null : path === P.SUBSCRIBE_PATH ? null : path === P.JOIN_PATH ? 'CAN_JOIN' : null);
+  r = C.classify({ feedUnit: feedUnitOf({ __typename: 'Story', to: { viewer_forum_join_state: 'IS_MEMBER' } }) });
+  equals(c, 'a joined group settles as regular', r.category, 'regular');
+  equals(c, '…and the props value is the recorded join evidence', r.evidence.joinState, 'IS_MEMBER');
+  c.ok('…so the store is never asked for join, even though it holds a different answer',
+    calls.every((call) => call.path !== P.JOIN_PATH));
+
+  /* --- stage 1: a tray unit costs the ad probe and nothing else --- */
+  // The tray typenames are the whole answer for these units, so the props scan and both store
+  // reads are traffic for a verdict nobody is waiting for.
+  calls.length = 0;
+  calls.mapValue = () => null;
+  r = C.classify({ feedUnit: feedUnitOf({ __typename: 'ShowcaseFeedUnit' }) });
+  equals(c, 'tray fast path still classifies as reels', r.category, 'reels');
+  c.ok('…without ever reading subscribe', calls.every((call) => call.path !== P.SUBSCRIBE_PATH));
+  c.ok('…nor join', calls.every((call) => call.path !== P.JOIN_PATH));
+  c.ok('…and every read it did make was the ad probe',
+    calls.length > 0 && calls.every((call) => call.path === P.SPONSORED_PATH || call.path === '^sponsored_data.client_token' || call.path === 'is_sponsored'));
+
+  calls.length = 0;
+  r = C.classify({ feedUnit: feedUnitOf({ __typename: 'DiscoverFeedUnit' }) }, { moduleName: 'CometFeedUnitErrorBoundary.react' });
+  equals(c, 'stories tray fast path still classifies as stories', r.category, 'stories');
+  c.ok('…with the same read bound', calls.every((call) => call.path !== P.SUBSCRIBE_PATH && call.path !== P.JOIN_PATH));
+
+  // The evidence block is complete even though almost nothing was read: probe.js and the probe
+  // report address these keys by name, and a key that is absent is indistinguishable from a key
+  // nobody looked for. The nulls are the report of what the fast path skipped.
+  equals(c, 'a stage 1 verdict reports every evidence key', Object.keys(r.evidence).sort().join(','),
+    'actionSignal,adId,id,idCount,joinState,nestedTypename,ownTypename,recHeader,source,subscribeStatus');
+  equals(c, '…subscribe was never read', r.evidence.subscribeStatus, null);
+  equals(c, '…nor join', r.evidence.joinState, null);
+  equals(c, '…nor the action links', r.evidence.actionSignal, null);
+  equals(c, '…nor a recommendation header', r.evidence.recHeader, null);
+  equals(c, '…and no ad marker was found', r.evidence.adId, null);
+  equals(c, '…while the id still qualifies the unit', r.evidence.idCount, 1);
+  equals(c, '…and the source is the props the typename came from', r.evidence.source, 'props');
+
+  /* --- stage 1: sponsorship still outranks a tray typename (reels tray) --- */
+  // The two existing cases cover the Stories tray and the group list. The Reels tray is the one
+  // structural rule left, and the precedence is a single claim: an ad is an ad wherever it sits.
+  calls.length = 0;
+  calls.mapValue = (path) => (path === P.SPONSORED_PATH ? 'ad-77' : null);
+  r = C.classify({ feedUnit: feedUnitOf({ __typename: 'ShowcaseFeedUnit' }) });
+  equals(c, 'sponsored beats reels', r.category, 'sponsored');
+  equals(c, '…and the ad id is the signal', r.signal, 'ad-77');
+
+  /* --- stage 3: the first store suggestion ends the stage --- */
+  calls.length = 0;
+  calls.mapValue = (path) => (path === P.SUBSCRIBE_PATH ? 'CAN_SUBSCRIBE' : path === P.JOIN_PATH ? 'CAN_JOIN' : null);
+  r = C.classify({ feedUnit: feedUnitOf() });
+  equals(c, 'a relay can-subscribe settles as suggested', r.category, 'suggested');
+  equals(c, '…and the reason is the subscribe rule', r.reason, 'actors[0].subscribe_status');
+  c.ok('…so the join read that could not change the verdict never ran',
+    calls.every((call) => call.path !== P.JOIN_PATH));
+
+  // A relay value that is NOT a suggestion is still recorded, and still lets the join read run:
+  // it answered its own field without settling the unit.
+  calls.length = 0;
+  calls.mapValue = (path) => (path === P.SUBSCRIBE_PATH ? 'NOT_SUBSCRIBED' : path === P.JOIN_PATH ? 'CAN_JOIN' : null);
+  r = C.classify({ feedUnit: feedUnitOf() });
+  equals(c, 'a non-suggesting relay value does not end the stage', r.category, 'suggested');
+  equals(c, '…the join read answered instead', r.reason, 'to.viewer_forum_join_state');
+  equals(c, '…and both values are reported as evidence', r.evidence.subscribeStatus, 'NOT_SUBSCRIBED');
+  equals(c, '…including the one that did not decide', r.evidence.joinState, 'CAN_JOIN');
+
+  /* --- signal: the decisive value for every branch --- */
+  calls.mapValue = () => null;
+
+  r = C.classify({ feedUnit: feedUnitOf({ th_dat_spo: { brs_filter_setting: 90 } }) });
+  equals(c, 'a th_dat_spo ad signals the marker it matched on', r.signal, 'th_dat_spo');
+
+  calls.mapValue = (path) => (path === P.SPONSORED_PATH ? 'ad-77' : null);
+  r = C.classify({ feedUnit: feedUnitOf() });
+  equals(c, 'a store ad signals the id the store returned', r.signal, 'ad-77');
+  calls.mapValue = () => null;
+
+  r = C.classify({ feedUnit: feedUnitOf({ __typename: 'Story', actors: [{ subscribe_status: 'CAN_SUBSCRIBE' }] }) });
+  equals(c, 'a props can-subscribe signals the state', r.signal, 'CAN_SUBSCRIBE');
+  equals(c, '…from props, not the store', r.evidence.source, 'props');
+
+  r = C.classify({ feedUnit: feedUnitOf({ __typename: 'Story', to: { viewer_forum_join_state: 'CAN_JOIN' } }) });
+  equals(c, 'a props can-join signals the state', r.signal, 'CAN_JOIN');
+
+  calls.mapValue = (path) => (path === P.JOIN_PATH ? 'CAN_JOIN' : null);
+  r = C.classify({ feedUnit: feedUnitOf() });
+  equals(c, 'a store can-join signals the state', r.signal, 'CAN_JOIN');
+  equals(c, '…and the source is the store', r.evidence.source, 'relay');
+  calls.mapValue = () => null;
+
+  r = C.classify({ feedUnit: { __typename: 'Story', id: 'u-follow-s', action_links: [{ action_type: 'SUBSCRIBE', text: '追蹤' }] } });
+  equals(c, 'a follow button signals the action, not its text', r.signal, 'subscribe');
+
+  r = C.classify({ feedUnit: { __typename: 'Story', id: 'u-join-s', comet_sections: { header: { story: { action_links: [{ action_type: 'JOIN_GROUP', text: '加入' }] } } } } });
+  equals(c, 'a join button signals the action', r.signal, 'join_group');
+
+  r = C.classify({ feedUnit: { __typename: 'Story', id: 'u-rec-s', comet_sections: { header: { story: { title: { text: '為你推薦' } } } } } });
+  equals(c, 'a recommendation header signals the header text', r.signal, '為你推薦');
+
+  r = C.classify({ feedUnit: feedUnitOf({ __typename: 'ShowcaseFeedUnit' }) });
+  equals(c, 'a tray signals the typename that named it', r.signal, 'ShowcaseFeedUnit');
+  r = C.classify({ feedUnit: feedUnitOf({ __typename: 'GroupsYouShouldJoinFeedUnit' }) });
+  equals(c, '…whichever tray it is', r.signal, 'GroupsYouShouldJoinFeedUnit');
+  r = C.classify({ feedUnit: feedUnitOf({ __typename: 'DiscoverFeedUnit' }) });
+  equals(c, '…including the stories tray', r.signal, 'DiscoverFeedUnit');
+
+  // No rule matched: there is no decisive value to report, and saying so is the fact.
+  r = C.classify({ feedUnit: feedUnitOf() });
+  equals(c, 'an unmatched unit signals nothing', r.signal, null);
+  r = C.classify({ feedUnit: {} });
+  equals(c, 'a unit with no id signals nothing', r.signal, null);
+  equals(c, 'a null payload signals nothing', C.classify(null).signal, null);
+  equals(c, '…and still reports no-payload', C.classify(null).reason, 'no-payload');
 }
 
 function equals(c, label, actual, expected) {

@@ -74,16 +74,21 @@ window.FBDietDOMSponsored = (() => {
   //   - The name must be SHORT overall. A long one is a post title or a sentence, not a label.
   const MAX_ARIA_LEN = 40;
   const MAX_ARIA_TOKENS_FOR_SHORT_KEYWORD = 2;
-  const ADS_ABOUT_RE = /(^|\.com)\/ads\/about(\/|\?|$)/;
+  // The explainer link is only evidence where a byline would carry it. The host is pinned to
+  // Facebook: an ads/about URL on any other host is somebody else's link, not the byline's.
+  const ADS_ABOUT_RE = /(^|https?:\/\/([a-z0-9-]+\.)*facebook\.com)\/ads\/about(\/|\?|$)/i;
+  // UI vocabulary that legitimately touches an ad keyword (廣告設定 is a settings label, not an
+  // ad label). Only consulted by the accessible-name route, and only at the seam: the keyword
+  // must stand clear of these words on both sides to count.
+  const ARIA_UI_WORDS = ['設定', '設置', '管理', '選項', 'settings', 'manage'];
+  const ARIA_UI_TAIL_RE = new RegExp('(' + ARIA_UI_WORDS.map(escapeRe).join('|') + ')$', 'i');
+  const ARIA_UI_HEAD_RE = new RegExp('^(' + ARIA_UI_WORDS.map(escapeRe).join('|') + ')', 'i');
 
   const isLatinWord = (keyword) => /^[A-Za-z]+$/.test(String(keyword));
   const ARIA_LATIN_RE = new RegExp(
     '(' + SPONSORED_TEXTS.filter((k) => isLatinWord(k) && String(k).length > 2)
       .map((k) => '\\b' + escapeRe(k) + '\\b').join('|') + ')',
     'i'
-  );
-  const ARIA_NON_LATIN_RE = new RegExp(
-    '(' + SPONSORED_TEXTS.filter((k) => !isLatinWord(k)).map(escapeRe).join('|') + ')'
   );
   const SHORT_ARIA_KEYWORDS = new Set(
     SPONSORED_TEXTS.filter((k) => isLatinWord(k) && String(k).length <= 2)
@@ -99,11 +104,35 @@ window.FBDietDOMSponsored = (() => {
     if (typeof value !== 'string' || !value) return false;
     const cleaned = cleanText(value);
     if (!cleaned || cleaned.length > MAX_ARIA_LEN) return false;
-    if (ARIA_NON_LATIN_RE.test(cleaned) || ARIA_LATIN_RE.test(cleaned)) return true;
+    if (ariaNonLatinHit(cleaned) || ARIA_LATIN_RE.test(cleaned)) return true;
 
     const tokens = cleaned.split(/\s+/).filter(Boolean);
     if (tokens.length > MAX_ARIA_TOKENS_FOR_SHORT_KEYWORD) return false;
     return tokens.some((token) => SHORT_ARIA_KEYWORDS.has(token.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '').toLowerCase()));
+  }
+
+  /**
+   * Non-Latin keywords have no word boundaries, so a bare substring test would also match UI
+   * vocabulary built on the same characters (廣告設定). An occurrence counts only when it
+   * stands clear of the UI words on both sides; a bare keyword (nothing around it) always
+   * counts. Latin keywords keep their own anchored expression above.
+   */
+  function ariaNonLatinHit(cleaned) {
+    const keywords = SPONSORED_TEXTS.filter((k) => !isLatinWord(k));
+    for (const keyword of keywords) {
+      const word = String(keyword);
+      if (!word) continue;
+      let from = 0;
+      for (;;) {
+        const at = cleaned.indexOf(word, from);
+        if (at === -1) break;
+        const before = cleaned.slice(Math.max(0, at - 12), at);
+        const after = cleaned.slice(at + word.length, at + word.length + 12);
+        if (!ARIA_UI_TAIL_RE.test(before) && !ARIA_UI_HEAD_RE.test(after)) return true;
+        from = at + word.length;
+      }
+    }
+    return false;
   }
 
   // Only these elements can carry a label worth reading. Anything else is a wrapper, and
@@ -291,7 +320,8 @@ window.FBDietDOMSponsored = (() => {
       }
     }
 
-    // The byline label links to the "Why am I seeing this ad?" explainer.
+    // The byline label links to the "Why am I seeing this ad?" explainer. The host is pinned
+    // to Facebook by ADS_ABOUT_RE: an ads/about URL anywhere else is somebody else's link.
     if (String(el.tagName).toUpperCase() === 'A') {
       const href = el.getAttribute('href') || '';
       if (ADS_ABOUT_RE.test(href)) return { signal: 'ads_about_link', text: href };

@@ -395,6 +395,34 @@ function run(c) {
     for (const label of guards) {
       c.equals('aria guard: "' + label + '" is not an ad', ariaCard(label), null);
     }
+
+    // UI vocabulary built on an ad keyword is a settings label, not an ad label.
+    for (const label of ['廣告設定', '贊助管理', '廣告設定頁面']) {
+      c.equals('aria UI guard: "' + label + '" is not an ad', ariaCard(label), null);
+    }
+  }
+
+  /* --- the explainer-link host is pinned to Facebook --- */
+  //
+  // Attempted and reverted in the same branch: gating text routes and the ads/about link to
+  // the byline (header/h2-h5 subtree). The field says no — the real card in
+  // tests/fixtures/dom-sponsored/closed-shadow-root-label.json carries its /ads/about/ link
+  // as a SIBLING of the author h4, not inside any heading, so the gate missed a real ad
+  // (decision #39 territory: a miss here costs the reader an advertisement). Byline scoping
+  // stays an open idea, but heading-subtree scoping is falsified; what survives is the host
+  // pin below, which is pure win with no field cost.
+  {
+    const adLink = (href, inHeader) => buildWorld({
+      card: '<div>' + (inHeader
+        ? '<header><h4><a>Author</a></h4><a href="' + href + '">Why this ad</a></header>'
+        : '<header><h4><a>Author</a></h4></header><div dir="auto"><a href="' + href + '">Why this ad</a></div>') +
+        '</div>'
+    });
+    const headed = adLink('https://www.facebook.com/ads/about/?v=1', true);
+    c.equals('a byline ads/about link folds', headed.win.FBDietDOMSponsored.detect(headed.container).signal, 'ads_about_link');
+
+    const forgedHost = adLink('https://evil.com/ads/about/', true);
+    c.equals('an ads/about link off facebook does not fold', forgedHost.win.FBDietDOMSponsored.detect(forgedHost.container), null);
   }
 }
 

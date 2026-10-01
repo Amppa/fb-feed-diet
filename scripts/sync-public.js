@@ -15,13 +15,17 @@ const PUBLIC_REPO_URL = 'https://github.com/Amppa/fb-feed-diet.git';
 
 // 2. Allowlist of files and folders to make public
 // Excludes: docs/, STRATEGY.md, DEVELOPMENT.md, AGENTS.md, design/, release/, tests/testcase/
+// scripts/ is included because tests/bump-version.test.js requires scripts/bump-version, so
+// without it the mirror ships a test suite that cannot run. It also lets a mirror-only clone
+// produce the installable zip, since release/ is excluded.
 const PUBLIC_INCLUDES = [
   'manifest.json',
   'README.md',
   'package.json',
   'icons',
   'src',
-  'tests'
+  'tests',
+  'scripts'
 ];
 
 console.log('🚀 [Sync Public] Starting clean export for public repository...');

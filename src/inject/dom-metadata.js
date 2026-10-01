@@ -116,7 +116,8 @@ window.FBDietDOMMetadata = (() => {
   function isUiOrActionText(text) {
     if (!text || typeof text !== 'string') return true;
     const clean = text.replace(/^[·•\s+]+/, '').trim();
-    if (clean.length < 2) return true;
+    if (clean.length < 1) return true;
+    if (clean.length < 2 && !/[\p{L}\p{N}\p{Extended_Pictographic}]/u.test(clean)) return true;
     if (UI_KEYWORDS.has(clean) || NON_AUTHOR_TEXTS.has(clean)) return true;
     const lower = clean.toLowerCase();
     for (const kw of UI_KEYWORDS) {
@@ -170,9 +171,19 @@ window.FBDietDOMMetadata = (() => {
     return false;
   }
 
+  // Max lines joined and max characters kept: a bar is one row, so the snippet
+  // stays a single line no matter how many lines the post has.
+  const SNIPPET_MAX_LINES = 3;
+  const SNIPPET_MAX_CHARS = 140;
+
   function cleanPostSnippet(rawText, author, group) {
     if (!rawText || typeof rawText !== 'string') return '';
-    let text = rawText.split('\n')[0].trim();
+    // Multi-line posts: join the first meaningful lines so a title bar built from
+    // the store alone still reads past a one-word opener ("#這邊", "節錄：").
+    // Lines carrying nothing but punctuation/whitespace (".", "……") are paragraph
+    // spacers, not content.
+    const lines = rawText.split('\n').map((l) => l.trim()).filter((l) => l && !/^[\p{P}\s]+$/u.test(l));
+    let text = lines.slice(0, SNIPPET_MAX_LINES).join(' ');
     if (author) {
       const esc = author.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       text = text.replace(new RegExp('^' + esc + '[:\\s·•]*', 'i'), '');
@@ -185,6 +196,7 @@ window.FBDietDOMMetadata = (() => {
     text = text.replace(/^[·•\s]*(追蹤|Follow|關注|加入|Join)[·•\s]*/i, '');
     // Strip trailing translation notice
     text = text.replace(/[·•\s]*(查看原文|為此翻譯評分|See original|Rate this translation)[\s\S]*$/i, '').trim();
+    if (text.length > SNIPPET_MAX_CHARS) text = text.slice(0, SNIPPET_MAX_CHARS).trim() + '…';
     return text.trim();
   }
 
@@ -264,12 +276,31 @@ window.FBDietDOMMetadata = (() => {
     return null;
   }
 
+  function isInsideAttachmentOrCard(el) {
+    if (!el) return false;
+    let curr = el;
+    while (curr) {
+      if (curr.getAttribute) {
+        const role = curr.getAttribute('data-ad-rendering-role');
+        if (role && role !== 'story_message') return true;
+        const target = curr.getAttribute('target');
+        if (target === '_blank') return true;
+        const rel = curr.getAttribute('rel');
+        if (rel && rel.includes('nofollow')) return true;
+      }
+      if (curr.tagName === 'OBJECT') return true;
+      curr = curr.parentElement;
+    }
+    return false;
+  }
+
   function extractPostTitleFromDom(container, author, group) {
     if (!container || typeof container.querySelectorAll !== 'function') return null;
     try {
       const headings = container.querySelectorAll('h2, h3, h4, h5, [role="heading"]');
       for (const h of headings) {
-        if (h.closest && h.closest('header, [data-ad-comet-preview="header"], [role="button"], button, [aria-haspopup="menu"]')) continue;
+        if (isInsideProbeUi(h) || isInsideCommentSection(h) || isInsideAttachmentOrCard(h)) continue;
+        if (h.closest && h.closest('header, [data-ad-comet-preview="header"], [data-ad-rendering-role="profile_name"], [role="button"], button, [aria-haspopup="menu"]')) continue;
         if (h.querySelector && h.querySelector('[role="button"], button, [aria-haspopup="menu"]')) continue;
 
         const text = extractTextWithEmojis(h).trim();
@@ -282,20 +313,14 @@ window.FBDietDOMMetadata = (() => {
         // Headings containing Follow / Join actions are author/header rows
         if (/([·•\s]|^)(追蹤|Follow|關注|加入|Join)([·•\s]|$)/i.test(text)) continue;
 
-        const link = h.querySelector('a[role="link"], a[href]');
+        const link = (h.tagName === 'A' ? h : (h.closest ? h.closest('a') : null)) || (h.querySelector && h.querySelector('a[role="link"], a[href]'));
         if (link) {
           const linkText = link.textContent.trim();
           if (author && (linkText === author || linkText.includes(author))) continue;
           if (group && (linkText === group || linkText.includes(group))) continue;
 
           const href = (link.getAttribute('href') || link.href || '').toLowerCase();
-          if (
-            href.includes('/groups/') ||
-            href.includes('/user/') ||
-            href.includes('/stories/') ||
-            href.includes('/profile.php') ||
-            (!href.includes('/posts/') && !href.includes('/permalink/') && href.startsWith('/'))
-          ) {
+          if (!isExcludedLinkHref(href)) {
             continue;
           }
         }
@@ -322,18 +347,21 @@ window.FBDietDOMMetadata = (() => {
       const postTitle = titleObj ? titleObj.text : null;
 
       let postBody = null;
-      const msgEl = container.querySelector('[data-ad-preview="message"], [data-ad-comet-preview="message"], [data-testid="post_message"]');
-      if (msgEl) {
+      const msgEls = container.querySelectorAll('[data-ad-preview="message"], [data-ad-comet-preview="message"], [data-testid="post_message"], [data-ad-rendering-role="story_message"]');
+      for (const msgEl of msgEls) {
+        if (isInsideProbeUi(msgEl) || isInsideCommentSection(msgEl)) continue;
         const text = extractTextWithEmojis(msgEl).trim();
         if (text && !isUiOrActionText(text)) {
           const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
           if (lines.length > 0) {
             const cleanedFirst = cleanPostSnippet(lines[0], effectiveAuthor, effectiveGroup);
             if (postTitle && cleanedFirst === postTitle) {
-              postBody = lines.length > 1 ? cleanPostSnippet(lines[1], effectiveAuthor, effectiveGroup) : null;
+              // Title repeats the opener: the body starts on the next line.
+              postBody = lines.length > 1 ? cleanPostSnippet(lines.slice(1).join('\n'), effectiveAuthor, effectiveGroup) : null;
             } else {
-              postBody = cleanedFirst;
+              postBody = cleanPostSnippet(lines.join('\n'), effectiveAuthor, effectiveGroup);
             }
+            if (postBody) break;
           }
         }
       }
@@ -341,6 +369,7 @@ window.FBDietDOMMetadata = (() => {
       if (!postBody) {
         const dirEls = container.querySelectorAll('div[dir="auto"], span[dir="auto"]');
         for (const el of dirEls) {
+          if (isInsideProbeUi(el) || isInsideCommentSection(el) || isInsideAttachmentOrCard(el)) continue;
           if (titleObj && titleObj.node && (titleObj.node === el || (titleObj.node.contains && titleObj.node.contains(el)))) continue;
           if (el.closest && el.closest('header, [data-ad-comet-preview="header"], h2, h3, h4, h5, [role="heading"], [role="button"], button, [aria-haspopup="menu"]')) continue;
           const text = extractTextWithEmojis(el).trim();

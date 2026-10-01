@@ -156,18 +156,20 @@ function run(c) {
     c.equals('the confirmation is still reported as evidence', r.dom.extracted.sponsored.signal, 'plain_text');
   }
 
-  /* --- a suggested DOM hit outranks the sponsorship field --- */
+  /* --- a live suggested hit is observational evidence, not the verdict --- */
   {
-    // The suggested detector hit live inside the probe (no render-time evidence was carried),
-    // which is exactly what probe_fallback means: the diagnostic found it, not the scanner.
+    // The suggested detector hit live inside the probe (no render-time evidence was carried).
+    // Verdict fidelity (decision #53): the live hit is reported under dom.extracted without
+    // altering the store's regular verdict.
     const detector = stubDetector(DOM_HIT);
     const win = buildWorld(detector);
     win.FBDietDOMSuggested = {
       detect: () => ({ isSuggested: true, signal: 'Follow', reason: 'dom:follow_button', debug: {} })
     };
     const r = win.FBDietProbe.buildProbeReport(props, regularClassify, [], liveCard()).report;
-    c.equals('a live suggested hit is credited to the probe fallback', r.verdict.detectionSource, 'probe_fallback');
-    c.equals('the suggested hit becomes the effective verdict', r.verdict.category, 'suggested');
+    c.equals('store verdict category is preserved as regular', r.verdict.category, 'regular');
+    c.equals('store verdict attribution is preserved as relay', r.verdict.detectionSource, 'relay');
+    c.equals('the live suggested hit is reported under dom.extracted', r.dom.extracted.suggested.signal, 'Follow');
     c.equals('the sponsorship evidence is still reported alongside it', r.dom.extracted.sponsored.signal, 'plain_text');
   }
 

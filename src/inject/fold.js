@@ -44,13 +44,15 @@ window.FBDietFold = (() => {
 
   const HIDE_MODE = 'squash';
 
-  // DOM suggestion fallback — armed in `dom` mode, the one that has a mounted-DOM engine
+  // DOM observation — armed in `dom` mode, the one that has a mounted-DOM engine
   // alike (STRATEGY.md decision #40): retry ladder for streaming Suspense renders, a throttle
-  // that coalesces MutationObserver bursts, and the hard timeout after which the scanner stops
-  // for good.
-  const DOM_SUGGESTED_SCAN_DELAYS = [50, 150, 400, 1000, 2500, 5000];
-  const DOM_SUGGESTED_SCAN_TIMEOUT_MS = 15000;
-  const DOM_SUGGESTED_SCAN_THROTTLE_MS = 200;
+  // that coalesces MutationObserver bursts, and the hard timeout after which the observer stops
+  // for good. ONE set is shared by all three detectors (stage 3 of the DOM pipeline):
+  // a busy post costs one detection pass per throttle window and one ladder per unit,
+  // not one of each per detector.
+  const DOM_SCAN_DELAYS = [50, 150, 400, 1000, 2500, 5000];
+  const DOM_SCAN_TIMEOUT_MS = 15000;
+  const DOM_SCAN_THROTTLE_MS = 200;
 
   // Module drift watchdog. FEED_UNIT_MODULES hard-codes Facebook's internal module
   // names; when Facebook renames them the Comet hook silently stops matching and folding
@@ -140,32 +142,67 @@ window.FBDietFold = (() => {
   }
 
   /**
-   * Watches a mounted unit for streaming DOM that reveals a suggested post the Relay props could
-   * not classify (Comet renders posts while Suspense resolves them). Armed in `dom`.
-   *
-   * Every entry point — the retry ladder, a MutationObserver burst, an IntersectionObserver
-   * callback — funnels through `schedule`, so a busy post costs one detection pass per throttle
-   * window instead of one per mutation batch. A hit or the hard timeout calls `stop()`, and
-   * stopping is final: observers are disconnected, the pending scan and the ladder are cleared,
-   * and `finished` keeps a late mutation from re-arming any of it (a folded unit stays mounted
-   * for the life of the tab, so nothing else would stop it).
-   *
-   * Returns the effect cleanup function, or undefined when the first synchronous check
-   * already detected a suggestion and nothing had to be scheduled.
-   *
-   * Shared by both DOM detectors (suggested and sponsored). `options.detectorName` picks the
-   * global to call and `options.hitKey` the field it sets, so the ladder, the observers and
-   * the teardown exist once rather than per detector.
+   * The three DOM detection slots, in the precedence order each observation round applies.
+   * Surface (structural) precedes suggested (content cues) so a tray tile carrying buttons
+   * never reads as a suggestion (misclassification #8); sponsorship is evaluated in the same
+   * round but applied as an unconditional override at convergence (decision #39), never by
+   * first-hit-wins.
    */
-  function setupDomScanner(containerRef, onDetected, options) {
-    const opts = options || {};
-    const detectorName = opts.detectorName || 'FBDietDOMSuggested';
-    const hitKey = opts.hitKey || 'isSuggested';
+  const DOM_SCAN_SLOTS = [
+    { slot: 'surface', detectorName: 'FBDietDOMSurface', hitKey: 'isSurface' },
+    { slot: 'suggested', detectorName: 'FBDietDOMSuggested', hitKey: 'isSuggested' },
+    { slot: 'sponsored', detectorName: 'FBDietDOMSponsored', hitKey: 'isSponsored' }
+  ];
 
-    // A detector module that never loaded can never fire, so arming its observer and timer ladder
-    // would cost two observers and seven timers per unit for nothing. Bail out before allocating.
-    const detector = window[detectorName];
-    if (!detector || typeof detector.detect !== 'function') return undefined;
+  /**
+   * Watches a mounted unit for streaming DOM that the render-time verdict could not see
+   * (Comet renders posts while Suspense resolves them). Armed in `dom` mode only.
+   *
+   * Stage 3 of the DOM pipeline: every entry point — the retry ladder, a MutationObserver
+   * burst, an IntersectionObserver callback — funnels through `schedule`, so a busy post
+   * costs one detection pass per throttle window instead of one per mutation batch.
+   * The hard timeout calls `stop()`, and stopping is final: observers are disconnected,
+   * the pending scan and the ladder are cleared, and `finished` keeps a late mutation from
+   * re-arming any of it (a folded unit stays mounted for the life of the tab, so nothing
+   * else would stop it).
+   *
+   * One observer serves all unfilled slots (`options.skip` names the slots that already
+   * answered — a missing detector module counts as answered, since it can never fire).
+   * A slot that answers is reported once via `options.onResult(slot, detected)` and then
+   * silenced for the rest of this arm; the observer itself keeps watching the remaining
+   * slots until the timeout. The caller re-arms (a fresh arm with a narrower skip set)
+   * when new results land, so no slot ever starves because another one answered first.
+   *
+   * Two bailouts keep virtual-scroll and skeleton renders cheap. Both skip the pass
+   * without stopping: stopping is final, and a node that is merely not ready yet must
+   * still be there when the next ladder rung fires.
+   *   - detached: `el.isConnected === false` (virtual scroll recycled the node).
+   *   - skeleton: at most one child element and no text yet (Suspense placeholder).
+   *
+   * A tray veto (`options.vetoYes`, or computed once per round) skips the suggested sweep
+   * outright: a tray satisfies every "looks like a cue" heuristic at once, so running the
+   * five scans on it is pure waste. The veto is cached only when positive — a negative on
+   * a skeleton may simply mean the tray has not streamed in yet, so it is re-checked.
+   *
+   * Returns the effect cleanup function, or undefined when the synchronous first pass
+   * already filled every armed slot and nothing had to be scheduled.
+   */
+  function setupDomObserver(containerRef, options) {
+    const opts = options || {};
+    const onResult = typeof opts.onResult === 'function' ? opts.onResult : function () {};
+    const skip = opts.skip || {};
+    let vetoYes = Boolean(opts.vetoYes);
+
+    const armed = DOM_SCAN_SLOTS.filter((entry) => {
+      if (skip[entry.slot]) return false;
+      const detector = window[entry.detectorName];
+      return Boolean(detector && typeof detector.detect === 'function');
+    });
+
+    // Nothing to watch: no observer, no timers — the effect cleanup stays undefined.
+    // A detector module that never loaded can never fire, so arming its observer and timer
+    // ladder would cost an observer and seven timers per unit for nothing.
+    if (!armed.length) return undefined;
 
     let observer = null;
     let io = null;
@@ -173,6 +210,7 @@ window.FBDietFold = (() => {
     let ladder = [];
     let timeoutTimer = null;
     let finished = false;
+    const reported = {};
 
     const stop = () => {
       finished = true;
@@ -228,33 +266,67 @@ window.FBDietFold = (() => {
       scanTimer = setTimeout(() => {
         scanTimer = null;
         check();
-      }, DOM_SUGGESTED_SCAN_THROTTLE_MS);
+      }, DOM_SCAN_THROTTLE_MS);
+    };
+
+    /** Reads the tray veto without running the suggestion heuristics. Null when unknown. */
+    const readVeto = (el) => {
+      try {
+        const surface = window.FBDietDOMSurface;
+        if (surface && typeof surface.trayVetoFor === 'function') return surface.trayVetoFor(el) || null;
+      } catch (e) {}
+      return null;
     };
 
     const check = () => {
       if (finished) return false;
-      const detector = window[detectorName];
       const el = containerRef.current;
-      if (el) {
-        ensureObserver(el);
-        ensureIntersectionObserver(el);
+      if (!el || el.isConnected === false) return false;
+      const childCount = typeof el.childElementCount === 'number' ? el.childElementCount : 2;
+      if (childCount <= 1 && !(el.textContent || '').trim()) return false;
+      ensureObserver(el);
+      ensureIntersectionObserver(el);
+      // A vetoed unit can never be a suggestion: skip the sweep, but keep watching —
+      // the surface and sponsorship slots may still answer.
+      if (!vetoYes) {
+        const vetoNow = readVeto(el);
+        if (vetoNow) vetoYes = true;
       }
-      if (detector && typeof detector.detect === 'function' && el) {
-        const detected = detector.detect(el);
-        if (detected && detected[hitKey]) {
-          onDetected(detected);
-          stop();
-          return true;
+      let filled = false;
+      for (const entry of armed) {
+        if (reported[entry.slot]) continue;
+        if (entry.slot === 'suggested' && vetoYes) continue;
+        const detector = window[entry.detectorName];
+        if (!detector || typeof detector.detect !== 'function') continue;
+        let detected = null;
+        try {
+          detected = detector.detect(el);
+        } catch (e) {
+          detected = null;
+        }
+        if (detected && detected[entry.hitKey]) {
+          reported[entry.slot] = true;
+          try {
+            onResult(entry.slot, detected);
+          } catch (e) {}
+          filled = true;
         }
       }
-      return false;
+      return filled;
     };
 
-    if (check()) return undefined;
+    // The synchronous first pass. Slots it fills never cost a timer; the rest fall
+    // through to the ladder below.
+    check();
+    const remaining = armed.some((entry) => !reported[entry.slot]);
+    if (!remaining) {
+      stop();
+      return undefined;
+    }
 
     // Fallback timer ladder for streaming Suspense. These check directly: the delays are
     // already spread out, and the first pass must not wait for a throttle window.
-    ladder = DOM_SUGGESTED_SCAN_DELAYS.map((delay) => {
+    ladder = DOM_SCAN_DELAYS.map((delay) => {
       const timer = setTimeout(check, delay);
       // Defensive only: a Node Timeout object would keep an event loop alive, but the browser
       // returns a number and this repo's harness records timers without ever running them, so
@@ -263,7 +335,7 @@ window.FBDietFold = (() => {
       return timer;
     });
 
-    timeoutTimer = setTimeout(stop, DOM_SUGGESTED_SCAN_TIMEOUT_MS);
+    timeoutTimer = setTimeout(stop, DOM_SCAN_TIMEOUT_MS);
     if (timeoutTimer && typeof timeoutTimer.unref === 'function') timeoutTimer.unref();
 
     // The effect cleanup is `stop` itself: stopping is idempotent and cancels everything.
@@ -339,7 +411,55 @@ window.FBDietFold = (() => {
    * `opts.domSurface` travels inside the options bag rather than beside the other two detectors
    * because it is DOM evidence that never applies in `relay` mode: that mode keeps deciding
    * reels / stories / suggestedGroup from the store, so it should not have to carry it.
+   *
+   * In `dom` mode the scan below is staged like the Relay pipeline (`classify()`): each stage
+   * returns a partial verdict or null, and the convergence order is
+   * `sponsored ?? surface ?? suggested`. Sponsorship is unconditional (decision #39); surface
+   * precedes suggested because a tray tile satisfies every "looks like a cue" heuristic at
+   * once (misclassification #8).
    */
+
+  /**
+   * DOM stage 1 — the free props ad. `dom` mode skips the STORE, not the props: a feed unit's
+   * ad field is often a plain prop (`feedUnit.th_dat_spo`), so skipping the whole classifier
+   * would throw away a signal that costs nothing and needs no store capture.
+   * Sponsorship only — the one category where a false negative is expensive enough to pay
+   * redundancy for. `adVerdictFromProps` consults no Relay reader, so the `dom` verdict never
+   * depends on store capture.
+   */
+  function domStagePropsAd(props) {
+    const classify = window.FBDietRelayClassify;
+    if (!props.payload || !classify || typeof classify.adVerdictFromProps !== 'function') return null;
+    const propsAd = classify.adVerdictFromProps(props.payload);
+    if (!propsAd) return null;
+    return { category: propsAd.category, reason: 'props:' + propsAd.reason, signal: null, source: 'props', propsEvidence: propsAd, domEvidence: null };
+  }
+
+  /**
+   * DOM stage 2 — structural surface. "This IS a Reels tray" precedes the button heuristics
+   * below (STRATEGY.md, misclassification 8).
+   */
+  function domStageSurface(domSurface) {
+    if (!domSurface || !domSurface.isSurface || !domSurface.category) return null;
+    return { category: domSurface.category, reason: domSurface.reason || 'dom:surface', signal: null, source: 'dom_surface', propsEvidence: null, domEvidence: domSurface };
+  }
+
+  /** DOM stage 3 — content cues (follow/join buttons, recommendation headers). */
+  function domStageSuggested(domSuggested) {
+    if (!domSuggested || !domSuggested.isSuggested) return null;
+    return { category: 'suggested', reason: domSuggested.reason || 'dom:suggested', signal: domSuggested.signal || 'Other', source: 'dom_scanner', propsEvidence: null, domEvidence: domSuggested };
+  }
+
+  /**
+   * DOM stage 4 — the rendered sponsorship label. Not gated on the category, unlike the
+   * stages above: a label on screen is the strongest single piece of evidence on the page,
+   * so a unit whose props looked like an ad, or whose buttons looked like a suggestion,
+   * still folds as an ad when the byline says so (decision #39).
+   */
+  function domStageSponsoredOverride(domSponsored) {
+    if (!domSponsored || !domSponsored.isSponsored) return null;
+    return { category: 'sponsored', reason: domSponsored.reason || 'dom:sponsored', signal: domSponsored.signal || 'Sponsored', source: 'dom_sponsorship', propsEvidence: null, domEvidence: domSponsored };
+  }
   function resolveVerdict(props, domSuggested, domSponsored, opts) {
     const skipDataEngine = Boolean(opts && opts.skipDataEngine);
     const domSurface = (opts && opts.domSurface) || null;
@@ -373,67 +493,30 @@ window.FBDietFold = (() => {
       source = 'relay';
     }
 
-    // `dom` mode skips the STORE, not the props. A feed unit's ad field is often a plain prop —
-    // `feedUnit.th_dat_spo` was read exactly that way on 2026-09-29, with `evidence.source: 'props'`
-    // and `relay.sourceCount: 6` never consulted for it — so skipping the whole classifier also
-    // threw away a signal that costs nothing and needs no store capture. The measurable cost: an ad
-    // whose byline the DOM detector could not read resolved to `dom:no-verdict` -> 'regular' and
-    // never folded, which is the whole class of miss the sponsorship rule exists to prevent.
-    //
-    // Sponsorship only, and only because it is the one category where a false negative is
-    // expensive enough to pay redundancy for. The other four keep coming from the store, so the
-    // mode still reports honestly on what the page alone can prove. `adVerdictFromProps` consults
-    // no Relay reader, so the guarantee that actually matters here — the `dom` verdict never depends
-    // on store capture — is intact.
-    //
-    // Then the surface rules, which are structural — "this IS a Reels tray" — and so precede the
-    // button heuristics: a tray tile satisfies every "looks like a cue" rule at once, which is why
-    // the suggested detector declines the whole tray (STRATEGY.md, misclassification 8).
-    //
     // The whole block is gated on the mode rather than on what the store said. That is also what
     // stops a DOM hit carried across a live switch out of `dom` from being applied in `relay`,
     // where no DOM engine is mounted.
+    //
+    // Staged like the Relay pipeline: each stage returns a partial verdict or null, and the
+    // first stages to answer win — except sponsorship, which overrides unconditionally.
+    // Convergence: `sponsored ?? surface ?? suggested`.
     if (skipDataEngine) {
       source = 'dom';
-      const classify = window.FBDietRelayClassify;
-      if (!category && props.payload && classify && typeof classify.adVerdictFromProps === 'function') {
-        const propsAd = classify.adVerdictFromProps(props.payload);
-        if (propsAd) {
-          category = propsAd.category;
-          reason = 'props:' + propsAd.reason;
-          source = 'props';
-          propsEvidence = propsAd;
-        }
-      }
-      if (!category && domSurface && domSurface.isSurface && domSurface.category) {
-        category = domSurface.category;
-        reason = domSurface.reason || 'dom:surface';
-        source = 'dom_surface';
-        domEvidence = domSurface;
-      }
-      if (!category && domSuggested && domSuggested.isSuggested) {
-        category = 'suggested';
-        reason = domSuggested.reason || 'dom:suggested';
-        signal = domSuggested.signal || 'Other';
-        source = 'dom_scanner';
-        domEvidence = domSuggested;
-      }
-
-      // The sponsorship label is not gated on the category, unlike the two steps above. A rendered
-      // ad label is the strongest single piece of evidence on the page — it is on screen, and it
-      // is what a reader sees — so a unit whose free props looked like an ad, or whose buttons
-      // looked like a suggestion, still folds as an ad when the byline says so (decision #39).
-      //
-      // The old code expressed this as "the label overrules the store", which only made sense while
-      // there was a store to overrule. With no store in this mode the reason that survives is the
-      // label's own strength, and the ordering is unchanged: it was last and unconditional there
-      // too.
-      if (domSponsored && domSponsored.isSponsored) {
-        category = 'sponsored';
-        reason = domSponsored.reason || 'dom:sponsored';
-        signal = domSponsored.signal || 'Sponsored';
-        source = 'dom_sponsorship';
-        domEvidence = domSponsored;
+      const applyStage = (stage) => {
+        if (!stage) return;
+        category = stage.category;
+        reason = stage.reason;
+        if (stage.signal !== null && stage.signal !== undefined) signal = stage.signal;
+        source = stage.source;
+        if (stage.propsEvidence !== undefined) propsEvidence = stage.propsEvidence;
+        if (stage.domEvidence) domEvidence = stage.domEvidence;
+      };
+      if (!category) applyStage(domStagePropsAd(props));
+      if (!category) applyStage(domStageSurface(domSurface));
+      if (!category) applyStage(domStageSuggested(domSuggested));
+      const sponsored = domStageSponsoredOverride(domSponsored);
+      if (sponsored) {
+        applyStage(sponsored);
         // The props signal did not decide this verdict, so it stops being reported as if it had.
         propsEvidence = null;
       }
@@ -523,9 +606,11 @@ window.FBDietFold = (() => {
 
     const [tick, setTick] = typeof React.useState === 'function' ? React.useState(0) : [0, function noop() {}];
     const [isHydrated, setIsHydrated] = typeof React.useState === 'function' ? React.useState(false) : [true, function noop() {}];
-    const [domSuggested, setDomSuggested] = typeof React.useState === 'function' ? React.useState(null) : [null, function noop() {}];
-    const [domSponsored, setDomSponsored] = typeof React.useState === 'function' ? React.useState(null) : [null, function noop() {}];
-    const [domSurface, setDomSurface] = typeof React.useState === 'function' ? React.useState(null) : [null, function noop() {}];
+    // The three DOM detection slots converge in one state: a hit in one slot must never
+    // disturb the others, and the effect below re-arms only for the slots still open.
+    // Kept as slots (not a single verdict) because the render path and the probe each need
+    // the per-detector evidence shapes, not just the winning category.
+    const [domScan, setDomScan] = typeof React.useState === 'function' ? React.useState({ suggested: null, sponsored: null, surface: null }) : [{ suggested: null, sponsored: null, surface: null }, function noop() {}];
     const containerRef = (React && typeof React.useRef === 'function') ? React.useRef(null) : { current: null };
 
     if (typeof React.useEffect === 'function') {
@@ -550,63 +635,64 @@ window.FBDietFold = (() => {
       }, []);
     }
 
+    // Merges one detector result into the converged scan state. Object-spread (not a
+    // functional update) because the unit-test harness stores setState values as-is.
+    const mergeScan = (slot, detected) => {
+      setDomScan(Object.assign({}, domScan, { [slot]: detected }));
+    };
+
     if (typeof React.useEffect === 'function') {
       React.useEffect(() => {
         // isHydrated is a dependency on purpose: this effect has to run *after* the hydration
         // commit, because that is the commit which mounts the wrapper carrying containerRef
         // (during the SSR-shaped pass the unit returns its original tree and the ref stays
-        // null, so a scanner set up earlier would attach to nothing).
+        // null, so an observer set up earlier would attach to nothing).
         // isNested never changes; it only keeps nested units from scheduling work for a
         // container that is never attached.
         if (!isHydrated || isNested) return;
         const bridge = window.FBDietBridge;
         if (bridge && typeof bridge.getSettings === 'function') {
           const currentSettings = bridge.getSettings();
-          // 'relay' is the only mode with a mounted-DOM engine, and it mounts all three
-          // detectors when it does — 'dom' is their sole authority, so a mode that mounted
-          // none of them would be blind.
-          //
-          // All three arm from the same effect run. Chaining them as `if (!a) return setup(a);
-          // if (!b) return setup(b);` made the second reachable only after the first had a hit,
-          // and since a suggested hit also sets the category to 'suggested', the sponsored
-          // override could then never fire — the DOM sponsorship detector was dead code on every
-          // real page.
+          // 'dom' is the sole authority of its mounted-DOM engine (STRATEGY.md decision #40):
+          // a mode that mounted none of the detectors would be blind. One shared observer
+          // watches whatever slots are still open; each fill re-runs this effect, which
+          // tears the old observer down and re-arms for the narrower remainder.
           const mode = detectionMode(currentSettings);
           if (mode === 'dom') {
-            const cleanups = [];
-            if (!domSuggested) {
-              const stopSuggested = setupDomScanner(containerRef, setDomSuggested, {
-                detectorName: 'FBDietDOMSuggested',
-                hitKey: 'isSuggested'
-              });
-              if (stopSuggested) cleanups.push(stopSuggested);
-            }
-            if (!domSponsored) {
-              const stopSponsored = setupDomScanner(containerRef, setDomSponsored, {
-                detectorName: 'FBDietDOMSponsored',
-                hitKey: 'isSponsored'
-              });
-              if (stopSponsored) cleanups.push(stopSponsored);
-            }
-            if (!domSurface) {
-              const stopSurface = setupDomScanner(containerRef, setDomSurface, {
-                detectorName: 'FBDietDOMSurface',
-                hitKey: 'isSurface'
-              });
-              if (stopSurface) cleanups.push(stopSurface);
-            }
-            // The effect cleanup has to tear down whichever scanner this run started. stop is
-            // idempotent, so a shared cleanup is safe.
-            if (cleanups.length) {
-              return () => {
-                for (const stop of cleanups) {
-                  try { stop(); } catch (e) {}
+            // Stage-1 short-circuit: a props-decided ad can never be outranked by anything
+            // the DOM could say, so mounting an observer for it would cost an observer and
+            // seven timers per unit for nothing.
+            if (!props.entryCategory && props.payload) {
+              const classify = window.FBDietRelayClassify;
+              if (classify && typeof classify.adVerdictFromProps === 'function') {
+                let propsAd = null;
+                try {
+                  propsAd = classify.adVerdictFromProps(props.payload);
+                } catch (e) {
+                  propsAd = null;
                 }
-              };
+                if (propsAd) return;
+              }
             }
+            // A decided sponsorship is likewise unbeatable from this side.
+            if (domScan.sponsored && domScan.sponsored.isSponsored) return;
+            const skip = {
+              suggested: Boolean(domScan.suggested && domScan.suggested.isSuggested),
+              sponsored: Boolean(domScan.sponsored && domScan.sponsored.isSponsored),
+              surface: Boolean(domScan.surface && domScan.surface.isSurface)
+            };
+            if (skip.suggested && skip.sponsored && skip.surface) return;
+            return setupDomObserver(containerRef, {
+              skip,
+              // A decided surface IS a tray, so the veto is already proven without a walk.
+              vetoYes: Boolean(domScan.surface && domScan.surface.isSurface),
+              onResult: (slot, detected) => {
+                mergeScan(slot, detected);
+              }
+            });
           }
         }
-      }, [isHydrated, isNested, domSuggested, domSponsored, domSurface]);
+      }, [isHydrated, isNested, domScan]);
     }
 
     if (isNested || !isHydrated) return rendered;
@@ -633,7 +719,7 @@ window.FBDietFold = (() => {
       // read, no store-id requirement and no dependence on the classifier answering 'regular'.
       const mode = detectionMode(settings);
       const skipDataEngine = mode === 'dom';
-      const verdict = resolveVerdict(props, domSuggested, domSponsored, { skipDataEngine, domSurface });
+      const verdict = resolveVerdict(props, domScan.suggested, domScan.sponsored, { skipDataEngine, domSurface: domScan.surface });
       if (!verdict) return rendered;
 
       const verdictCategory = verdict.category;
@@ -691,7 +777,7 @@ window.FBDietFold = (() => {
       // When unfolded and alwaysShowFoldBar is disabled, return native render cleanly without any bar
       const keepBar = settings.alwaysShowFoldBar !== false;
       if (!isFolded && !keepBar) {
-        if (mode === 'dom' && !domSuggested) {
+        if (mode === 'dom' && !domScan.suggested) {
           const wrapped = createEl('div', { ref: containerRef, className: 'fb-diet-full-container', style: { display: 'contents' } }, [rendered]);
           return addProbe(wrapped || rendered, props, verdict, reads);
         }
@@ -726,7 +812,7 @@ window.FBDietFold = (() => {
           allowDomScan,
           enrichment,
           onToggle,
-          onSuggestedDetected: !domSuggested ? setDomSuggested : null
+          onSuggestedDetected: !domScan.suggested ? (detected) => mergeScan('suggested', detected) : null
         },
         []
       );

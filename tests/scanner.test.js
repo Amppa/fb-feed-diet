@@ -1,11 +1,17 @@
 'use strict';
 /**
- * Lifecycle test for the DOM suggestion scanner in src/inject/fold.js.
+ * Lifecycle test for the shared DOM observer in src/inject/fold.js.
+ *
+ * One observer serves every unfilled detection slot (stage 3 of the DOM pipeline), so this
+ * suite asserts the *shared* infrastructure: attach timing, burst coalescing, per-slot
+ * silencing on hit (the observer itself keeps watching the remaining slots), the detached
+ * and skeleton bailouts, the props-ad short-circuit, the tray veto skip, and the final
+ * stop at the hard timeout.
  *
  * The harness has no real React commit, so the container ref is wired manually and the
- * scanner is driven through its observer/timer doubles. That makes the suite deterministic
- * and instant while still asserting the module's *own* guards (attach timing, burst
- * coalescing, the final stop) rather than the browser's behaviour.
+ * observer is driven through its observer/timer doubles. That makes the suite deterministic
+ * and instant while still asserting the module's *own* guards rather than the browser's
+ * behaviour.
  *
  * Not covered here (inspection only): the `isNested` skip, which needs a nested fold context
  * the harness does not model.
@@ -21,7 +27,6 @@ const {
 } = require('./harness');
 
 const FEED_MODULE = 'CometFeedUnitErrorBoundary.react';
-const LADDER_LENGTH = 6; // DOM_SUGGESTED_SCAN_DELAYS
 
 const pendingTimers = (win) => win.__timers.filter((timer) => !timer.cleared);
 
@@ -44,10 +49,10 @@ function setup() {
 
   win.FBDietRelayClassify.setRelayReader(() => null);
 
-  // This suite is about the SUGGESTED scanner, and the sponsorship scanner now arms in the same
-  // effect run (decision #39), which would double every observer and timer count below. Removing
-  // the module keeps the counts measuring the one scanner under test; the sponsorship scanner has
-  // its own suite (tests/sponsored-scanner.test.js).
+  // This suite is about the shared observer, and the sponsorship detector now shares the
+  // same arm (decision #39 needs no dedicated scanner of its own). Removing the module keeps
+  // the slot math to the two under test (suggested + surface); the sponsorship slot has its
+  // own suite (tests/sponsored-scanner.test.js).
   delete win.FBDietDOMSponsored;
 
   const SourceCmp = () => ({ type: 'div', props: { children: 'original post' }, __source: true });
@@ -56,12 +61,20 @@ function setup() {
   const wrapper = comet.getExport(FEED_MODULE).default;
 
   // The detector is replaced by a counting stub: each call is one full five-scan sweep in
-  // production, so the call count is what the coalescing assertions measure.
+  // production, so the call count is what the coalescing assertions measure. The surface
+  // detector stays real (a plain container never matches it) and is counted through a
+  // wrapper so the shared-arm assertions can tell the slots apart.
   let detectCalls = 0;
   let verdict = null;
   win.FBDietDOMSuggested.detect = () => {
     detectCalls += 1;
     return verdict;
+  };
+  let surfaceCalls = 0;
+  const realSurfaceDetect = win.FBDietDOMSurface.detect;
+  win.FBDietDOMSurface.detect = (el) => {
+    surfaceCalls += 1;
+    return realSurfaceDetect(el);
   };
 
   const container = makeNode('div', { className: 'fb-diet-full-container' });
@@ -71,6 +84,7 @@ function setup() {
     win,
     container,
     detectCalls: () => detectCalls,
+    surfaceCalls: () => surfaceCalls,
     setVerdict: (next) => { verdict = next; },
     // Pass 1 is the hydration commit: the unit still returns its original tree, so nothing
     // carries containerRef yet. Pass 2 is the commit that mounts the wrapper.
@@ -112,25 +126,19 @@ function run(c) {
 
   const mutations = t.win.__observers.mutation;
   const intersections = t.win.__observers.intersection;
-  // The suggested detector arms first, so its timers are the first LADDER_LENGTH + 1 of
-  // setupTimers; the rest belong to the other armed detector, which stays armed after this
-  // scanner hits. Only the suggested scanner's own timers are this suite's subject.
-  const suggestedTimers = setupTimers.slice(0, LADDER_LENGTH + 1);
-  const scannerPending = () => pendingTimers(t.win).filter((timer) => suggestedTimers.indexOf(timer) !== -1);
+  const scannerPending = () => pendingTimers(t.win).filter((timer) => setupTimers.indexOf(timer) !== -1);
   const newTimers = () => pendingTimers(t.win)
     .filter((timer) => setupTimers.indexOf(timer) === -1 && preMountTimers.indexOf(timer) === -1);
 
-  // 'dom' is the mode that mounts a DOM engine, and it mounts every detector whose module is
-  // present — here the suggested and surface detectors. Each builds its own observer pair, so the
-  // counts below are per armed detector rather than fixed at one.
-  const ARMED = 2;
-
-  c.equals('the container commit builds one MutationObserver per armed detector', mutations.length, ARMED);
-  c.equals('the container commit builds one IntersectionObserver per armed detector', intersections.length, ARMED);
+  // One shared observer serves every open slot (here suggested + surface), so the counts
+  // below are fixed at one arm: one observer pair, one six-rung ladder, one hard timeout.
+  c.equals('the container commit builds one shared MutationObserver', mutations.length, 1);
+  c.equals('the container commit builds one shared IntersectionObserver', intersections.length, 1);
   c.ok('MutationObserver watches the unit container', mutations[0].observed[0] === t.container);
   c.ok('IntersectionObserver watches the unit container', intersections[0].observed[0] === t.container);
   c.equals('mount runs exactly one synchronous detection pass for the suggested detector', t.detectCalls(), 1);
-  c.equals('setup arms the retry ladder plus one hard timeout, per detector', setupTimers.length, ARMED * (LADDER_LENGTH + 1));
+  c.equals('mount runs the surface detector in the same pass', t.surfaceCalls(), 1);
+  c.equals('setup arms one retry ladder plus one hard timeout, shared', setupTimers.length, 6 + 1);
 
   /* --- mutation bursts are coalesced into one pending pass --- */
   const beforeBursts = t.detectCalls();
@@ -151,24 +159,116 @@ function run(c) {
   c.equals('the scroll pass runs on its timer', flushTimers(t.win, (timer) => timer === scrollTimer), 1);
   c.equals('the scroll pass detects once', t.detectCalls(), beforeBursts + 2);
 
-  /* --- a hit stops the scanner for good --- */
+  /* --- a hit silences its slot but the shared observer keeps watching the rest --- */
   t.setVerdict({ isSuggested: true, signal: 'Follow', reason: 'dom:follow_button', text: '· 追蹤' });
   mutations[0].trigger();
   const hitTimer = newTimers()[0];
   c.equals('the hit is detected by a coalesced pass', flushTimers(t.win, (timer) => timer === hitTimer), 1);
-  c.equals('a hit disconnects the MutationObserver', mutations[0].disconnected, true);
-  c.equals('a hit disconnects the IntersectionObserver', intersections[0].disconnected, true);
-  c.equals('a hit cancels every timer the scanner armed', scannerPending().length, 0);
-
-  /* --- nothing can restart it: a folded unit stays mounted, so React never re-runs it --- */
   const afterHit = t.detectCalls();
-  mutations[0].trigger();
+  c.ok('a hit does not disconnect the shared MutationObserver', mutations[0].disconnected !== true);
+  c.ok('a hit does not disconnect the shared IntersectionObserver', intersections[0].disconnected !== true);
+  c.ok('a hit does not cancel the shared ladder', scannerPending().length > 0);
+
+  /* --- the answered slot is never swept again while the others still are --- */
   mutations[0].trigger();
   intersections[0].trigger([{ isIntersecting: true }]);
-  c.equals('a late burst schedules nothing', newTimers().length, 0);
-  c.equals('a late burst cannot detect again', t.detectCalls(), afterHit);
-  c.equals('a late burst cannot re-arm an observer', t.win.__observers.mutation.length, ARMED);
-  c.equals('the scanner holds no live timer after the hit', scannerPending().length, 0);
+  const rescanTimer = newTimers()[0];
+  flushTimers(t.win, (timer) => timer === rescanTimer);
+  c.equals('an answered slot is never swept again', t.detectCalls(), afterHit);
+  c.ok('the open slot is still swept', t.surfaceCalls() > 1);
+
+  /* --- the hard timeout stops everything for good --- */
+  // Flushing the 15s timeout (plus the remaining ladder) ends the arm: with no re-render
+  // in the harness nothing re-arms, so this is the terminal state.
+  flushTimers(t.win, () => true);
+  c.equals('the timeout disconnects the MutationObserver', mutations[0].disconnected, true);
+  c.equals('the timeout disconnects the IntersectionObserver', intersections[0].disconnected, true);
+  c.equals('the timeout cancels every timer the observer armed', scannerPending().length, 0);
+  const quietCalls = t.detectCalls();
+  mutations[0].trigger();
+  flushTimers(t.win, () => true);
+  c.equals('a late burst after the timeout detects nothing', t.detectCalls(), quietCalls);
+
+  /* --- a detached container is skipped without diagnosing --- */
+  {
+    const detached = setup();
+    detached.win.FBDietBridge.setSettings({
+      dietMode: 'dom',
+      enabled: true,
+      alwaysShowFoldBar: false,
+      debugProbe: false
+    });
+    const detachedContainer = makeNode('div', { className: 'fb-diet-full-container' });
+    detachedContainer.isConnected = false;
+    const detachedElement = detached.hydrationPass({ feedUnit: { id: 'scanner-detached', __typename: 'FeedUnitRoot' } });
+    detached.React.resetHooks();
+    detached.React.setRef(0, detachedContainer);
+    detachedElement.type(detachedElement.props);
+    c.equals('a detached container runs no detector', detached.detectCalls(), 0);
+    c.equals('a detached container attaches no observer', detached.win.__observers.mutation.length, 0);
+    c.ok('a detached container still arms the ladder for later rounds', pendingTimers(detached.win).length > 0);
+  }
+
+  /* --- a skeleton container is skipped without diagnosing --- */
+  {
+    const skeleton = setup();
+    skeleton.win.FBDietBridge.setSettings({
+      dietMode: 'dom',
+      enabled: true,
+      alwaysShowFoldBar: false,
+      debugProbe: false
+    });
+    const skeletonContainer = makeNode('div', { className: 'fb-diet-full-container' });
+    skeletonContainer.childElementCount = 0;
+    const skeletonElement = skeleton.hydrationPass({ feedUnit: { id: 'scanner-skeleton', __typename: 'FeedUnitRoot' } });
+    skeleton.React.resetHooks();
+    skeleton.React.setRef(0, skeletonContainer);
+    skeletonElement.type(skeletonElement.props);
+    c.equals('a skeleton container runs no detector', skeleton.detectCalls(), 0);
+    c.equals('a skeleton container attaches no observer', skeleton.win.__observers.mutation.length, 0);
+    c.ok('a skeleton container still arms the ladder for later rounds', pendingTimers(skeleton.win).length > 0);
+  }
+
+  /* --- a props-decided ad mounts nothing at all --- */
+  {
+    const adUnit = setup();
+    adUnit.win.FBDietBridge.setSettings({
+      dietMode: 'dom',
+      enabled: true,
+      alwaysShowFoldBar: false,
+      debugProbe: false
+    });
+    // install() parks two drift-check timers at load; the short-circuit must add none.
+    const timersAtLoad = pendingTimers(adUnit.win).length;
+    const adPayload = { feedUnit: { id: 'scanner-ad', __typename: 'FeedUnitRoot', th_dat_spo: 'ad-marker' } };
+    const adElement = adUnit.hydrationPass(adPayload);
+    adUnit.containerPass(adElement);
+    c.equals('a props-decided ad runs no detector', adUnit.detectCalls(), 0);
+    c.equals('a props-decided ad attaches no observer', adUnit.win.__observers.mutation.length, 0);
+    c.equals('a props-decided ad schedules no timer', pendingTimers(adUnit.win).length, timersAtLoad);
+  }
+
+  /* --- a vetoed tray never pays for the suggestion sweep --- */
+  {
+    const tray = setup();
+    tray.win.FBDietBridge.setSettings({
+      dietMode: 'dom',
+      enabled: true,
+      alwaysShowFoldBar: false,
+      debugProbe: false
+    });
+    const trayContainer = makeNode('div', { className: 'fb-diet-full-container' }, [
+      makeNode('div', { 'data-type': 'hscroll-child' }, [
+        makeNode('h3', {}, [], '連續短片')
+      ])
+    ]);
+    const trayElement = tray.hydrationPass({ feedUnit: { id: 'scanner-tray', __typename: 'FeedUnitRoot' } });
+    tray.React.resetHooks();
+    tray.React.setRef(0, trayContainer);
+    trayElement.type(trayElement.props);
+    c.ok('a tray container still runs the surface detector', tray.surfaceCalls() >= 1);
+    c.equals('a vetoed tray never runs the suggestion sweep', tray.detectCalls(), 0);
+  }
 }
 
 module.exports = { run };

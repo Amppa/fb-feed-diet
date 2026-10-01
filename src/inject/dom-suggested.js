@@ -326,7 +326,16 @@ window.FBDietDOMSuggested = (() => {
     return { hit: null, extraAuthorButtonCandidate };
   }
 
-  /** Step 4: judge the unexplained action button left over by the author-zone sweep. */
+  /**
+   * Step 4 (retired as a verdict): unexplained action buttons are logged, never folded.
+   *
+   * Only explicit Follow / Join semantics (text or aria-label, decided in steps 3a/3b) may
+   * fold a unit. An "any button with text counts" fallback folded ordinary posts — any
+   * localized action ("訂閱頻道"), any icon-only button — so both firing branches
+   * (`other_extra_button`, `other_svg_icon`) are removed. The guard logging below stays:
+   * it is what tells a probe report that a Reel pill or a verified badge was seen and
+   * declined, rather than never seen at all.
+   */
   function classifyExtraButton(candidate, debugLog) {
     if (!candidate) return null;
     const svgEl = candidate.querySelector('svg') || (candidate.tagName === 'SVG' ? candidate : null);
@@ -343,28 +352,6 @@ window.FBDietDOMSuggested = (() => {
     if (isContentSurfaceLabel(candAria) || isContentSurfaceLabel(candText)) {
       debugLog.excludedButtons.push({ type: 'content_surface', aria: candAria, text: candText });
       return null;
-    }
-    if (candText || candAria) {
-      return {
-        isSuggested: true,
-        signal: 'Other',
-        reason: 'dom:other_extra_button',
-        text: candAria || candText || 'extra_button',
-        debug: Object.assign({}, debugLog, {
-          matchedExtraButton: { hasSvg: Boolean(svgEl), text: candText, aria: candAria }
-        })
-      };
-    }
-    if (svgEl) {
-      return {
-        isSuggested: true,
-        signal: 'Other',
-        reason: 'dom:other_svg_icon',
-        text: 'svg_icon',
-        debug: Object.assign({}, debugLog, {
-          matchedExtraButton: { hasSvg: true, text: candText, aria: candAria }
-        })
-      };
     }
     return null;
   }

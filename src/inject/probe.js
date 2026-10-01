@@ -288,12 +288,11 @@ window.FBDietProbe = (() => {
     // module-declared category is structural rather than a detection, so it names no source:
     // crediting an engine there would claim a scanner reasoned its way to 'stories'.
     const renderSource = (classifyResult && classifyResult.source) || null;
-    // A live hit can only become the verdict when the engine left the category open. Where it
+    // Verdict fidelity (decision #53): a live hit never becomes the verdict. Where the engine
     // already decided, the detection is still reported (dom.extracted.suggested) — "this looks
     // like a suggestion" is worth saying either way — but it is not what decided the category.
     // A module-declared category counts as decided: it is structural, and the live hit is not going
     // to overturn "this module IS the Stories tray".
-    const renderDecided = Boolean(baseCategory && baseCategory !== 'regular');
 
     const hadInitialDomEvidence = Boolean(classifyResult && classifyResult.domEvidence);
     // The render-time evidence is whichever DOM capability produced it, and the three shapes are
@@ -304,14 +303,10 @@ window.FBDietProbe = (() => {
       ? classifyResult.domEvidence
       : null;
     const detector = window.FBDietDOMSuggested;
-    let isProbeFallback = false;
     if ((!domSuggestedLive || !domSuggestedLive.debug) && container && detector && typeof detector.detect === 'function') {
       try {
         const live = detector.detect(container);
         if (live) {
-          if (!renderDecided && !hadInitialDomEvidence && live.isSuggested) {
-            isProbeFallback = true;
-          }
           domSuggestedLive = domSuggestedLive ? Object.assign({}, live, domSuggestedLive) : live;
         }
       } catch (e) {}
@@ -366,16 +361,16 @@ window.FBDietProbe = (() => {
     // at render time is already `renderSource === 'dom_sponsorship'`. What a live hit is worth is the
     // report — a label on the page now, on a unit the engine had not folded, is the fact a field
     // report needs — so it populates `dom.extracted.sponsored` and its detector block, and stops there.
-    const effectiveCategory = (!renderDecided && domSuggestedLive && domSuggestedLive.isSuggested) ? 'suggested' : baseCategory;
-    const effectiveReason = effectiveCategory === 'suggested' && domSuggestedLive
-      ? (domSuggestedLive.reason || 'dom:suggested')
-      : (classifyResult ? classifyResult.reason : null);
+    // The verdict strictly reflects what the active engine decided at render time.
+    // Click-time DOM scans never alter category, reason, or detectionSource: a live hit
+    // populates `dom.extracted.suggested` and its detector block, and stops there.
+    const effectiveCategory = baseCategory;
+    const effectiveReason = classifyResult ? classifyResult.reason : null;
 
     // Attribution, read rather than re-derived. The render path owns which engine produced the
-    // category; the probe's own contribution is the one thing the render path cannot have seen — a
-    // live hit on a unit the engine had left undecided. A module-declared category is not a
+    // category. A module-declared category is not a
     // detection and reports no source, which is what the field name being absent has always meant.
-    const detectionSource = isProbeFallback ? 'probe_fallback' : (renderSource === 'entry' ? null : renderSource);
+    const detectionSource = renderSource === 'entry' ? null : renderSource;
 
     // What the mounted UI shows, and that it may not be what was decided. A `dom`-mode unit the
     // engine examined and did not fold displays as `regular` because that is the group it counts

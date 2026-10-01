@@ -49,26 +49,67 @@ function run(c) {
     c.equals('the tray marker is recorded', res && res.debug.tray, 'hscroll_child');
   }
 
-  /* --- Tray + href, no rendered label (a renamed or icon-only tray still decides) --- */
+  /* --- Tray + hrefs, no rendered label (a renamed or icon-only tray still decides) --- */
   {
     const tile = makeNode('div', { 'data-type': 'hscroll-child' }, [
-      makeNode('a', { role: 'link', href: 'https://www.facebook.com/reel/9876543/' }, [], '')
+      makeNode('a', { role: 'link', href: 'https://www.facebook.com/reel/9876543/' }, [], ''),
+      makeNode('a', { role: 'link', href: 'https://www.facebook.com/reel/9876544/' }, [], '')
     ]);
     const card = makeNode('div', { role: 'article' }, [tile]);
     const res = detector.detect(card);
-    c.ok('tray plus reel href decides reels without any label', Boolean(res) && res.category === 'reels');
+    c.ok('tray plus reel hrefs decides reels without any label', Boolean(res) && res.category === 'reels');
     c.equals('reason is the tray + link rule', res && res.reason, 'dom:reels_tray_link');
+  }
+
+  /* --- Link-only needs a pair: a single shared link in a carousel is content, not a rail --- */
+  {
+    const loneTile = makeNode('div', { 'data-type': 'hscroll-child' }, [
+      makeNode('a', { role: 'link', href: 'https://www.facebook.com/reel/9876543/' }, [], '')
+    ]);
+    const loneCard = makeNode('div', { role: 'article' }, [loneTile]);
+    c.equals('a single link in a tray decides nothing', detector.detect(loneCard), null);
+    c.equals('…naming the missing pair', detector.explain(loneCard).outcomeReason, 'single_tray_link');
+
+    const loneStories = makeNode('div', { role: 'region', 'aria-label': '動態消息中的限時動態' }, [
+      makeNode('a', { role: 'link', href: 'https://www.facebook.com/stories/123/456' }, [], '')
+    ]);
+    const loneStoriesCard = makeNode('div', { role: 'article' }, [loneStories]);
+    c.equals('a single stories link in a tray decides nothing', detector.detect(loneStoriesCard), null);
+    c.equals('…read as no evidence: one link is a ring, not a row', detector.explain(loneStoriesCard).outcomeReason, 'no_surface_evidence');
   }
 
   /* --- Stories tray, from the real capture (region label + /stories/ links) --- */
   {
     const region = makeNode('div', { role: 'region', 'aria-label': '動態消息中的限時動態' }, [
-      makeNode('a', { role: 'link', href: 'https://www.facebook.com/stories/123/456' }, [], '')
+      makeNode('a', { role: 'link', href: 'https://www.facebook.com/stories/123/456' }, [], ''),
+      makeNode('a', { role: 'link', href: 'https://www.facebook.com/stories/123/789' }, [], '')
     ]);
     const card = makeNode('div', { role: 'article' }, [region]);
     const res = detector.detect(card);
     c.ok('the stories tray is decided as stories', Boolean(res) && res.category === 'stories');
     c.equals('tray marker is the region', res && res.debug.tray, 'tray_region');
+    c.equals('reason is the tray + link rule', res && res.reason, 'dom:stories_tray_link');
+  }
+
+  /* --- Stories tray with multiple hscroll-child tiles inside region (field report 2026-10-01) --- */
+  {
+    const tile1 = makeNode('div', { 'data-type': 'hscroll-child' }, [
+      makeNode('a', { role: 'link', href: 'https://www.facebook.com/stories/10218063452370506/...' }, [], '')
+    ]);
+    const tile2 = makeNode('div', { 'data-type': 'hscroll-child' }, [
+      makeNode('a', { role: 'link', href: 'https://www.facebook.com/stories/2655153927838360/...' }, [], '')
+    ]);
+    const tile3 = makeNode('div', { 'data-type': 'hscroll-child' }, [
+      makeNode('a', { role: 'link', href: 'https://www.facebook.com/stories/1889658907719777/...' }, [], '')
+    ]);
+    const track = makeNode('div', {}, [tile1, tile2, tile3]);
+    const region = makeNode('div', { role: 'region', 'aria-label': '動態消息中的限時動態' }, [track]);
+    const header = makeNode('div', {}, [makeNode('span', { dir: 'auto' }, [], '限時動態')]);
+    const card = makeNode('div', { role: 'article' }, [header, region]);
+    const res = detector.detect(card);
+    c.ok('Stories tray with multiple hscroll tiles is decided as stories', Boolean(res) && res.category === 'stories');
+    c.equals('tray marker is hscroll_child', res && res.debug.tray, 'hscroll_child');
+    c.equals('counts all tiles inside the tray container', res && res.debug.links.stories, 3);
     c.equals('reason is the tray + link rule', res && res.reason, 'dom:stories_tray_link');
   }
 
@@ -103,9 +144,8 @@ function run(c) {
 
   /* --- The same ring on a unit that IS a Reels tray --- */
   {
-    // Excluding the ring from the tray alone would not be enough: read as Stories *evidence* it would
-    // collide with the Reels label, `ambiguous_surface` would decline the unit, and the tile would go
-    // unfolded — a different mistake from the user's, from the same cause.
+    // A single ring link is counted but stays below the distinct pair, so it is not Stories
+    // *evidence* and cannot collide with the Reels label into `ambiguous_surface`.
     const ring = makeNode('a', { href: 'https://www.facebook.com/stories/900000000000003/' }, [], '');
     const tile = makeNode('div', { 'data-type': 'hscroll-child' }, [
       makeNode('h3', {}, [], 'Reel'),
@@ -115,11 +155,11 @@ function run(c) {
     const res = detector.detect(card);
     c.ok('a Reels tray wearing a ring is still reels', Boolean(res) && res.category === 'reels');
     c.equals('…decided by the tray label', res && res.reason, 'dom:reels_tray_label');
-    c.equals('…and the ring adds no Stories link', res && res.debug.links.stories, 0);
+    c.equals('…and the single ring stays below the stories pair', res && res.debug.links.stories, 1);
     c.equals('…so no second surface claims the unit', res && res.debug.labels.stories, null);
   }
 
-  /* --- The scope is a scope, not a ban: a real tray keeps its own tile links --- */
+  /* --- No subtree scope: a real tray counts every tile in the container --- */
   {
     const ring = makeNode('a', { href: 'https://www.facebook.com/stories/900000000000003/' }, [], '');
     const region = makeNode('div', { role: 'region', 'aria-label': '動態消息中的限時動態' }, [
@@ -129,7 +169,7 @@ function run(c) {
     const card = makeNode('div', { role: 'article' }, [ring, region]);
     const res = detector.detect(card);
     c.ok('the stories tray is still decided as stories', Boolean(res) && res.category === 'stories');
-    c.equals('…counting only the links inside it', res && res.debug.links.stories, 2);
+    c.equals('…counting the tray tiles across the whole container', res && res.debug.links.stories, 3);
   }
 
   /* --- Groups-you-might-like tray: the surface the data engine calls suggestedGroup --- */
@@ -201,10 +241,12 @@ function run(c) {
 
   /* --- Two surfaces claiming one unit is an ambiguity, not a tie to break --- */
   {
+    // Ambiguity needs a real pair on both sides: one stories link is a ring, not evidence.
     const card = makeNode('div', { role: 'article' }, [
       makeNode('div', { 'data-type': 'hscroll-child' }, [
         makeNode('h3', {}, [], 'Reel'),
-        makeNode('a', { role: 'link', href: 'https://www.facebook.com/stories/9/9' }, [], '')
+        makeNode('a', { role: 'link', href: 'https://www.facebook.com/stories/9/9' }, [], ''),
+        makeNode('a', { role: 'link', href: 'https://www.facebook.com/stories/9/10' }, [], '')
       ])
     ]);
     c.equals('reels and stories evidence together decides nothing', detector.detect(card), null);
@@ -424,7 +466,7 @@ function run(c) {
     const domArmed = mountUnit('dom', null);
     c.ok('the DOM path arms the surface scanner', domArmed.calls.surface > 0);
     c.equals('…and the other two detectors stay armed as before', domArmed.calls.suggested > 0, true);
-    c.equals('…with one observer per detector', domArmed.win.__observers.mutation.length, 3);
+    c.equals('…with one shared observer for all detectors', domArmed.win.__observers.mutation.length, 1);
 
     // `relay` is the mode that consults no DOM evidence, so it mounts no DOM engine at all —
     // a mounted-DOM scan is not free and the store answer is the one it uses. The probe reads
@@ -438,7 +480,8 @@ function run(c) {
     c.equals('relay mode mounts no DOM scanner at all', relayOnly.calls.surface, 0);
     c.equals('…and attaches no observer', relayOnly.win.__observers.mutation.length, 0);
 
-    // A hit is stored and stops that scanner; the scanner must not keep watching a decided unit.
+    // A hit is stored and silences that slot; the shared observer keeps watching the
+    // remaining slots until the timeout.
     const hit = mountUnit('dom', { isSurface: true, category: 'reels', reason: 'dom:reels_tray_label', text: 'Reel' });
     c.equals('a surface hit is read once and needs no observer', hit.calls.surface, 1);
     c.equals('…and the unit is folded as media, not left as regular', flushFold(hit), 'reels');

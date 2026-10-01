@@ -181,7 +181,7 @@ window.FBDietDOMSurface = (() => {
   }
 
   /**
-   * The tray *element* a surface decision may rest on, or null: the horizontal-scroll marker or the
+   * The structural marker a surface decision may rest on, or null: the horizontal-scroll marker or the
    * tray region that names itself after a content surface. Narrower than `isHorizontalTray`, which
    * also accepts a lone `/stories/` link.
    *
@@ -198,7 +198,8 @@ window.FBDietDOMSurface = (() => {
    * own header — one `a[href*="/stories/"]`, on the unit's own surface, passing every own-surface test
    * — and the unit was decided `dom:stories_tray_link` while the store called it a regular post and a
    * suggested page. A ring is one link; a tray is a row of tiles. Neither is proved by the other, so the
-   * decision path takes the structural marker and counts story links only inside it.
+   * two-tier decision path takes the structural marker as a gate and requires story links to reach a distinct
+   * pair across the container (see `readSurface`, decision #56): one link is a ring, two distinct links are a row.
    *
    * A marker found deep inside the unit does not count, and this is the correction a real page
    * forced on 2026-09-28. `querySelector` on the unit matches at any depth, and the first field
@@ -218,7 +219,9 @@ window.FBDietDOMSurface = (() => {
   function findStructuralTray(container) {
     try {
       const hscroll = container.querySelector('[data-type="hscroll-child"]');
-      if (hscroll && isTraySurfaceMarker(hscroll, container)) return { el: hscroll, kind: 'hscroll_child', groupLinks: 0 };
+      if (hscroll && isTraySurfaceMarker(hscroll, container)) {
+        return { el: hscroll, kind: 'hscroll_child', groupLinks: 0 };
+      }
       // The region is held to the same "own surface" test as the marker, for the same reason: a post
       // quoting a story, or a comment under a story region, contains these at depth and is still
       // just a post.
@@ -404,11 +407,13 @@ window.FBDietDOMSurface = (() => {
   }
 
   /**
-   * Count links Facebook itself would follow, keeping the unit's own surface only. `withinEl`
-   * confines the count to one subtree, which is how a story ring stays out of a tray's evidence.
+   * Count links Facebook itself would follow, keeping the unit's own surface only. Counted over the
+   * whole container: a story ring is a single link and a tray is a row of tiles, so the distinct
+   * pair threshold in `readSurface` — not a subtree scope — is what keeps the ring out.
    */
-  function countSurfaceLinks(container, selector, withinEl) {
-    const out = { count: 0, sample: null };
+  function countSurfaceLinks(container, selector) {
+    const out = { count: 0, distinct: 0, sample: null };
+    const seenHrefs = [];
     const nodes = container.querySelectorAll(selector);
     for (let i = 0; i < nodes.length; i += 1) {
       const el = nodes[i];
@@ -416,21 +421,15 @@ window.FBDietDOMSurface = (() => {
       // A /reels/ link inside the message body or a quoted post is content the unit displays, not
       // the unit's own surface — the same correction pitfall 9 forced on the tray marker.
       if (!isTraySurfaceMarker(el, container)) continue;
-      if (withinEl && !isWithin(el, withinEl)) continue;
       out.count += 1;
-      if (!out.sample) out.sample = el.getAttribute('href') || '';
+      const href = (el.getAttribute && el.getAttribute('href')) || '';
+      if (href && seenHrefs.indexOf(href) === -1) {
+        seenHrefs.push(href);
+        out.distinct += 1;
+      }
+      if (!out.sample) out.sample = href;
     }
     return out;
-  }
-
-  /** Own walk rather than `contains`, which this repo's Node DOM fake does not implement. */
-  function isWithin(el, ancestor) {
-    let cur = el;
-    while (cur) {
-      if (cur === ancestor) return true;
-      cur = cur.parentElement;
-    }
-    return false;
   }
 
   function readSurfaceLabels(container) {
@@ -491,16 +490,16 @@ window.FBDietDOMSurface = (() => {
 
     const trayMarker = findStructuralTray(container);
     const tray = trayMarker ? trayMarker.kind : null;
-    const trayEl = trayMarker ? trayMarker.el : null;
     const regionName = readTrayRegionName(container);
     const labels = readSurfaceLabels(container);
     const reelsLinks = countSurfaceLinks(container, REELS_LINK_SELECTOR);
-    // A /stories/ link counts only inside the tray it would be evidence *for*. Held anywhere else on
-    // the unit's own surface it is the author's story ring, and a ring says the poster has a live
-    // story, not that this unit is a row of story tiles (see `findStructuralTray`).
-    const storiesLinks = trayEl
-      ? countSurfaceLinks(container, STORIES_LINK_SELECTOR, trayEl)
-      : { count: 0, sample: null };
+    // Stories links count only behind the tray gate: without a tray a /stories/ link is the
+    // author's story ring, and a ring says the poster has a live story, not that this unit is a
+    // row of story tiles. With a tray the whole container counts and the distinct pair below
+    // separates one ring from a row of tiles (see `findStructuralTray`).
+    const storiesLinks = tray
+      ? countSurfaceLinks(container, STORIES_LINK_SELECTOR)
+      : { count: 0, distinct: 0, sample: null };
 
     // A group tray names itself in the region label rather than in a per-tile pill, so the region
     // is a first-class place to look for the group wording.
@@ -512,7 +511,7 @@ window.FBDietDOMSurface = (() => {
     read.samples = { reelsHref: reelsLinks.sample, storiesHref: storiesLinks.sample, regionName: regionName };
 
     const reelsEvidence = Boolean(labels.reels) || reelsLinks.count > 0;
-    const storiesEvidence = Boolean(labels.stories) || storiesLinks.count > 0;
+    const storiesEvidence = Boolean(labels.stories) || storiesLinks.distinct >= 2;
     const groupEvidence = Boolean(groupLabel);
     const matches = (reelsEvidence ? 1 : 0) + (storiesEvidence ? 1 : 0) + (groupEvidence ? 1 : 0);
 
@@ -542,9 +541,23 @@ window.FBDietDOMSurface = (() => {
     const category = isReels ? 'reels' : 'stories';
 
     if (tray) {
-      read.category = category;
-      read.reason = label ? 'dom:' + category + '_tray_label' : 'dom:' + category + '_tray_link';
-      read.evidence = label || links + ' link(s)';
+      // A label names the surface, so one link beside it is enough. Link-only needs a second
+      // distinct link: a real rail is a row of cards, while a single shared link inside a
+      // horizontal carousel is content the post displays, not the unit being a tray.
+      if (label) {
+        read.category = category;
+        read.reason = 'dom:' + category + '_tray_label';
+        read.evidence = label;
+        return read;
+      }
+      const distinct = isReels ? reelsLinks.distinct : storiesLinks.distinct;
+      if (distinct >= 2) {
+        read.category = category;
+        read.reason = 'dom:' + category + '_tray_link';
+        read.evidence = distinct + ' link(s)';
+        return read;
+      }
+      read.declined = 'single_tray_link';
       return read;
     }
 

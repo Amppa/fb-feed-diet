@@ -23,7 +23,7 @@ function run(c) {
 
   const snapshot = metadata.collect(card, false);
   c.equals('collector returns actor', snapshot && snapshot.actor, 'Ada Lovelace');
-  c.equals('collector returns first message line', snapshot && snapshot.snippet, 'First line');
+  c.equals('collector joins the first message lines', snapshot && snapshot.snippet, 'First line Second line');
   c.equals('collector returns group', snapshot && snapshot.group, 'Engineering Group');
   c.equals('collector returns post URL', snapshot && snapshot.postUrl, 'https://www.facebook.com/posts/123');
   c.equals('collector returns ad URL', snapshot && snapshot.adUrl, '/ads/about/ad-1');
@@ -58,7 +58,17 @@ function run(c) {
 
   const suggestedSnapshot = metadata.collect(suggestedCard, false);
   c.equals('skips 為你推薦 and extracts real author', suggestedSnapshot && suggestedSnapshot.actor, 'Grace Hopper');
-  c.equals('skips timestamp and extracts post message from span[dir=auto]', suggestedSnapshot && suggestedSnapshot.snippet, 'Compilers are amazing');
+  c.equals('skips timestamp and joins post message lines from span[dir=auto]', suggestedSnapshot && suggestedSnapshot.snippet, 'Compilers are amazing Second line');
+
+  // cleanPostSnippet joins multi-line posts so a Relay-only title bar reads past a
+  // one-word opener (field reports: "#這邊" and "節錄：" alone on the bar).
+  const clean = metadata.cleanPostSnippet;
+  c.equals('joins lines past a one-word opener', clean('#這邊\n.\n【受日本教育】的人，往往會比較在意穿著。'), '#這邊 【受日本教育】的人，往往會比較在意穿著。');
+  c.equals('drops spacer lines between content', clean('節錄：\n真正的以人為本。\n……\n謝謝老師。'), '節錄： 真正的以人為本。 謝謝老師。');
+  c.equals('keeps at most three lines', clean('一\n二\n三\n四'), '一 二 三');
+  c.equals('caps overlong snippets', clean('字'.repeat(200)), '字'.repeat(140) + '…');
+  c.equals('still strips a leading author', clean('Ada Lovelace: hello\nworld', 'Ada Lovelace'), 'hello world');
+  c.equals('non-string stays empty', clean(null), '');
 
   // Group post with title only + photo + Facebook in footer (the user reported issue)
   const groupHeader = makeNode('a', { href: '/groups/9000000000000001/' }, [], '回收社');
@@ -83,7 +93,7 @@ function run(c) {
   const titleAndBodyCard = makeNode('article', {}, [groupHeader, authorH, permalinkLink, postTitle2, postBody2]);
 
   const titleAndBodySnapshot = metadata.collect(titleAndBodyCard, false);
-  c.equals('extracts title + first line when both exist', titleAndBodySnapshot && titleAndBodySnapshot.snippet, '【贈送】電磁爐 功能正常，需自取');
+  c.equals('extracts title + first lines when both exist', titleAndBodySnapshot && titleAndBodySnapshot.snippet, '【贈送】電磁爐 功能正常，需自取 意者請私訊');
 
   // Post with title using role="heading"
   const roleHeadingTitle = makeNode('div', { role: 'heading', dir: 'auto' }, [], '免費贈送嬰兒床');
@@ -262,6 +272,42 @@ function run(c) {
   const wrapperCard = makeNode('article', {}, [unitWrapper]);
   c.equals('a candidate wrapping the unit header is not a reshare', metadata.collect(wrapperCard, false).reshare, null);
 
+  // Single CJK character post message is valid content, not discarded as UI
+  const cjkAuthor = makeNode('a', { role: 'link', href: '/user/cjk.author' }, [], '吳水豚');
+  const cjkHeader = makeNode('h4', { role: 'heading' }, [cjkAuthor]);
+  const cjkMsg = makeNode('div', { 'data-ad-rendering-role': 'story_message' }, [
+    makeNode('div', { 'data-ad-preview': 'message' }, [makeNode('div', { dir: 'auto' }, [], '帥')])
+  ]);
+  const cjkCard = makeNode('article', {}, [cjkHeader, cjkMsg]);
+  const cjkSnapshot = metadata.collect(cjkCard, false);
+  c.equals('single CJK character message is preserved in snippet', cjkSnapshot && cjkSnapshot.snippet, '帥');
+
+  // Photo-only post with m.me Messenger CTA card containing viewer name (王大明)
+  // Must NOT extract viewer name as snippet; snippet should be null so media label shows
+  const photoOnlyAuthor = makeNode('a', { role: 'link', href: '/user/photoposter' }, [], '攝影師');
+  const photoOnlyHeader = makeNode('h4', { role: 'heading' }, [photoOnlyAuthor]);
+  const photoImg = makeNode('img', { src: 'https://fbcdn.example/p.jpg' });
+  const mMeCard = makeNode('a', { role: 'link', target: '_blank', rel: 'nofollow noreferrer', href: '?__cft__[0]=AZ&__tn__=%2CmH-y-R#?hjf' }, [
+    makeNode('div', { 'data-ad-rendering-role': 'meta' }, [makeNode('span', { dir: 'auto' }, [], 'm.me')]),
+    makeNode('span', { 'data-ad-rendering-role': 'title' }, [makeNode('span', { dir: 'auto' }, [], '王大明')]),
+    makeNode('span', { 'data-ad-rendering-role': 'description' }, [makeNode('span', { dir: 'auto' }, [], '晶片產業快訊內容')])
+  ]);
+  const photoOnlyCard = makeNode('article', {}, [photoOnlyHeader, photoImg, mMeCard]);
+  const photoOnlySnapshot = metadata.collect(photoOnlyCard, false);
+  c.equals('photo-only post with m.me CTA does not leak viewer name as snippet', photoOnlySnapshot && photoOnlySnapshot.snippet, null);
+  c.equals('photo-only post retains photo media label', photoOnlySnapshot && photoOnlySnapshot.media, '[📷 相片]');
+
+  // Reshare with no commentary by sharer, plus m.me CTA card and reshared author heading
+  const resharePageLink = makeNode('a', { role: 'link', href: 'https://www.facebook.com/coolalerfans?__cft__[0]=AZ&__tn__=-UC%2CP-y-R' }, [], 'Coolaler滄者極限');
+  const reshareProfileHeading = makeNode('h5', {}, [resharePageLink]);
+  const reshareProfileDiv = makeNode('div', { 'data-ad-rendering-role': 'profile_name' }, [reshareProfileHeading]);
+  const reshareBody = makeNode('div', { 'data-ad-rendering-role': 'story_message' }, [
+    makeNode('div', { 'data-ad-preview': 'message' }, [makeNode('div', { dir: 'auto' }, [], '美光表示每台人形機器人要嗑掉 200GB DRAM')])
+  ]);
+  const reshareFullCard = makeNode('article', {}, [photoOnlyHeader, photoImg, mMeCard, reshareProfileDiv, reshareBody]);
+  const reshareFullSnapshot = metadata.collect(reshareFullCard, false);
+  c.equals('reshare author profile heading is not extracted as post title', reshareFullSnapshot && reshareFullSnapshot.title, null);
+  c.equals('reshare with no sharer commentary extracts original message not viewer name', reshareFullSnapshot && reshareFullSnapshot.snippet, '美光表示每台人形機器人要嗑掉 200GB DRAM');
 }
 
 module.exports = { run };

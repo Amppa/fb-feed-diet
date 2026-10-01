@@ -946,7 +946,7 @@ function run(c) {
     const cached = t.win.FBDietUI.titleBarCache.get(barEl.props.unitId);
     c.ok('titleBarCache populated for folded unit', Boolean(cached));
     c.equals('author extracted skips 為你推薦', cached.actorName, 'Marie Curie');
-    c.equals('snippet extracted skips timestamp', cached.snippetText, 'Discovered Polonium and Radium');
+    c.equals('snippet extracted skips timestamp', cached.snippetText, 'Discovered Polonium and Radium Nobel Prize laureate');
 
     // Re-render (or inspect rendered element children)
     t.React.resetHooks();
@@ -956,7 +956,7 @@ function run(c) {
 
     c.equals('badge displayed in folded state', kids[0].props.className, 'fb-diet-badge fb-diet-badge-ads');
     c.equals('author displayed with colon in folded state', kids[1].props.children, 'Marie Curie:');
-    c.equals('snippet displayed in folded state', kids[2].props.children, 'Discovered Polonium and Radium');
+    c.equals('snippet displayed in folded state', kids[2].props.children, 'Discovered Polonium and Radium Nobel Prize laureate');
 
     // 4. Also verify toggle to expanded keeps title under 'always'
     t.bridge.toggle(barEl.props.unitId);
@@ -971,7 +971,7 @@ function run(c) {
     c.ok('expanded title bar has fb-diet-state-expanded class', renderedExpandedBar.props.className.includes('fb-diet-state-expanded'));
     const expandedKids = renderedExpandedBar.props.children.props.children;
     c.equals('author still displayed in expanded state', expandedKids[1].props.children, 'Marie Curie:');
-    c.equals('snippet still displayed in expanded state', expandedKids[2].props.children, 'Discovered Polonium and Radium');
+    c.equals('snippet still displayed in expanded state', expandedKids[2].props.children, 'Discovered Polonium and Radium Nobel Prize laureate');
   }
 
   /* --- media bypass: reels and stories bypass DOM scan and show localized labels --- */

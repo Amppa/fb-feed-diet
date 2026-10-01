@@ -333,11 +333,17 @@ function run(c) {
     // The probe's own read of this payload, spelled out so the two blocks are made identical: same
     // category, same reason, same typename, same evidence. In every mode that runs the data engine
     // these are the same function on the same payload, so the block was a verbatim copy.
+    //
+    // `source: 'props'` and the `ShowcaseFeedUnit` signal are the staged classifier's output for
+    // this payload: the tray is settled by its own typename, which was read off the props, so no
+    // store read and no suggestion evidence is involved. The fixture exists to make the two blocks
+    // byte-identical, so it has to name the fields the classifier actually fills in.
     const asTheStoreReadsIt = {
       category: 'reels',
+      signal: 'ShowcaseFeedUnit',
       unitTypename: 'ShowcaseFeedUnit',
       reason: 'unitTypename:ShowcaseFeedUnit',
-      evidence: { source: 'none', idCount: 1 }
+      evidence: { source: 'props', idCount: 1 }
     };
     const agreed = win.FBDietProbe.buildProbeReport(
       reelProps,

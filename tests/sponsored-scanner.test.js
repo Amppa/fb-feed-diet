@@ -1,17 +1,19 @@
 'use strict';
 /**
- * Lifecycle test for the DOM *sponsorship* scanner in src/inject/fold.js (decision #39).
+ * Lifecycle test for the sponsorship slot of the shared DOM observer in
+ * src/inject/fold.js (decision #39).
  *
- * scanner.test.js covers the suggested scanner; this covers the second scanner that shares
- * setupDomScanner. What is unique here and therefore worth its own suite:
+ * scanner.test.js covers the shared infrastructure; what is unique here and therefore
+ * worth its own suite:
  *   - it is armed only in dom mode,
- *   - it is armed only after the suggested scanner has already had its run (one scanner per
- *     effect run, suggested first),
- *   - it receives the store verdict read at SCAN time rather than captured at setup time,
- *     which is what lets the detector tell a real catch from a disagreement.
+ *   - it shares the single arm with the other slots (one observer, one ladder),
+ *   - it receives no store verdict and no second argument: the detector answers from
+ *     the page alone,
+ *   - a hit silences only its own slot (the shared observer keeps watching the rest)
+ *     while still folding the unit as an ad on the next render.
  *
- * The harness has no real React commit, so the container ref is wired by hand and the scanner is
- * driven through its observer/timer doubles, exactly as scanner.test.js does.
+ * The harness has no real React commit, so the container ref is wired by hand and the
+ * observer is driven through its observer/timer doubles, exactly as scanner.test.js does.
  */
 const {
   createFakeReact,
@@ -127,7 +129,7 @@ function run(c) {
     c.ok('dom-only mode arms the sponsorship scanner', domOnly.sponsoredCalls.length >= 1);
   }
 
-  /* --- arming order: suggested first, then sponsored --- */
+  /* --- arming: one shared arm runs every open slot in precedence order --- */
   {
     const t = setup({});
     t.win.FBDietBridge.setSettings(DOM);
@@ -135,10 +137,11 @@ function run(c) {
     const afterHydration = t.sponsoredCalls.length;
     t.containerPass(element);
 
-    c.ok('the suggested scanner runs on the container commit', t.suggestedCalls.n >= 1);
+    c.ok('the suggested slot runs on the container commit', t.suggestedCalls.n >= 1);
     c.equals('the hydration commit runs no sponsorship scan', afterHydration, 0);
-    c.ok('the container commit arms the sponsorship scanner too', t.sponsoredCalls.length >= 1);
+    c.ok('the container commit arms the sponsorship slot too', t.sponsoredCalls.length >= 1);
     c.ok('the sponsorship scan watches the unit container', t.sponsoredCalls[0].container === t.container);
+    c.equals('the shared arm attaches a single MutationObserver', t.win.__observers.mutation.length, 1);
   }
 
   /* --- the detector is called with the container and nothing else --- */
@@ -159,7 +162,7 @@ function run(c) {
     c.ok('every call passed exactly one argument', t.sponsoredCalls.every((call) => call.args.length === 1));
   }
 
-  /* --- a DOM hit stops the scanner and folds the unit as an ad --- */
+  /* --- a DOM hit silences its slot and folds the unit as an ad --- */
   {
     const t = setup({});
     t.win.FBDietBridge.setSettings(Object.assign({}, DOM, { minimizedFoldMode: true }));
@@ -176,13 +179,22 @@ function run(c) {
     });
 
     const callsBefore = t.sponsoredCalls.length;
-    const timersBefore = pendingTimers(t.win).length;
-    mutations[mutations.length - 1].trigger();
-    flushTimers(t.win, () => true);
-
-    c.ok('the coalesced pass re-detected', t.sponsoredCalls.length > callsBefore);
-    c.ok('a hit cancels the timers the scanner armed', pendingTimers(t.win).length < timersBefore);
-    c.equals('a hit disconnects the MutationObserver', mutations[mutations.length - 1].disconnected, true);
+    // Fires one coalesced pass without touching the ladder or the hard timeout: only
+    // timers scheduled by the trigger itself are flushed.
+    const firePass = () => {
+      const before = pendingTimers(t.win).slice();
+      mutations[mutations.length - 1].trigger();
+      const fresh = pendingTimers(t.win).filter((timer) => before.indexOf(timer) === -1);
+      return flushTimers(t.win, (timer) => fresh.indexOf(timer) !== -1);
+    };
+    c.ok('the coalesced pass re-detected', firePass() >= 1 && t.sponsoredCalls.length > callsBefore);
+    // The shared observer belongs to the remaining slots too, so a hit must not kill it:
+    // the sponsored slot goes quiet while the arm lives on until the hard timeout.
+    const silencedCalls = t.sponsoredCalls.length;
+    firePass();
+    c.equals('a hit silences its own slot', t.sponsoredCalls.length, silencedCalls);
+    c.ok('a hit keeps the shared observer alive', mutations[mutations.length - 1].disconnected !== true);
+    c.ok('a hit keeps the shared ladder alive', pendingTimers(t.win).length > 0);
 
     // The next render sees the DOM verdict and folds as sponsored even though Relay found nothing.
     t.containerPass(element);

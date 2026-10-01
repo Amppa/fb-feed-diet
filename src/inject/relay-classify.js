@@ -10,12 +10,33 @@
  * Everything here is side effect free and dependency injected, so the exact
  * same code is unit tested under Node (see tests/relay-classify.test.js).
  *
- * Evidence fields are always returned, even when nothing matched: they are what gets
- * logged for unmatched (reason: no-match) units so mis-detections can be diagnosed
- * without guessing.
+ * `classify` is a four-stage pipeline, and each stage ends the walk the moment it can
+ * answer. That ordering is the design, not an implementation detail: the cost of a unit is
+ * paid only for the questions its own evidence leaves open.
+ *
+ *   1. stage1Structural — ads (props, then a three-read store probe) and the tray
+ *      typenames. A Stories tray, a Reels rail and the group-suggestion list are decided
+ *      by the unit's OWN typename, with no props scan and no store read. Sponsorship is
+ *      settled here rather than alongside the other rules because it must outrank every
+ *      tray typename: Facebook injects sponsored rows into the trays, and `sponsored`
+ *      is the one category where a false negative costs the reader an advertisement.
+ *   2. stage2Props — the ten direct props paths, plus the action-link and recommendation
+ *      header scan. Free, and the reason most units never reach the store.
+ *   3. stage3Store — the Relay store, asked only for fields stage 2 did not resolve.
+ *   4. stage4Settle — no rule matched: `regular` when the unit has an id, `null` when it
+ *      does not, so truly unidentifiable remnants stay out of the stats.
+ *
+ * Every stage returns `{ category, reason, signal }` or null, and `classify` assembles the
+ * first answer it gets. `reason` names the rule; `signal` carries the value the rule matched
+ * on, so a reader of a probe report never has to re-derive which field answered.
+ *
+ * Evidence is reported for every verdict, including the ones that matched nothing: it is what
+ * gets logged for unmatched (reason: no-match) units so mis-detections can be diagnosed
+ * without guessing. The block always carries the full key set, null where a stage skipped the
+ * read — a key that is absent is indistinguishable from a key nobody looked for.
  *
  * Public API (window.FBDietRelayClassify):
- *   classify(payload, context)             -> { category, unitId, unitTypename, reason, evidence, moduleName }
+ *   classify(payload, context)             -> { category, unitId, unitTypename, reason, signal, evidence, moduleName }
  *   setRelayReader(fn)                     -> fn(ids, path, options) => value | null
  *   isCategoryEnabled(category, settings)  -> boolean
  *   CATEGORY (the engine's own category names)
@@ -292,7 +313,7 @@ window.FBDietRelayClassify = (() => {
   /**
    * The ad marker, read the free way.
    *
-   * One rule with two entry points: `gatherEvidence` reads it from props and then falls back
+   * One rule with two entry points: `stage1Structural` reads it from props and then falls back
    * to the store, while `adVerdictFromProps` stops at props because its caller has no store.
    * Both have to answer the same question the same way, so the expression lives here once —
    * previously each carried its own copy of the same four clauses.
@@ -318,11 +339,19 @@ window.FBDietRelayClassify = (() => {
   }
 
   /**
-   * Reads one piece of evidence from the props first and from the Relay store second.
-   * Direct props are free, so they are always tried before touching the store.
+   * The evidence block every verdict reports, built before a single rule runs.
+   *
+   * Every key is present from the start, null until something reads it. probe.js and the probe
+   * report address these names directly, and an absent key is indistinguishable from a key
+   * nobody looked for — which is the one thing an evidence block must never be.
+   *
+   * `source` opens at 'props' because the props ARE read for every unit the classifier is
+   * handed: the typename, the ad marker, the suggestion signals. A store hit downgrades it to
+   * 'relay', naming the deeper read that answered. It does not claim which field decided —
+   * `reason` says that, and `signal` now carries the value that did (see classify).
    */
-  function gatherEvidence(unit) {
-    const evidence = {
+  function makeEvidence(unit) {
+    return {
       ownTypename: unit.ownTypename,
       nestedTypename: unit.nestedTypename,
       adId: null,
@@ -330,16 +359,114 @@ window.FBDietRelayClassify = (() => {
       joinState: null,
       actionSignal: null,
       recHeader: null,
-      source: 'none',
+      source: 'props',
       id: unit.ids && unit.ids.length ? unit.ids[0] : null,
       idCount: unit.ids ? unit.ids.length : 0
     };
+  }
 
+  /**
+   * The Relay store ad probe: the three-clause chain, in the order Facebook answers best.
+   *
+   * Props are free and are asked first (`readAdMarker`), so this only runs for a unit whose
+   * payload did not carry the ad at all. Every read goes through `safeRelayRead`, which is what
+   * makes a store-only ad reproducible from a probe report rather than merely asserted.
+   *
+   * The caller records the hit and the `source` downgrade; this function answers one question —
+   * "does the store call this unit an ad?" — and does not touch evidence itself.
+   */
+  function probeAdFromStore(unit) {
+    let value = safeRelayRead(unit.ids, SPONSORED_PATH);
+    if (!value) value = safeRelayRead(unit.ids, '^sponsored_data.client_token');
+    if (!value && safeRelayRead(unit.ids, 'is_sponsored') === true) value = 'is_sponsored';
+    return value ? String(value) : null;
+  }
+
+  /** An ad verdict, from either entry point. The signal is the marker the rule matched on. */
+  function sponsoredVerdict(adId) {
+    return { category: CATEGORY.SPONSORED, reason: adIdReason(adId), signal: adId };
+  }
+
+  /** A suggested verdict. Six rules reach this category and the reason is what tells them apart. */
+  function suggestedVerdict(reason, signal) {
+    return { category: CATEGORY.SUGGESTED, reason: reason, signal: signal };
+  }
+
+  /**
+   * Stage 1 — the structural fast path.
+   *
+   * A tray unit IS its surface: a Stories tray, a Reels rail and the "groups you should join"
+   * list are decided by the unit's own typename alone, with no props scan and no store read.
+   * Their share of the feed (~10%) is exactly the population those reads were most wasteful for,
+   * so answering them from the one free field first is the whole reason this stage exists.
+   *
+   * Sponsorship is settled here too, and it comes first deliberately. An ad is not a tray that
+   * happens to be sponsored: it is the one category where a false negative costs the reader an
+   * advertisement, and Facebook does inject sponsored rows into the tray units. Deciding ads from
+   * props first and from a three-read store probe second keeps that verdict above every structural
+   * rule, so `sponsored` stays the top of the precedence chain exactly as before this pipeline
+   * existed — see tests/relay-classify.test.js, "sponsored beats stories".
+   *
+   * Returns a verdict, or null when the unit is none of these and the remaining stages decide.
+   */
+  function stage1Structural(unit, context, evidence) {
+    // Props are free, so an ad that the payload already declares never costs a store read.
+    let adId = readAdMarker(unit.sources, unit.ownRecords);
+    if (!adId && unit.ids.length) {
+      adId = probeAdFromStore(unit);
+      if (adId) evidence.source = 'relay';
+    }
+    if (adId) {
+      evidence.adId = adId;
+      return sponsoredVerdict(adId);
+    }
+
+    // Only the unit's OWN typename may name a surface. A friend's share of a reel nests a
+    // ShowcaseFeedUnit inside an ordinary Story, and a typename read off that nested record is
+    // not a Reels surface (STRATEGY.md, misclassification 3).
+    const own = unit.ownTypename;
+
+    // The mid-feed Stories row is a DiscoverFeedUnit delivered through the generic feed unit
+    // wrapper, so it needs a typename rule of its own (STRATEGY.md, decision #7).
+    if (own && STORIES_TYPENAMES.indexOf(own) !== -1) {
+      return { category: CATEGORY.STORIES, reason: 'unitTypename:' + own, signal: own };
+    }
+
+    // Reels is only the clear-cut Reels surface. The attachment style wrapper renders
+    // attachments by definition, so units arriving through it never fold as Reels.
+    if (own === 'ShowcaseFeedUnit' && !(context && context.moduleName === STORY_ATTACHMENT_MODULE)) {
+      return { category: CATEGORY.REELS, reason: 'unitTypename:ShowcaseFeedUnit', signal: own };
+    }
+
+    // The horizontal GYSJ list is the only typename allowed to be read off the nested record,
+    // because the list's own typename can arrive one level down (this rule predates the
+    // own-typename isolation the two surface rules above enforce).
+    const typename = own || unit.nestedTypename;
+    if (typename && SUGGESTED_GROUP_TYPENAMES.indexOf(typename) !== -1) {
+      return { category: CATEGORY.SUGGESTED_GROUP, reason: 'unitTypename:' + typename, signal: typename };
+    }
+
+    return null;
+  }
+
+  /**
+   * Stage 2 — direct props, plus the store bypass they buy.
+   *
+   * The five subscribe paths and the five join paths below are the classifier's hot inner loop:
+   * ten lookups across every candidate record, on the ~60% of the feed that is ordinary posts.
+   * They run before any store read, so when they answer there is nothing left to ask the Relay
+   * store about. `subscribeResolved` / `joinResolved` carry that answer out to stage 3.
+   *
+   * Resolution is deliberately stricter than "did we find a suggestion". ANY explicit string
+   * settles its field, including NOT_SUBSCRIBED, IS_SUBSCRIBED and IS_MEMBER: those are real
+   * answers from Facebook, and re-asking the store for a field the props already carry is
+   * exactly the traffic this pipeline exists to remove. They settle the unit as `regular`,
+   * which is the correct answer for them — NOT_SUBSCRIBED matching nearly every actor the
+   * viewer does not follow is precisely why it is not suggestion evidence (STRATEGY.md,
+   * misclassifications 1 & 2).
+   */
+  function stage2Props(unit, evidence) {
     const sources = unit.sources || [];
-    const ownRecords = unit.ownRecords || [];
-
-    // 1. Direct props
-    evidence.adId = readAdMarker(sources, ownRecords);
 
     evidence.subscribeStatus =
       firstPropString(sources, 'actors.0.subscribe_status') ||
@@ -366,23 +493,53 @@ window.FBDietRelayClassify = (() => {
     evidence.actionSignal = actionSig;
     evidence.recHeader = recHdr;
 
-    if (evidence.adId || evidence.subscribeStatus || evidence.joinState || evidence.actionSignal || evidence.recHeader) {
-      evidence.source = 'props';
+    const subscribeResolved = evidence.subscribeStatus !== null;
+    const joinResolved = evidence.joinState !== null;
+
+    // A plain Story with viewer_forum_join_state CAN_JOIN is a "suggested for you" group post
+    // from a group the viewer has not joined: it folds with the suggested surface
+    // (STRATEGY.md, decision #10). Only the horizontal GYSJ list unit is suggestedGroup.
+    //
+    // Subscribe is asked before join here. Both land in `suggested`, so only the reason string
+    // differs for a unit carrying both — and the actor's own subscribe state is the more specific
+    // of the two answers, because it names the person who is not yet followed.
+    if (subscribeResolved && SUGGESTED_SUBSCRIBE_STATES.indexOf(evidence.subscribeStatus) !== -1) {
+      return { subscribeResolved: subscribeResolved, joinResolved: joinResolved, verdict: suggestedVerdict('actors[0].subscribe_status', evidence.subscribeStatus) };
+    }
+    if (joinResolved && SUGGESTED_JOIN_STATES.indexOf(evidence.joinState) !== -1) {
+      return { subscribeResolved: subscribeResolved, joinResolved: joinResolved, verdict: suggestedVerdict('to.viewer_forum_join_state', evidence.joinState) };
+    }
+    // Action links: follow/subscribe buttons or join group buttons.
+    if (evidence.actionSignal === 'subscribe') {
+      return { subscribeResolved: subscribeResolved, joinResolved: joinResolved, verdict: suggestedVerdict('action_links:subscribe', 'subscribe') };
+    }
+    if (evidence.actionSignal === 'join_group') {
+      return { subscribeResolved: subscribeResolved, joinResolved: joinResolved, verdict: suggestedVerdict('action_links:join_group', 'join_group') };
+    }
+    // Explicit suggestion header: "為你推薦" / "Suggested for you".
+    // NOTE: there is deliberately NO story_header rule (STRATEGY.md, decision #6).
+    if (evidence.recHeader) {
+      return { subscribeResolved: subscribeResolved, joinResolved: joinResolved, verdict: suggestedVerdict('header:' + evidence.recHeader, evidence.recHeader) };
     }
 
-    if (!unit.ids.length) return evidence;
+    return { subscribeResolved: subscribeResolved, joinResolved: joinResolved, verdict: null };
+  }
 
-    // 2. Relay store
-    if (!evidence.adId) {
-      let value = safeRelayRead(unit.ids, SPONSORED_PATH);
-      if (!value) value = safeRelayRead(unit.ids, '^sponsored_data.client_token');
-      if (!value && safeRelayRead(unit.ids, 'is_sponsored') === true) value = 'is_sponsored';
-      if (value) {
-        evidence.adId = String(value);
-        evidence.source = 'relay';
-      }
-    }
-    if (!evidence.subscribeStatus) {
+  /**
+   * Stage 3 — the Relay store, asked only for what the props did not answer.
+   *
+   * Every read here is a fallback for one specific unresolved field, so the log a probe report
+   * prints is a list of open questions rather than a fixed ritual. The ad probe is absent: stage 1
+   * owns sponsorship and already asked, so repeating it here would double the reads of every
+   * ordinary post to re-derive an answer nobody is waiting for.
+   *
+   * The first `suggested` hit ends the stage. A unit that the store calls CAN_SUBSCRIBE is
+   * settled, and the join read that used to follow it was never going to change that verdict.
+   */
+  function stage3Store(unit, evidence, resolved) {
+    if (!unit.ids.length) return null;
+
+    if (!resolved.subscribeResolved) {
       // SUBSCRIBE_PATH already reads the plural link correctly; `^actors` would call the
       // singular accessor on a plural field and throw (invariant #696), so it is not a fallback.
       let value = safeRelayRead(unit.ids, SUBSCRIBE_PATH);
@@ -390,80 +547,39 @@ window.FBDietRelayClassify = (() => {
       if (value) {
         evidence.subscribeStatus = String(value);
         evidence.source = 'relay';
+        // Recorded either way: a NOT_SUBSCRIBED from the store is evidence, and it settles
+        // regular rather than escaping into the join read.
+        if (SUGGESTED_SUBSCRIBE_STATES.indexOf(evidence.subscribeStatus) !== -1) {
+          return suggestedVerdict('actors[0].subscribe_status', evidence.subscribeStatus);
+        }
       }
     }
-    if (!evidence.joinState) {
+
+    if (!resolved.joinResolved) {
       const value = safeRelayRead(unit.ids, JOIN_PATH);
       if (value) {
         evidence.joinState = String(value);
         evidence.source = 'relay';
+        if (SUGGESTED_JOIN_STATES.indexOf(evidence.joinState) !== -1) {
+          return suggestedVerdict('to.viewer_forum_join_state', evidence.joinState);
+        }
       }
     }
 
-    return evidence;
+    return null;
   }
 
   /**
-   * Assigns a single category. Order matters: an ad that is also a group suggestion must
-   * be reported as an ad, and a unit is never classified twice.
+   * Stage 4 — settlement. No rule matched: if we have at least one unit id the unit is
+   * identifiable but unclassified, so it is a 'regular' post (decision #16). Only units with
+   * zero ids (no-payload / no-unit-id) keep category: null so that truly unidentifiable
+   * remnants are still excluded from stats and folding.
    */
-  function decideCategory(evidence, context) {
-    if (evidence.adId) {
-      return { category: CATEGORY.SPONSORED, reason: adIdReason(evidence.adId) };
-    }
-
-    const typename = evidence.ownTypename || evidence.nestedTypename;
-    if (typename && SUGGESTED_GROUP_TYPENAMES.indexOf(typename) !== -1) {
-      return { category: CATEGORY.SUGGESTED_GROUP, reason: 'unitTypename:' + typename };
-    }
-    // A plain Story with viewer_forum_join_state CAN_JOIN is a "suggested for you"
-    // group post from a group the viewer has not joined: it folds with the suggested
-    // surface (STRATEGY.md, decision #10). Only the horizontal GYSJ list unit above
-    // is suggestedGroup / the "Other" group.
-    if (evidence.joinState && SUGGESTED_JOIN_STATES.indexOf(evidence.joinState) !== -1) {
-      return { category: CATEGORY.SUGGESTED, reason: 'to.viewer_forum_join_state' };
-    }
-    if (evidence.subscribeStatus && SUGGESTED_SUBSCRIBE_STATES.indexOf(evidence.subscribeStatus) !== -1) {
-      return { category: CATEGORY.SUGGESTED, reason: 'actors[0].subscribe_status' };
-    }
-    // Action links: follow/subscribe buttons or join group buttons
-    if (evidence.actionSignal === 'subscribe') {
-      return { category: CATEGORY.SUGGESTED, reason: 'action_links:subscribe' };
-    }
-    if (evidence.actionSignal === 'join_group') {
-      return { category: CATEGORY.SUGGESTED, reason: 'action_links:join_group' };
-    }
-    // Explicit suggestion header: "為你推薦" / "Suggested for you"
-    if (evidence.recHeader) {
-      return { category: CATEGORY.SUGGESTED, reason: 'header:' + evidence.recHeader };
-    }
-    // NOTE: there is deliberately NO story_header rule (STRATEGY.md, decision #6).
-
-    // The mid-feed Stories row is a DiscoverFeedUnit delivered through the generic
-    // feed unit wrapper, so it needs a typename rule of its own (STRATEGY.md, #7).
-    if (evidence.ownTypename && STORIES_TYPENAMES.indexOf(evidence.ownTypename) !== -1) {
-      return { category: CATEGORY.STORIES, reason: 'unitTypename:' + evidence.ownTypename };
-    }
-
-    // Reels is only the clear-cut Reels surface (the rail / showcase feed units).
-    // Two guards keep friend shares visible (STRATEGY.md, misclassification 3):
-    //   1. The ShowcaseFeedUnit typename must belong to the unit itself. A friend's share
-    //      of a reel nests a ShowcaseFeedUnit attachment inside an ordinary Story, and a
-    //      typename read off that nested record is NOT a Reels surface.
-    //   2. The Reels attachment style wrapper renders attachments by definition, so units
-    //      arriving through it never fold as Reels.
-    if (evidence.ownTypename === 'ShowcaseFeedUnit' && !(context && context.moduleName === STORY_ATTACHMENT_MODULE)) {
-      return { category: CATEGORY.REELS, reason: 'unitTypename:ShowcaseFeedUnit' };
-    }
-
-    // No rule matched. If we have at least one unit id the unit is identifiable
-    // but unclassified — it is a 'regular' post (decision #16). Only units with
-    // zero ids (no-payload / no-unit-id) keep category: null so that truly
-    // unidentifiable remnants are still excluded from stats and folding.
+  function stage4Settle(evidence) {
     if (evidence.idCount > 0) {
-      return { category: CATEGORY.REGULAR, reason: 'no-match' };
+      return { category: CATEGORY.REGULAR, reason: 'no-match', signal: null };
     }
-    return { category: null, reason: 'no-unit-id' };
+    return { category: null, reason: 'no-unit-id', signal: null };
   }
 
   /** Unit ids are opaque base64 blobs; show a short fingerprint instead. */
@@ -517,6 +633,10 @@ window.FBDietRelayClassify = (() => {
       unitId: null,
       unitTypename: null,
       reason: 'no-payload',
+      // The decisive value for the branch that decided, and null when nothing did. `reason`
+      // names the rule; `signal` says what it matched on, so a reader of a probe report never
+      // has to re-derive which field answered (fold.js and probe.js both read it).
+      signal: null,
       evidence: null,
       moduleName: context && context.moduleName ? context.moduleName : null
     };
@@ -528,12 +648,22 @@ window.FBDietRelayClassify = (() => {
       result.unitTypename = unit.unitTypename;
       result.unitId = unit.ids.length ? unit.ids[0] : null;
 
-      const evidence = gatherEvidence(unit);
+      const evidence = makeEvidence(unit);
       result.evidence = evidence;
 
-      const picked = decideCategory(evidence, context);
+      // The four stages, in the order the evidence becomes available. Each returns a verdict or
+      // null, and the first one to answer ends the pipeline — so a tray unit never pays for the
+      // props scan, and a unit whose props already answered never pays for a store read.
+      const structural = stage1Structural(unit, context, evidence);
+      let picked = structural;
+      if (!picked) {
+        const propsStage = stage2Props(unit, evidence);
+        picked = propsStage.verdict || stage3Store(unit, evidence, propsStage) || stage4Settle(evidence);
+      }
+
       result.category = picked.category;
       result.reason = picked.reason;
+      result.signal = picked.signal === undefined ? null : picked.signal;
 
       if (result.category && isDebugEnabled()) {
         console.info('[FB Diet][Classify] Matched:', result.category, 'for unit:', shortUnitId(result.unitId), '(' + (result.unitTypename || 'no-type') + ')', 'reason:', result.reason, 'module:', result.moduleName || '-', 'evidence:', result.evidence);
