@@ -1,0 +1,457 @@
+/**
+ * FB Diet - Options Page
+ * Consumes the shared token layer in src/shared/theme.css. This page runs a wider scale than the
+ * popup, so it overrides the page-scaled roles and declares the geometry that only it uses.
+ */
+
+:root {
+  /* Page-scaled overrides of the shared roles */
+  --logo-size: 44px;
+  --font-title: 21px;
+  --font-logo: 19px;
+  --font-stat: 32px;
+  --radius-card: 14px;
+  --tracking-title: -0.3px;
+
+  /* Page geometry */
+  --container-max: 680px;
+  --radius-panel: 16px;
+  --pad-page: 36px 20px;
+  --pad-panel: 28px 32px;
+
+  /* Display sizes unique to this page */
+  --font-stat-prefix: 18px;
+  --font-stat-sep: 20px;
+  --font-stat-total: 24px;
+  --font-feature-icon: 22px;
+  --feature-icon-box: 26px;
+  --font-state-emoji: 17px;
+
+  /* Component geometry unique to this page */
+  --pad-row: 13px 16px;
+  --pad-select: 6px 26px 6px 10px;
+  --select-arrow-inset: 9px;
+  --focus-ring-radius: 2px;
+  --filter-grayscale: 0.9;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: var(--font-lead);
+  user-select: text;
+  display: flex;
+  justify-content: center;
+  padding: var(--pad-page);
+  line-height: 1.4;
+}
+
+.container {
+  width: 100%;
+  max-width: var(--container-max);
+  background: var(--bg-card);
+  border-radius: var(--radius-panel);
+  padding: var(--pad-panel);
+  border: var(--border-width) solid var(--divider);
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-section);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-stack);
+}
+
+.header-action {
+  display: flex;
+  align-items: center;
+  gap: var(--space-block);
+}
+
+/* Language Toggle (EN / 繁中): the whole block is one click target that toggles */
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-micro);
+  background: var(--surface-raised);
+  border: var(--border-width) solid var(--divider);
+  border-radius: var(--radius-small);
+  padding: var(--space-tight);
+  cursor: pointer;
+  user-select: none;
+}
+
+.lang-switch:focus-visible {
+  outline: var(--focus-ring-width) solid var(--active-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.lang-segment {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-small);
+  font-weight: 700;
+  letter-spacing: var(--tracking-micro);
+  padding: var(--space-xs) var(--space-row);
+  border-radius: var(--radius-field);
+  cursor: pointer;
+  transition: all var(--motion-fast) ease;
+  outline: none;
+}
+
+.lang-segment:hover {
+  color: var(--text-primary);
+}
+
+.lang-segment.is-active {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 var(--border-width) var(--divider);
+}
+
+.master-status-label {
+  font-size: var(--font-default);
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: var(--tracking-caps);
+}
+
+.logo-badge,
+.logo-img {
+  width: var(--logo-size);
+  height: var(--logo-size);
+}
+
+.logo-badge {
+  font-size: var(--font-logo);
+}
+
+.title {
+  font-size: var(--font-title);
+  font-weight: 700;
+  color: var(--text-on-accent);
+  letter-spacing: var(--tracking-title);
+}
+
+.subtitle {
+  font-size: var(--font-default);
+  color: var(--text-secondary);
+  margin-top: var(--space-tight);
+}
+
+/* Stat Counter Card */
+.stat-card {
+  border-radius: var(--radius-card);
+  padding: var(--space-pad) var(--space-wide);
+  margin-bottom: var(--space-section);
+}
+
+.stat-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--space-stack);
+  border-bottom: var(--border-width) solid var(--divider);
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-daily-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.stat-daily-prefix {
+  font-size: var(--font-stat-prefix);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: var(--tracking-number);
+}
+
+.stat-daily-values {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-micro);
+}
+
+.stat-number {
+  font-size: var(--font-stat);
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-filtered-num {
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.stat-daily-sep {
+  font-size: var(--font-stat-sep);
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 0 var(--space-hair);
+}
+
+.stat-total-num {
+  font-size: var(--font-stat-total);
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.stat-title {
+  font-size: var(--font-small);
+  color: var(--text-secondary);
+  margin-top: var(--space-xs);
+  font-weight: 500;
+}
+
+.reset-btn {
+  font-size: var(--font-small);
+  padding: var(--space-sm) var(--space-stack);
+}
+
+/* Stat Breakdown Grid */
+.stat-breakdown {
+  display: grid;
+  /* One column per user-facing category group; the 2-column fallback keeps the pills legible
+     on narrow windows. Counts stay literal because var() is not allowed inside repeat(). */
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-md);
+  margin-top: var(--space-stack);
+}
+
+@media (max-width: 660px) {
+  .stat-breakdown {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.stat-sub-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--surface-sunken);
+  padding: var(--space-block) var(--space-row);
+  border-radius: var(--radius-small);
+}
+
+.sub-label {
+  font-size: var(--font-micro);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  font-weight: 500;
+  text-align: center;
+}
+
+.sub-value {
+  font-size: var(--font-heading);
+  font-weight: 700;
+  color: var(--text-primary);
+  /* Push the number to the pill's bottom edge so all five pills align,
+     regardless of whether the label wraps to one or two lines. */
+  margin-top: auto;
+  padding-top: var(--space-micro);
+  font-variant-numeric: tabular-nums;
+  transition: color var(--motion-fast) ease, text-shadow var(--motion-fast) ease;
+}
+
+.sub-value.active-folded {
+  color: var(--active-color);
+  text-shadow: var(--shadow-text-glow);
+}
+
+/* Section label: heading-level text, so 運行模式 / 貼文分類 / 外觀設定 read as the
+   start of a section instead of a small caption above the cards. */
+.section-label {
+  font-size: var(--font-heading);
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: var(--tracking-caps);
+  margin-bottom: var(--space-block);
+}
+
+/* Section header: label on the left, section-scoped action (Defaults) on the right */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-block);
+  margin-bottom: var(--space-block);
+}
+
+.section-header .section-label {
+  margin-bottom: 0;
+}
+
+.feature-item {
+  background: var(--surface-inset);
+  border: var(--border-width) solid var(--divider);
+  border-radius: var(--radius-tile);
+  transition: all var(--motion-fast) ease;
+}
+
+.feature-item:hover {
+  background: var(--bg-hover);
+}
+
+/* Features List */
+.features-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-row);
+  transition: opacity var(--motion-base) ease;
+}
+
+.features-list.disabled {
+  opacity: var(--opacity-muted);
+  pointer-events: none;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--pad-row);
+}
+
+.feature-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-block);
+}
+
+.feature-icon {
+  font-size: var(--font-feature-icon);
+  width: var(--feature-icon-box);
+  text-align: center;
+}
+
+.feature-title {
+  font-size: var(--font-heading);
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+}
+
+.feature-title .fb-diet-badge {
+  margin-left: var(--space-md);
+}
+
+.feature-desc {
+  font-size: var(--font-default);
+  color: var(--text-secondary);
+  margin-top: var(--space-tight);
+}
+
+/* Classification toggle state: the monkey opens its eyes while the group renders
+   natively and covers them once it is folded. CSS-only, so no JS toggle path changes. */
+.fold-state-emoji {
+  font-size: var(--font-state-emoji);
+  line-height: 1;
+  margin-left: auto;
+  margin-right: var(--space-row);
+  user-select: none;
+}
+
+.fold-state-emoji::before {
+  content: '🐵';
+}
+
+.feature-item:has(.switch input:checked) .fold-state-emoji::before {
+  content: '🙈';
+}
+
+/* Fold Bar Title dropdown (3-state select, STRATEGY.md decision #27).
+   appearance:none strips the native widget so the dark background and white text
+   always win (the arrow is drawn inline), and option rows are styled explicitly
+   because the native popup otherwise ignores inherited colors - white on white. */
+.feature-select {
+  appearance: none;
+  -webkit-appearance: none;
+  flex-shrink: 0;
+  background-color: var(--surface-raised);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M1 1l4 4 4-4' fill='none' stroke='%238e8e99' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right var(--select-arrow-inset) center;
+  border: var(--border-width) solid var(--divider);
+  border-radius: var(--radius-control);
+  color: var(--text-primary);
+  color-scheme: dark;
+  font-family: inherit;
+  font-size: var(--font-default);
+  padding: var(--pad-select);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease;
+}
+
+.feature-select:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--border-hover);
+}
+
+.feature-select:focus-visible {
+  outline: var(--focus-ring-width) solid var(--active-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* Popup option rows: force dark rows so the white label text stays readable */
+.feature-select option {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+}
+
+/* Keep interactive controls unselectable so drag-to-select never hijacks clicks */
+.switch,
+.reset-btn,
+.feature-select,
+.lang-segment {
+  user-select: none;
+}
+
+
+/* Debug card */
+.section-gap {
+  margin-top: var(--space-section);
+}
+
+/* Project link */
+.project-footer {
+  text-align: center;
+}
+
+.project-link {
+  color: var(--active-color);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.project-link:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
+.project-link:focus-visible {
+  outline: var(--focus-ring-width) solid var(--active-color);
+  outline-offset: var(--focus-ring-offset-wide);
+  border-radius: var(--focus-ring-radius);
+}

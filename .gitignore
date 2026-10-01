@@ -1,0 +1,8 @@
+# Dependencies & OS files
+node_modules/
+.DS_Store
+Thumbs.db
+
+# Extension packaging outputs
+release/
+.public-sync-temp/

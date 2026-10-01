@@ -1,0 +1,310 @@
+/**
+ * FB Diet - Shared UI Theme & Component Tokens
+ * Single source of truth for design tokens, resets, switches, badges, and cards across extension pages.
+ * Roles the two pages run at a different scale (title, stat number, card radius, ...) are declared here at
+ * the compact popup value and overridden by a page-level `:root` block in popup.css / options.css.
+ */
+
+:root {
+  /* Base surfaces */
+  --bg-primary: #121214;
+  --bg-card: #18181c;
+  --bg-stat: #212127;
+  --bg-hover: rgba(255, 255, 255, 0.04);
+  --text-primary: #f0f0f2;
+  --text-secondary: #8e8e99;
+  --text-muted: #5e5e66;
+  --divider: rgba(255, 255, 255, 0.08);
+  --accent-gradient: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+  --accent-glow: rgba(14, 165, 233, 0.25);
+  --active-color: #0ea5e9;
+
+  /* Translucent overlays layered on the dark surfaces.
+     Four deliberate elevation steps; 0.02 is the resting tile and 0.04 (--bg-hover) is its
+     hover feedback, so those two must stay apart. */
+  --surface-inset: rgba(255, 255, 255, 0.02);
+  --surface-raised: rgba(255, 255, 255, 0.06);
+  --surface-hover: rgba(255, 255, 255, 0.12);
+  --surface-sunken: rgba(0, 0, 0, 0.15);
+  --border-hover: rgba(255, 255, 255, 0.2);
+  --border-width: 1px;
+  --shadow-knob: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-logo: 0 2px 14px var(--accent-glow);
+  --shadow-text-glow: 0 0 10px var(--accent-glow);
+  --accent-tint: rgba(14, 165, 233, 0.08);
+  --accent-border-hover: rgba(14, 165, 233, 0.3);
+  --opacity-muted: 0.35;
+
+  /* Brand neutrals and runtime status hues */
+  --text-on-accent: #ffffff;
+  --switch-off-track: #383842;
+  --status-warn: #f59e0b;
+  --status-error: #ef4444;
+
+  /* Type roles shared by both extension pages */
+  --font-micro: 11px;
+  --font-small: 12px;
+  --font-default: 13px;
+  --font-lead: 14px;
+  --font-heading: 15px;
+  /* Page-scaled roles: declared at the compact popup size, overridden per page */
+  --font-title: 15px;
+  --font-logo: 15px;
+  --font-stat: 26px;
+
+  /* Tracking */
+  --tracking-micro: 0.2px;
+  --tracking-caps: 0.3px;
+  --tracking-title: -0.2px;
+  --tracking-number: -0.2px;
+  --tracking-logo: -0.5px;
+
+  /* Spacing roles */
+  --space-hair: 1px;
+  --space-tight: 2px;
+  --space-micro: 3px;
+  --space-xs: 4px;
+  --space-sm: 6px;
+  --space-md: 8px;
+  --space-row: 10px;
+  --space-block: 12px;
+  --space-stack: 14px;
+  --space-pad: 16px;
+  --space-wide: 20px;
+  --space-section: 24px;
+
+  /* Radii */
+  --radius-chip: 4px;
+  --radius-field: 6px;
+  --radius-control: 7px;
+  --radius-small: 8px;
+  --radius-tile: 10px;
+  --radius-card: 12px;
+  --radius-logo: 11px;
+
+  /* Focus ring */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 1px;
+  --focus-ring-offset-wide: 2px;
+
+  /* Motion */
+  --motion-fast: 0.15s;
+  --motion-base: 0.2s;
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Component geometry */
+  --logo-size: 34px;
+  --stat-bar-width: 4px;
+  --leading-badge: 16px;
+  --pad-badge: 1px 6px;
+  --switch-track-w: 40px;
+  --switch-track-h: 22px;
+  --switch-thumb: 16px;
+  --switch-thumb-inset: 3px;
+  --switch-travel: 18px;
+  --switch-radius: 20px;
+  --switch-lg-track-w: 48px;
+  --switch-lg-track-h: 26px;
+  --switch-lg-thumb: 20px;
+  --switch-lg-travel: 22px;
+
+  /* Category badge palette for the dark extension pages. src/content/content.css keeps its own
+     palette because it has to blend into Facebook's light and dark themes instead. */
+  --badge-ads-fg: #f87171;
+  --badge-ads-bg: rgba(239, 68, 68, 0.15);
+  --badge-ads-edge: rgba(239, 68, 68, 0.35);
+  --badge-regular-fg: #34d399;
+  --badge-regular-bg: rgba(16, 185, 129, 0.15);
+  --badge-regular-edge: rgba(16, 185, 129, 0.35);
+  --badge-suggested-fg: #fbbf24;
+  --badge-suggested-bg: rgba(245, 158, 11, 0.15);
+  --badge-suggested-edge: rgba(245, 158, 11, 0.35);
+  --badge-media-fg: #c084fc;
+  --badge-media-bg: rgba(168, 85, 247, 0.15);
+  --badge-media-edge: rgba(168, 85, 247, 0.35);
+  --badge-other-fg: #60a5fa;
+  --badge-other-bg: rgba(59, 130, 246, 0.15);
+  --badge-other-edge: rgba(59, 130, 246, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Brand Logo */
+.logo-badge,
+.logo-img {
+  border-radius: var(--radius-logo);
+  display: block;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.logo-badge {
+  background: var(--accent-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: var(--text-on-accent);
+  letter-spacing: var(--tracking-logo);
+  box-shadow: var(--shadow-logo);
+}
+
+/* Base Stat Card */
+.stat-card {
+  background: var(--bg-stat);
+  border: var(--border-width) solid var(--divider);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--stat-bar-width);
+  background: var(--accent-gradient);
+}
+
+/* Reset Button */
+.reset-btn {
+  background: var(--surface-raised);
+  border: var(--border-width) solid var(--divider);
+  color: var(--text-secondary);
+  font-weight: 600;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition: all var(--motion-fast) ease;
+  outline: none;
+  user-select: none;
+}
+
+.reset-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+
+.reset-btn:focus-visible {
+  outline: var(--focus-ring-width) solid var(--active-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* Switch Toggle Component */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: var(--switch-track-w);
+  height: var(--switch-track-h);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--switch-off-track);
+  transition: var(--motion-base) var(--ease-standard);
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: var(--switch-thumb);
+  width: var(--switch-thumb);
+  left: var(--switch-thumb-inset);
+  bottom: var(--switch-thumb-inset);
+  background-color: var(--text-on-accent);
+  transition: var(--motion-base) var(--ease-standard);
+  box-shadow: var(--shadow-knob);
+}
+
+.slider.round {
+  border-radius: var(--switch-radius);
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background: var(--active-color);
+}
+
+input:checked + .slider:before {
+  transform: translateX(var(--switch-travel));
+}
+
+/* Main Toggle (Master On/Off) */
+.main-toggle {
+  width: var(--switch-lg-track-w);
+  height: var(--switch-lg-track-h);
+}
+
+.main-toggle .slider:before {
+  height: var(--switch-lg-thumb);
+  width: var(--switch-lg-thumb);
+}
+
+.main-toggle input:checked + .slider:before {
+  transform: translateX(var(--switch-lg-travel));
+}
+
+/* Category Badges (Shared between Options and UI) */
+.fb-diet-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-micro);
+  padding: var(--pad-badge);
+  border-radius: var(--radius-chip);
+  font-size: var(--font-micro);
+  font-weight: 700;
+  line-height: var(--leading-badge);
+  letter-spacing: var(--tracking-micro);
+  user-select: none;
+}
+
+.fb-diet-badge-ads {
+  background: var(--badge-ads-bg);
+  color: var(--badge-ads-fg);
+  border: var(--border-width) solid var(--badge-ads-edge);
+}
+
+.fb-diet-badge-regular {
+  background: var(--badge-regular-bg);
+  color: var(--badge-regular-fg);
+  border: var(--border-width) solid var(--badge-regular-edge);
+}
+
+.fb-diet-badge-suggested {
+  background: var(--badge-suggested-bg);
+  color: var(--badge-suggested-fg);
+  border: var(--border-width) solid var(--badge-suggested-edge);
+}
+
+.fb-diet-badge-media {
+  background: var(--badge-media-bg);
+  color: var(--badge-media-fg);
+  border: var(--border-width) solid var(--badge-media-edge);
+}
+
+.fb-diet-badge-other {
+  background: var(--badge-other-bg);
+  color: var(--badge-other-fg);
+  border: var(--border-width) solid var(--badge-other-edge);
+}

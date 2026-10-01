@@ -1,0 +1,86 @@
+{
+  "manifest_version": 3,
+  "name": "FB Feed Diet - Clean Feed & Ads Declutter",
+  "version": "2.9.0",
+  "description": "Put your Facebook feed on a healthy diet. Automatically fold sponsored ads, suggestions.",
+  "minimum_chrome_version": "111",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "fb-feed-diet@amppa.github.io",
+      "strict_min_version": "128.0"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "FB Feed Diet",
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "permissions": [
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://*.facebook.com/*"
+  ],
+  "background": {
+    "service_worker": "src/background/background.js",
+    "scripts": [
+      "src/shared/defaults.js",
+      "src/background/background.js"
+    ]
+  },
+  "options_ui": {
+    "page": "src/options/options.html",
+    "open_in_tab": true
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.facebook.com/*"
+      ],
+      "js": [
+        "src/shared/defaults.js",
+        "src/inject/comet.js",
+        "src/inject/relay.js",
+        "src/inject/relay-metadata.js",
+        "src/inject/relay-classify.js",
+        "src/inject/bridge.js",
+        "src/inject/dom-surface.js",
+        "src/inject/dom-suggested.js",
+        "src/inject/dom-sponsored.js",
+        "src/inject/dom-metadata.js",
+        "src/inject/ui.js",
+        "src/inject/probe.js",
+        "src/inject/fold.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "*://*.facebook.com/*"
+      ],
+      "css": [
+        "src/content/content.css"
+      ],
+      "js": [
+        "src/shared/defaults.js",
+        "src/content/content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}

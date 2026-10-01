@@ -1,0 +1,140 @@
+/**
+ * FB Diet - Popup
+ * Consumes the shared token layer in src/shared/theme.css; only popup-specific sizes live here.
+ */
+
+:root {
+  --popup-width: 280px;
+  --radius-logo: 9px;
+  --radius-control: 6px;
+  --radius-cta: 9px;
+  --pad-reset-btn: 5px 11px;
+}
+
+body {
+  width: var(--popup-width);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: var(--font-default);
+  user-select: none;
+}
+
+.card {
+  padding: var(--space-pad);
+  background: var(--bg-card);
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-stack);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-row);
+}
+
+.logo-badge,
+.logo-img {
+  width: var(--logo-size);
+  height: var(--logo-size);
+  border-radius: var(--radius-logo);
+}
+
+.logo-badge {
+  font-size: var(--font-logo);
+}
+
+.title {
+  font-size: var(--font-title);
+  font-weight: 700;
+  color: var(--text-on-accent);
+  letter-spacing: var(--tracking-title);
+}
+
+.subtitle {
+  font-size: var(--font-micro);
+  color: var(--text-secondary);
+}
+
+/* Runtime status line (only shown when this tab cannot fold) */
+.status-line {
+  margin: var(--space-row) 0 0;
+  font-size: var(--font-micro);
+  line-height: 1.35;
+  text-align: center;
+  color: var(--status-warn);
+}
+
+.status-line.error {
+  color: var(--status-error);
+}
+
+/* Stat Counter Card */
+.stat-card {
+  border-radius: var(--radius-card);
+  padding: var(--space-block) var(--space-stack);
+  margin-bottom: var(--space-block);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-number {
+  font-size: var(--font-stat);
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.stat-title {
+  font-size: var(--font-micro);
+  color: var(--text-secondary);
+  margin-top: var(--space-tight);
+  font-weight: 500;
+}
+
+.reset-btn {
+  font-size: var(--font-micro);
+  padding: var(--pad-reset-btn);
+  border-radius: var(--radius-control);
+}
+
+/* Settings Button */
+.settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: var(--space-row) var(--space-block);
+  background: var(--bg-hover);
+  border: var(--border-width) solid var(--divider);
+  border-radius: var(--radius-cta);
+  color: var(--text-primary);
+  font-size: var(--font-default);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--motion-fast) ease;
+  outline: none;
+}
+
+.settings-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+  color: var(--text-on-accent);
+}

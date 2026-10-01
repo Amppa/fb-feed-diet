@@ -1,0 +1,339 @@
+/**
+ * FB Diet - In-page Folding Styles
+ * Seamlessly blends with Facebook's native Light & Dark themes.
+ */
+
+/* ------------------------------------------------------------------ *
+ * Fold bar base
+ * ------------------------------------------------------------------ */
+.fb-diet-titlebar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  margin: 0 0 8px 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 8px !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+  box-sizing: border-box !important;
+  user-select: none !important;
+  cursor: pointer !important;
+  overflow: hidden !important;
+}
+
+.fb-diet-titlebar:hover {
+  background-color: color-mix(in srgb, var(--fb-diet-bar-bg) 95%, white 5%) !important;
+}
+
+.fb-diet-titlebar.fb-diet-state-expanded {
+  margin: 0 !important;
+  border-radius: 8px 8px 0 0 !important;
+}
+
+/* Badge for the fold group (Ads, Suggested, etc.) */
+.fb-diet-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  padding: 1px 5px !important;
+  border-radius: 3px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  line-height: 14px !important;
+  letter-spacing: 0.2px !important;
+}
+
+/* Specific Badge Types (one per user-facing group, STRATEGY.md decision #8) */
+.fb-diet-badge-ads {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #ef4444 !important;
+}
+
+.fb-diet-badge-regular {
+  background: rgba(16, 185, 129, 0.12) !important;
+  color: #10b981 !important;
+}
+
+.fb-diet-badge-suggested {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #f59e0b !important;
+}
+
+.fb-diet-badge-media {
+  background: rgba(168, 85, 247, 0.12) !important;
+  color: #a855f7 !important;
+}
+
+.fb-diet-badge-other {
+  background: rgba(59, 130, 246, 0.12) !important;
+  color: #3b82f6 !important;
+}
+
+/* 36px Title mode fold bar */
+.fb-diet-titlebar {
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  padding: 4px 12px !important;
+  /* The bar's own colour token, stated once: hover lightens this exact value instead of
+   * restating it, so the two can never drift apart. */
+  --fb-diet-bar-bg: var(--secondary-button-background, #f0f2f5);
+  background-color: var(--fb-diet-bar-bg) !important;
+  font-size: 13px !important;
+  line-height: 24px !important;
+  color: var(--primary-text, #050505) !important;
+}
+
+/* 18px compact variant for Minimized Fold Bar */
+.fb-diet-titlebar.fb-diet-titlebar-mini {
+  margin: 0 0 4px 0 !important;
+  height: 18px !important;
+  min-height: 18px !important;
+  max-height: 18px !important;
+  padding: 1px 8px !important;
+  font-size: 11px !important;
+  line-height: 16px !important;
+}
+
+.fb-diet-title-content {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+}
+
+.fb-diet-title-group-name,
+.fb-diet-title-author,
+.fb-diet-title-media,
+.fb-diet-title-snippet {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.fb-diet-title-group,
+.fb-diet-title-author,
+.fb-diet-title-media {
+  max-width: 140px !important;
+  flex-shrink: 0 !important;
+}
+
+.fb-diet-title-group {
+  display: inline-flex !important;
+  align-items: center !important;
+  font-weight: normal !important;
+  color: var(--secondary-text, #65676b) !important;
+  white-space: nowrap !important;
+}
+
+.fb-diet-title-group-name {
+  display: inline-block !important;
+  min-width: 0 !important;
+}
+
+.fb-diet-title-author {
+  font-weight: 700 !important;
+  color: var(--primary-text, #050505) !important;
+}
+
+.fb-diet-title-media {
+  font-weight: normal !important;
+  color: var(--secondary-text, #65676b) !important;
+}
+
+.fb-diet-title-snippet {
+  color: var(--secondary-text, #65676b) !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+/* ------------------------------------------------------------------ *
+ * Proxy folding (MAIN world React wrapper)
+ * ------------------------------------------------------------------ */
+
+/* The original feed unit stays mounted so Facebook's own render, commit and visibility
+   bookkeeping keep working; only the layout box is removed. */
+.fb-diet-fold-hidden {
+  display: none !important;
+}
+
+/* Escape hatch: the reference implementation's 1x1 overlay, keeping the unit "visible"
+   to IntersectionObserver while occupying no space. Enabled from src/inject/fold.js. */
+.fb-diet-foldsquash {
+  display: block !important;
+  position: relative !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
+.fb-diet-foldsquash>* {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 1px !important;
+  height: 1px !important;
+  max-width: 1px !important;
+  max-height: 1px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  z-index: -1 !important;
+}
+
+/* Right sidebar sponsored ads: directly hidden without placeholder bar */
+/* Pre-hydration first-frame suppression (SSR markup) */
+:is(div[role="complementary"], aside, [data-pagelet*="RightRail"]) :is(
+  a[attributionsrc],
+  a[target^="rhcad"],
+  a[href*="fbclid="],
+  a[href*="/l.php"]
+),
+a[target^="rhcad"],
+:is(div[role="complementary"], aside, [data-pagelet*="RightRail"]) :is(div, li):has(> :is(
+  a[attributionsrc],
+  a[target^="rhcad"],
+  a[href*="fbclid="],
+  a[href*="/l.php"]
+)),
+.adhidden,
+.fb-diet-side-ad-hidden,
+.CometHomeRightRailUnit:has(.adhidden, .fb-diet-side-ad-hidden) {
+  display: none !important;
+}
+
+/* ------------------------------------------------------------------ *
+ * Expanded state: control bar + unfolded post read as one card.
+ *
+ * Only the MAIN-world folding path (fold.js) creates the wrapper:
+ *   bar(sibling strip)  +  .fb-diet-expand-body (sibling wrapper holding
+ *   the unfolded post). Facebook's post carries its own trailing bottom
+ *   margin; because the wrapper itself has no border/padding/BFC, that
+ *   margin collapses OUT of the wrapper, so the wrapper's box is exactly
+ *   as tall as the visible card and the black inter-post gap lands BELOW
+ *   the frame. Real borders on the wrapper box would block that collapse
+ *   and swallow the gap, so the whole rounded rectangle is drawn by a
+ *   single ::after pseudo that extends up over the 18px bar
+ *   (top: calc(-1 * var(--fb-diet-strip-h))): one box owns all four
+ *   rails and all four corner radii.
+ * ------------------------------------------------------------------ */
+
+/* The wrapper anchors the frame pseudo. It carries no border itself. */
+.fb-diet-titlebar.fb-diet-state-expanded~.fb-diet-expand-body {
+  position: relative !important;
+  border: none !important;
+  --fb-diet-strip-h: 36px;
+}
+
+/* Expanded state frame: outer border line disabled per user requirement */
+.fb-diet-titlebar.fb-diet-state-expanded~.fb-diet-expand-body::after {
+  display: none !important;
+}
+
+/* Probe diagnostics popup (declarative content-script stylesheet) */
+.fb-diet-probe-holder {
+  position: relative;
+}
+
+.fb-diet-probe-group {
+  position: absolute;
+  top: 4px;
+  left: -26px;
+  display: inline-flex;
+  z-index: 9999;
+}
+
+.fb-diet-probe-btn {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  line-height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+/* Fallback for standalone probe button when not wrapped in group */
+.fb-diet-probe-holder > .fb-diet-probe-btn {
+  position: absolute;
+  top: 4px;
+  left: -26px;
+  z-index: 9999;
+}
+
+.fb-diet-probe-btn:hover {
+  opacity: 1;
+  transform: scale(1.08);
+}
+
+.fb-diet-probe-popup {
+  position: absolute;
+  top: 0;
+  left: 2px;
+  z-index: 10000;
+  min-width: 240px;
+  max-width: 480px;
+  padding: 12px 16px;
+  background: rgba(20, 21, 23, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  color: #e4e6eb;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 16px;
+  line-height: 1.55;
+  cursor: pointer;
+  user-select: none;
+  animation: fb-diet-popup-in 0.2s ease-out forwards;
+}
+
+.fb-diet-probe-popup-row {
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+.fb-diet-probe-popup-row a {
+  color: #60a5fa !important;
+  text-decoration: underline !important;
+  cursor: pointer !important;
+}
+
+.fb-diet-probe-popup-row a:hover {
+  color: #93c5fd !important;
+}
+
+.fb-diet-probe-popup-spacer {
+  height: 10px;
+}
+
+.fb-diet-probe-popup-fadeout {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.96);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+@keyframes fb-diet-popup-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

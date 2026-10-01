@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FB Feed Diet</title>
+  <link rel="icon" type="image/png" href="../../icons/icon32.png">
+  <link rel="stylesheet" href="../shared/theme.css">
+  <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+  <div class="card">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <img class="logo-img" src="../../icons/icon48.png" alt="FB Feed Diet Logo" width="34" height="34">
+        <div>
+          <h1 class="title">FB Feed Diet</h1>
+          <p class="subtitle" data-i18n="popupSubtitle">Clean & fold Facebook feeds</p>
+        </div>
+      </div>
+      <label class="switch main-toggle" title="Master Toggle" data-i18n-title="masterToggleTitle">
+        <input type="checkbox" id="enabled" aria-label="Master Toggle">
+        <span class="slider round"></span>
+      </label>
+    </header>
+
+    <!-- Stat Counter -->
+    <div class="stat-card">
+      <div class="stat-info">
+        <span class="stat-number" id="totalCount">0</span>
+        <span class="stat-title" data-i18n="itemsFoldedOnDiet">Items Folded on Diet</span>
+      </div>
+      <button class="reset-btn" id="resetBtn" title="Reset counter" data-i18n-title="resetPopupTitle" data-i18n="reset">Reset</button>
+    </div>
+
+    <!-- Settings Button -->
+    <button class="settings-btn" id="settingsBtn" data-i18n="optionsBtn">⚙️ Options</button>
+
+    <!-- Runtime status: shown only when this tab cannot fold despite the switch being on -->
+    <p class="status-line" id="statusLine" hidden></p>
+  </div>
+
+  <script src="../shared/defaults.js"></script>
+  <script src="../i18n/i18n.js"></script>
+  <script src="popup.js"></script>
+</body>
+
+</html>

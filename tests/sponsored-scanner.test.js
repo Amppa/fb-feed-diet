@@ -1,0 +1,255 @@
+'use strict';
+/**
+ * Lifecycle test for the DOM *sponsorship* scanner in src/inject/fold.js (decision #39).
+ *
+ * scanner.test.js covers the suggested scanner; this covers the second scanner that shares
+ * setupDomScanner. What is unique here and therefore worth its own suite:
+ *   - it is armed only in dom mode,
+ *   - it is armed only after the suggested scanner has already had its run (one scanner per
+ *     effect run, suggested first),
+ *   - it receives the store verdict read at SCAN time rather than captured at setup time,
+ *     which is what lets the detector tell a real catch from a disagreement.
+ *
+ * The harness has no real React commit, so the container ref is wired by hand and the scanner is
+ * driven through its observer/timer doubles, exactly as scanner.test.js does.
+ */
+const {
+  createFakeReact,
+  createWindow,
+  loadInject,
+  loadDefaults,
+  createFakeComet,
+  makeNode,
+  flushTimers
+} = require('./harness');
+
+const FEED_MODULE = 'CometFeedUnitErrorBoundary.react';
+
+const pendingTimers = (win) => win.__timers.filter((timer) => !timer.cleared);
+
+function setup(relayMap) {
+  const React = createFakeReact();
+  const win = createWindow();
+  const comet = createFakeComet(win, React);
+
+  win.FB_DIET_DEFAULTS = loadDefaults();
+  loadInject(win, 'comet.js');
+  loadInject(win, 'relay-metadata.js');
+  loadInject(win, 'relay-classify.js');
+  loadInject(win, 'bridge.js');
+  loadInject(win, 'dom-surface.js');
+  loadInject(win, 'dom-suggested.js');
+  loadInject(win, 'dom-sponsored.js');
+  loadInject(win, 'dom-metadata.js');
+  loadInject(win, 'ui.js');
+  loadInject(win, 'probe.js');
+  loadInject(win, 'fold.js');
+
+  win.FBDietRelayClassify.setRelayReader((ids, path) => {
+    const id = Array.isArray(ids) ? ids[0] : ids;
+    if (typeof relayMap === 'function') return relayMap(id, path);
+    return (relayMap && relayMap[path]) || null;
+  });
+
+  // Both detectors become counting stubs. The suggested one stays silent, so the sponsorship
+  // scanner is what the effect arms on its next run — the production ordering.
+  const suggestedCalls = { n: 0 };
+  win.FBDietDOMSuggested.detect = () => {
+    suggestedCalls.n += 1;
+    return null;
+  };
+
+  const sponsoredCalls = [];
+  let sponsoredVerdict = null;
+  win.FBDietDOMSponsored.detect = function (...args) {
+    sponsoredCalls.push({ args, container: args[0] });
+    return sponsoredVerdict;
+  };
+
+  const SourceCmp = () => ({ type: 'div', props: { children: 'original post' }, __source: true });
+  win.__d(SourceCmp, FEED_MODULE, [], null, null, null, { default: SourceCmp });
+  comet.require(FEED_MODULE);
+  const wrapper = comet.getExport(FEED_MODULE).default;
+
+  const container = makeNode('div', { className: 'fb-diet-full-container' });
+
+  return {
+    React,
+    win,
+    container,
+    suggestedCalls,
+    sponsoredCalls,
+    setSponsoredVerdict: (next) => { sponsoredVerdict = next; },
+    // Pass 1: hydration commit (no container ref yet). Pass 2: the commit that mounts it.
+    hydrationPass(payload) {
+      React.resetHooks();
+      const element = wrapper(payload);
+      element.type(element.props);
+      return element;
+    },
+    containerPass(element) {
+      React.resetHooks();
+      React.setRef(0, container);
+      return element.type(element.props);
+    },
+    // A third pass off the same element, which is what a re-render looks like in the harness: the
+    // container ref stays mounted and the hook cursor restarts, so state set during the container
+    // pass is read back.
+    render(element) {
+      React.resetHooks();
+      React.setRef(0, container);
+      return element.type(element.props);
+    }
+  };
+}
+
+function run(c) {
+  const payload = { feedUnit: { id: 'sponsor-1', __typename: 'FeedUnitRoot' } };
+  const DOM = { dietMode: 'dom', enabled: true, alwaysShowFoldBar: false, debugProbe: false };
+
+  /* --- the sponsorship scanner arms only in the mode that has a mounted-DOM engine --- */
+  {
+    const relay = setup({});
+    relay.win.FBDietBridge.setSettings(Object.assign({}, DOM, { dietMode: 'relay' }));
+    const element = relay.hydrationPass(payload);
+    relay.containerPass(element);
+    c.equals('relay mode runs no suggested scanner', relay.suggestedCalls.n, 0);
+    c.equals('relay mode runs no sponsorship scanner', relay.sponsoredCalls.length, 0);
+    c.equals('relay mode attaches no observer', relay.win.__observers.mutation.length, 0);
+
+    // DOM-only has the visual engine as its ONLY engine, so not arming there would leave the
+    // mode with no way to see anything at all.
+    const domOnly = setup({});
+    domOnly.win.FBDietBridge.setSettings(Object.assign({}, DOM, { dietMode: 'dom' }));
+    const domElement = domOnly.hydrationPass(payload);
+    domOnly.containerPass(domElement);
+    c.ok('dom-only mode arms the suggested scanner', domOnly.suggestedCalls.n >= 1);
+    c.ok('dom-only mode arms the sponsorship scanner', domOnly.sponsoredCalls.length >= 1);
+  }
+
+  /* --- arming order: suggested first, then sponsored --- */
+  {
+    const t = setup({});
+    t.win.FBDietBridge.setSettings(DOM);
+    const element = t.hydrationPass(payload);
+    const afterHydration = t.sponsoredCalls.length;
+    t.containerPass(element);
+
+    c.ok('the suggested scanner runs on the container commit', t.suggestedCalls.n >= 1);
+    c.equals('the hydration commit runs no sponsorship scan', afterHydration, 0);
+    c.ok('the container commit arms the sponsorship scanner too', t.sponsoredCalls.length >= 1);
+    c.ok('the sponsorship scan watches the unit container', t.sponsoredCalls[0].container === t.container);
+  }
+
+  /* --- the detector is called with the container and nothing else --- */
+  {
+    // It used to receive the store verdict as a second argument, purely so the circuit breaker
+    // could count disagreements. With the breaker gone the argument has no consumer, and passing
+    // it would reintroduce a data-engine dependency into a module that is meant to answer from
+    // the page alone.
+    const t = setup({});
+    t.win.FBDietBridge.setSettings(DOM);
+    const element = t.hydrationPass(payload);
+    t.containerPass(element);
+    t.win.__observers.mutation[t.win.__observers.mutation.length - 1].trigger();
+    flushTimers(t.win, () => true);
+
+    c.ok('the sponsorship scanner ran', t.sponsoredCalls.length >= 2);
+    c.ok('every call passed the unit container', t.sponsoredCalls.every((call) => call.container === t.container));
+    c.ok('every call passed exactly one argument', t.sponsoredCalls.every((call) => call.args.length === 1));
+  }
+
+  /* --- a DOM hit stops the scanner and folds the unit as an ad --- */
+  {
+    const t = setup({});
+    t.win.FBDietBridge.setSettings(Object.assign({}, DOM, { minimizedFoldMode: true }));
+    const element = t.hydrationPass(payload);
+    t.containerPass(element);
+
+    const mutations = t.win.__observers.mutation;
+    t.setSponsoredVerdict({
+      isSponsored: true,
+      signal: 'plain_text',
+      reason: 'dom:plain_text',
+      text: 'Sponsored',
+      debug: { matchedText: 'Sponsored', signal: 'plain_text' }
+    });
+
+    const callsBefore = t.sponsoredCalls.length;
+    const timersBefore = pendingTimers(t.win).length;
+    mutations[mutations.length - 1].trigger();
+    flushTimers(t.win, () => true);
+
+    c.ok('the coalesced pass re-detected', t.sponsoredCalls.length > callsBefore);
+    c.ok('a hit cancels the timers the scanner armed', pendingTimers(t.win).length < timersBefore);
+    c.equals('a hit disconnects the MutationObserver', mutations[mutations.length - 1].disconnected, true);
+
+    // The next render sees the DOM verdict and folds as sponsored even though Relay found nothing.
+    t.containerPass(element);
+    const blocked = t.win.__messages.filter((m) => m && m.type === 'blocked');
+    c.ok('a DOM-only ad is reported as blocked', blocked.length >= 1);
+    c.equals('a DOM-only ad is reported as sponsored', blocked[blocked.length - 1].payload.category, 'sponsored');
+    c.equals('a DOM-only ad is reported with the DOM reason', blocked[blocked.length - 1].payload.reason, 'dom:plain_text');
+  }
+
+  /* --- REGRESSION: a DOM-only ad must be reachable at all --- */
+  {
+    // This is the case the whole feature exists for, and it is the one the wiring used to make
+    // impossible: the sponsorship scanner only armed after the SUGGESTED scanner had already
+    // produced a hit, and a suggested hit also sets the category to 'suggested' — so the
+    // `category === 'regular'` guard could never be satisfied and no DOM-only ad could ever fold.
+    // No suggested signal is in play at all here, which is the real page shape.
+    const t = setup({});
+    t.win.FBDietBridge.setSettings(Object.assign({}, DOM, { minimizedFoldMode: true }));
+    t.setSponsoredVerdict({
+      isSponsored: true,
+      signal: 'plain_text',
+      reason: 'dom:plain_text',
+      text: 'Sponsored',
+      debug: { matchedText: 'Sponsored', signal: 'plain_text' }
+    });
+
+    const element = t.hydrationPass(payload);
+    t.containerPass(element);
+
+    c.equals('the suggested detector found nothing', t.suggestedCalls.n >= 1, true);
+    c.ok('the sponsorship scanner armed without waiting for a suggested hit', t.sponsoredCalls.length >= 1);
+
+    // The very first synchronous pass hit, so the next render must fold it as an ad.
+    // containerPass resets the hook cursor itself, which is what re-reads the new state.
+    t.containerPass(element);
+    const blocked = t.win.__messages.filter((m) => m && m.type === 'blocked');
+    c.ok('an organic post the DOM calls an ad is folded', blocked.length >= 1);
+    c.equals('it folds as sponsored on DOM evidence alone', blocked[blocked.length - 1].payload.category + ':' + blocked[blocked.length - 1].payload.reason, 'sponsored:dom:plain_text');
+  }
+
+  /* --- REGRESSION: DOM-only must render a bar and a probe, not the bare source --- */
+  {
+    // A unit the DOM has not caught has category null in this pipeline, and null used to end the
+    // render before the fold bar and before the probe got a container. On a real page that made
+    // the diagnostic mode look like a broken extension: no headers, no probe buttons, nothing to
+    // read. The mode is judged by what it sees across the whole feed, so "scanned, found
+    // nothing" has to be visible and inspectable like any other unit.
+    const t = setup({});
+    t.win.location.pathname = '/';
+    t.win.FBDietBridge.setSettings({ dietMode: 'dom', enabled: true, debugProbe: true, alwaysShowFoldBar: true, minimizedFoldMode: true });
+    // Both DOM detectors find nothing at all.
+    t.win.FBDietDOMSuggested.detect = () => null;
+    t.win.FBDietDOMSponsored.detect = () => null;
+
+    const quiet = { feedUnit: { id: 'u-dom-quiet', __typename: 'FeedUnitRoot' } };
+    const element = t.hydrationPass(quiet);
+    t.containerPass(element);
+    const out = t.render(element);
+
+    c.ok('the unit is no longer the untouched source', out.__source !== true);
+    c.equals('a probe holder wraps it', out.props.className, 'fb-diet-probe-holder');
+    c.ok('a probe button is present', JSON.stringify(out).indexOf('fb-diet-probe-btn') !== -1);
+
+    const bar = out.props.children[1].props.children[0];
+    c.equals('the fold bar renders', bar.type, t.win.FBDietUI.TitleBar);
+    c.equals('an uncaught unit shows as regular', bar.props.category, 'regular');
+  }
+}
+
+module.exports = { run };
