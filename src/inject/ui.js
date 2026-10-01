@@ -65,6 +65,24 @@ window.FBDietUI = (() => {
   }
 
   /**
+   * The expanded bar's tooltip, in the language the injected UI renders in. Same lookup
+   * as the media labels above: the words and the locale rule both live in the shared
+   * constants module (FEED_LABELS, resolveFeedLocale).
+   */
+  function getCollapseLabel() {
+    try {
+      const doc = typeof document !== 'undefined' ? document : (typeof window !== 'undefined' ? window.document : null);
+      const nav = typeof navigator !== 'undefined' ? navigator : (typeof window !== 'undefined' ? window.navigator : null);
+      if (typeof DEFAULTS.getFeedLabel === 'function') {
+        return DEFAULTS.getFeedLabel('collapseBar', DEFAULTS.resolveFeedLocale(getBridgeSettings(), doc, nav));
+      }
+    } catch (e) {
+      // A page without a document or navigator simply gets the fallback below.
+    }
+    return 'Collapse';
+  }
+
+  /**
    * The bar label for a media surface, in the language the injected UI renders in. Both the
    * words and the locale rule live in the shared constants module — the only file the MAIN
    * world and the extension pages load in common (FEED_LABELS, resolveFeedLocale).
@@ -229,11 +247,17 @@ window.FBDietUI = (() => {
       const badge = createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText]);
       const contentKids = [badge];
 
+      // The bar owns the only tooltip: folded shows the full post text (the visible
+      // snippet is CSS-truncated), expanded offers collapse. Inner spans carry no title
+      // of their own, so hovering anywhere on the bar reads the same tooltip; when there
+      // is no text to show the bar carries no title at all and the browser shows nothing.
+      let barTooltip = null;
+
       if (showTitle) {
         // Group name (with max-width: 140px in css)
         if (effectiveGroup && !isStaticCategory) {
           contentKids.push(
-            createEl('span', { className: 'fb-diet-title-group', title: effectiveGroup }, [
+            createEl('span', { className: 'fb-diet-title-group' }, [
               '[',
               createEl('span', { className: 'fb-diet-title-group-name' }, [effectiveGroup]),
               ']'
@@ -252,7 +276,7 @@ window.FBDietUI = (() => {
         if (authorText) {
           const authorClass = isStaticCategory ? 'fb-diet-title-media' : 'fb-diet-title-author';
           contentKids.push(
-            createEl('span', { className: authorClass, title: authorText }, [authorText])
+            createEl('span', { className: authorClass }, [authorText])
           );
         }
 
@@ -271,10 +295,13 @@ window.FBDietUI = (() => {
 
         if (snippetText) {
           contentKids.push(
-            createEl('span', { className: 'fb-diet-title-snippet', title: snippetText }, [snippetText])
+            createEl('span', { className: 'fb-diet-title-snippet' }, [snippetText])
           );
+          if (!isExpanded) barTooltip = snippetText;
         }
       }
+
+      if (isExpanded) barTooltip = getCollapseLabel();
 
       const contentBox = createEl('div', { className: 'fb-diet-title-content' }, contentKids);
 
@@ -282,14 +309,15 @@ window.FBDietUI = (() => {
       if (isMini) className += ' fb-diet-titlebar-mini';
       if (isExpanded) className += ' fb-diet-state-expanded';
 
+      const barProps = {
+        ref: barRef,
+        className: className,
+        onClick: props.onToggle
+      };
+      if (barTooltip) barProps.title = barTooltip;
       return createEl(
         'div',
-        {
-          ref: barRef,
-          className: className,
-          title: isExpanded ? 'Re-fold' : 'Show post',
-          onClick: props.onToggle
-        },
+        barProps,
         [contentBox]
       );
     } catch (e) {
@@ -304,6 +332,7 @@ window.FBDietUI = (() => {
     createEl,
     titleBarCache,
     TitleBar,
-    getMediaLabel
+    getMediaLabel,
+    getCollapseLabel
   };
 })();

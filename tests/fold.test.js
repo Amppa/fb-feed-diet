@@ -909,6 +909,72 @@ function run(c) {
     c.equals('snippet rendered', kids[2].props.children, 'Spread spectrum technology');
   }
 
+  /* --- title bar tooltip: folded shows full text, expanded offers collapse --- */
+  {
+    const t = setup({});
+    const ui = t.win.FBDietUI;
+    ui.titleBarCache.set('u-tip-fold', {
+      actorName: 'Hedy Lamarr',
+      snippetText: 'Spread spectrum technology',
+      groupName: 'Vienna Group',
+      adUrl: ''
+    });
+    t.React.resetHooks();
+    const foldedBar = ui.TitleBar({
+      category: 'suggested',
+      unitId: 'u-tip-fold',
+      showTitle: true,
+      isExpanded: false
+    });
+    c.equals('folded bar tooltip is the full snippet', foldedBar.props.title, 'Spread spectrum technology');
+    const foldedKids = foldedBar.props.children.props.children;
+    c.ok('folded group span carries no tooltip', !('title' in foldedKids[1].props));
+    c.ok('folded author span carries no tooltip', !('title' in foldedKids[2].props));
+    c.ok('folded snippet span carries no tooltip', !('title' in foldedKids[3].props));
+
+    // Expanded bars offer collapse in the feed locale instead of the post text.
+    t.bridge.setSettings({ lang: 'en' });
+    t.React.resetHooks();
+    const expandedBar = ui.TitleBar({
+      category: 'suggested',
+      unitId: 'u-tip-fold',
+      showTitle: true,
+      isExpanded: true
+    });
+    c.equals('expanded bar tooltip collapses in en', expandedBar.props.title, 'Collapse');
+    t.bridge.setSettings({ lang: 'zh-TW' });
+    t.React.resetHooks();
+    const expandedZhBar = ui.TitleBar({
+      category: 'suggested',
+      unitId: 'u-tip-fold',
+      showTitle: true,
+      isExpanded: true
+    });
+    c.equals('expanded bar tooltip collapses in zh-TW', expandedZhBar.props.title, '收合');
+
+    // No text to show means no tooltip at all — never an empty popup.
+    // A fresh setup: the harness keeps useState values across TitleBar calls,
+    // so reusing this block's instance would leak the cached snippet above.
+    const t2 = setup({});
+    const ui2 = t2.win.FBDietUI;
+    t2.React.resetHooks();
+    const emptyBar = ui2.TitleBar({
+      category: 'regular',
+      unitId: 'u-tip-empty',
+      showTitle: true,
+      isExpanded: false
+    });
+    c.ok('folded bar without text carries no tooltip', !('title' in emptyBar.props));
+    t2.React.resetHooks();
+    const storiesBar = ui2.TitleBar({
+      category: 'stories',
+      unitId: 'u-tip-stories',
+      showTitle: true,
+      isExpanded: false
+    });
+    c.ok('folded media bar carries no tooltip', !('title' in storiesBar.props));
+  }
+
   /* --- dom mode, always show title, folded state displays title extracted from DOM --- */
   {
     const t = setup({});

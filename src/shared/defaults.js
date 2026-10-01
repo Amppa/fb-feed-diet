@@ -252,12 +252,14 @@
     en: {
       stories: 'Stories',
       reels: 'Reels',
-      suggestedGroup: 'Suggested Groups'
+      suggestedGroup: 'Suggested Groups',
+      collapseBar: 'Collapse'
     },
     'zh-TW': {
       stories: '限時動態（朋友）',
       reels: '連續短片',
-      suggestedGroup: '推薦社團列表'
+      suggestedGroup: '推薦社團列表',
+      collapseBar: '收合'
     }
   };
 

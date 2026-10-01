@@ -198,6 +198,8 @@ function run(checker) {
   checker.equals('reels label in zh-TW', defaults.getFeedLabel('reels', 'zh-TW'), '連續短片');
   checker.equals('suggestedGroup label in en', defaults.getFeedLabel('suggestedGroup', 'en'), 'Suggested Groups');
   checker.equals('suggestedGroup label in zh-TW', defaults.getFeedLabel('suggestedGroup', 'zh-TW'), '推薦社團列表');
+  checker.equals('collapse tooltip in en', defaults.getFeedLabel('collapseBar', 'en'), 'Collapse');
+  checker.equals('collapse tooltip in zh-TW', defaults.getFeedLabel('collapseBar', 'zh-TW'), '收合');
   checker.equals('a key the table does not name is empty', defaults.getFeedLabel('nope', 'en'), '');
   checker.equals('an unsupported locale falls back to en', defaults.getFeedLabel('reels', 'fr-FR'), 'Reels');
 

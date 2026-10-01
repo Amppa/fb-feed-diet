@@ -53,7 +53,7 @@ The same package also runs on Firefox — the MAIN-world content scripts require
 
 - **Quick Toggle**: Click the **FB Feed Diet** icon in your Chrome toolbar to turn filtering ON or OFF instantly.
 - **Detailed Settings**: Click **"Options"** in the popup to customize which types of content to fold (e.g. keep Reels while folding Sponsored ads).
-- **Expand a Post**: When a post is folded, click its placeholder bar — which offers "Show post" — to view it without reloading the page, and "Re-fold" to put it back.
+- **Expand a Post**: When a post is folded, click its placeholder bar to view it without reloading the page — hovering the bar previews the full post text — and click again to collapse it back.
 
 ---
 
