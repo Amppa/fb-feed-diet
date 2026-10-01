@@ -36,6 +36,17 @@ window.FBDietUI = (() => {
   const TITLE_BAR_SCAN_TIMEOUT_MS = 4000;
   const TITLE_BAR_SCAN_THROTTLE_MS = 200;
 
+  // Hover delay before the custom portal tooltip appears (ms). Fixed, not a
+  // setting: the native title tooltip it replaces has no adjustable delay either.
+  const TOOLTIP_HOVER_DELAY_MS = 0;
+  // The custom tooltip is inset from the bar's own box: 50px indent on the left,
+  // and 50px inset on the right (width stops 100px short of the bar).
+  const TOOLTIP_INDENT_PX = 50;
+  // Narrow bars (zoomed layouts) still get a usable popup instead of a sliver.
+  const TOOLTIP_MIN_WIDTH_PX = 200;
+  // Floating vertical gap between the fold bar bottom and the tooltip top.
+  const TOOLTIP_GAP_PX = 6;
+
   /** Mounted-DOM metadata for one unit, or null when that module is not on the page. */
   function collectDomMetadata(container, isMediaGroup) {
     const domMeta = window.FBDietDOMMetadata;
@@ -113,6 +124,8 @@ window.FBDietUI = (() => {
 
       const React = window.FBDietComet ? window.FBDietComet.getReact() : null;
       const barRef = React && typeof React.useRef === 'function' ? React.useRef(null) : { current: null };
+      const hoverRef = React && typeof React.useRef === 'function' ? React.useRef(null) : { current: null };
+      if (hoverRef && !hoverRef.current) hoverRef.current = { timer: null, node: null, onScroll: null };
 
       const unitId = props.unitId;
       const cached = unitId ? titleBarCache.get(unitId) : null;
@@ -240,6 +253,14 @@ window.FBDietUI = (() => {
         }, [unitId, showTitle, isExpanded, props.allowDomScan]);
       }
 
+      // Unmount cleanup for the custom portal tooltip: a pending timer or a shown
+      // node must not outlive the bar. `hideBarTooltip` is declared below and hoisted.
+      if (React && typeof React.useEffect === 'function') {
+        React.useEffect(() => {
+          return () => { hideBarTooltip(); };
+        }, []);
+      }
+
       const effectiveActor = (domData && domData.actorName) || initialActor;
       const effectiveMsg = (domData && domData.snippetText) || initialMsg;
       const effectiveGroup = (domData && domData.groupName) || initialGroup;
@@ -247,11 +268,10 @@ window.FBDietUI = (() => {
       const badge = createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText]);
       const contentKids = [badge];
 
-      // The bar owns the only tooltip: folded shows the full post text (the visible
-      // snippet is CSS-truncated), expanded offers collapse. Inner spans carry no title
-      // of their own, so hovering anywhere on the bar reads the same tooltip; when there
-      // is no text to show the bar carries no title at all and the browser shows nothing.
-      let barTooltip = null;
+      // Tooltip source text: folded shows the full post text (the visible snippet
+      // is CSS-truncated), expanded offers collapse. Computed once; each tooltip
+      // mode below decides whether and how to present it.
+      let tooltipText = null;
 
       if (showTitle) {
         // Group name (with max-width: 140px in css)
@@ -297,11 +317,93 @@ window.FBDietUI = (() => {
           contentKids.push(
             createEl('span', { className: 'fb-diet-title-snippet' }, [snippetText])
           );
-          if (!isExpanded) barTooltip = snippetText;
+          if (!isExpanded) tooltipText = snippetText;
         }
       }
 
-      if (isExpanded) barTooltip = getCollapseLabel();
+      if (isExpanded) tooltipText = getCollapseLabel();
+
+      // Tooltip mode: 'off' shows nothing, 'native' keeps the browser title
+      // tooltip, 'custom' shows the large portal popup. Hover handlers attach
+      // only for custom + folded + text — every other combination shows nothing
+      // and must not arm a timer.
+      const tooltipMode = (DEFAULTS && typeof DEFAULTS.normalizeTooltipMode === 'function')
+        ? DEFAULTS.normalizeTooltipMode(props.tooltipMode)
+        : (props.tooltipMode === 'off' || props.tooltipMode === 'custom' ? props.tooltipMode : 'native');
+      const useCustomTooltip = tooltipMode === 'custom' && !isExpanded && Boolean(tooltipText);
+
+      /** Clears the pending hover timer and removes the portal node, if any. */
+      function hideBarTooltip() {
+        try {
+          const hover = hoverRef ? hoverRef.current : null;
+          if (!hover) return;
+          if (hover.timer) {
+            try { clearTimeout(hover.timer); } catch (e) {}
+            hover.timer = null;
+          }
+          if (hover.onScroll && typeof window !== 'undefined' && window.removeEventListener) {
+            try { window.removeEventListener('scroll', hover.onScroll, true); } catch (e) {}
+            hover.onScroll = null;
+          }
+          if (hover.node && hover.node.parentNode && typeof hover.node.parentNode.removeChild === 'function') {
+            try { hover.node.parentNode.removeChild(hover.node); } catch (e) {}
+            hover.node = null;
+          }
+        } catch (e) {}
+      }
+
+      /** Builds and positions the portal tooltip under the bar. Runs on the hover timer. */
+      function showBarTooltip() {
+        hideBarTooltip();
+        try {
+          const barEl = barRef && barRef.current;
+          const doc = typeof document !== 'undefined' ? document : (typeof window !== 'undefined' ? window.document : null);
+          if (!barEl || typeof barEl.getBoundingClientRect !== 'function') return;
+          if (!doc || !doc.body || typeof doc.createElement !== 'function') return;
+          const rect = barEl.getBoundingClientRect();
+          if (!rect || typeof rect.left !== 'number' || typeof rect.bottom !== 'number') return;
+          const node = doc.createElement('div');
+          node.className = 'fb-diet-tooltip';
+          // textContent only, never HTML: the text is post content.
+          node.textContent = tooltipText;
+          const width = typeof rect.width === 'number' ? rect.width : 0;
+          const maxWidth = Math.max(width - (TOOLTIP_INDENT_PX * 2), TOOLTIP_MIN_WIDTH_PX) + 'px';
+          if (node.style && typeof node.style.setProperty === 'function') {
+            node.style.setProperty('max-width', maxWidth, 'important');
+          } else {
+            node.style.maxWidth = maxWidth;
+          }
+          node.style.left = Math.max(rect.left + TOOLTIP_INDENT_PX, 8) + 'px';
+          node.style.top = (rect.bottom + TOOLTIP_GAP_PX) + 'px';
+          doc.body.appendChild(node);
+          const hover = hoverRef ? hoverRef.current : null;
+          if (hover) hover.node = node;
+          const onScroll = function () { hideBarTooltip(); };
+          if (hover) hover.onScroll = onScroll;
+          if (typeof window !== 'undefined' && window.addEventListener) {
+            try { window.addEventListener('scroll', onScroll, true); } catch (e) {}
+          }
+        } catch (e) {}
+      }
+
+      function handleBarMouseEnter() {
+        try {
+          const hover = hoverRef ? hoverRef.current : null;
+          if (!hover || hover.timer || hover.node) return;
+          if (TOOLTIP_HOVER_DELAY_MS > 0) {
+            hover.timer = setTimeout(showBarTooltip, TOOLTIP_HOVER_DELAY_MS);
+          } else {
+            showBarTooltip();
+          }
+        } catch (e) {}
+      }
+
+      function handleBarClick(event) {
+        hideBarTooltip();
+        try {
+          if (typeof props.onToggle === 'function') props.onToggle(event);
+        } catch (e) {}
+      }
 
       const contentBox = createEl('div', { className: 'fb-diet-title-content' }, contentKids);
 
@@ -314,7 +416,12 @@ window.FBDietUI = (() => {
         className: className,
         onClick: props.onToggle
       };
-      if (barTooltip) barProps.title = barTooltip;
+      if (tooltipMode === 'native' && tooltipText) barProps.title = tooltipText;
+      if (useCustomTooltip) {
+        barProps.onMouseEnter = handleBarMouseEnter;
+        barProps.onMouseLeave = hideBarTooltip;
+        barProps.onClick = handleBarClick;
+      }
       return createEl(
         'div',
         barProps,

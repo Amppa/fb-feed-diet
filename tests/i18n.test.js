@@ -92,7 +92,7 @@ function run(c) {
   c.equals('back to zh-TW', i18n.t('masterStatusDisabled'), '已停用');
 
   /* --- options + popup keys exist in both locales --- */
-  const pageKeys = ['optionsTitle', 'optionsSubtitle', 'masterStatusActive', 'masterStatusDisabled', 'itemsFoldedOnDiet', 'reset', 'featDetectionTitle', 'featDetectionDesc', 'featDetectionRelay', 'sectionDietOptions', 'groupAdsTitle', 'groupAdsDesc', 'groupRegularTitle', 'groupRegularDesc', 'groupSuggestedTitle', 'groupSuggestedDesc', 'groupMediaTitle', 'groupMediaDesc', 'groupOtherTitle', 'groupOtherDesc', 'sectionFoldAppearance', 'featMinimizedFoldTitle', 'featAlwaysShowBarTitle', 'featAlwaysShowBarDesc', 'featTitleModeTitle', 'featTitleModeDesc', 'featTitleModeAlways', 'featTitleModeWhenFolded', 'featTitleModeNever', 'featFoldScopeTitle', 'featFoldScopeDesc', 'featProbeTitle', 'resetAppearanceBtn', 'resetAppearanceDesc', 'projectUrlLabel', 'langToggleTitle', 'popupSubtitle', 'optionsBtn', 'resetPopupTitle', 'statusNeedsReload', 'statusHookBlocked'];
+  const pageKeys = ['optionsTitle', 'optionsSubtitle', 'masterStatusActive', 'masterStatusDisabled', 'itemsFoldedOnDiet', 'reset', 'featDetectionTitle', 'featDetectionDesc', 'featDetectionRelay', 'sectionDietOptions', 'groupAdsTitle', 'groupAdsDesc', 'groupRegularTitle', 'groupRegularDesc', 'groupSuggestedTitle', 'groupSuggestedDesc', 'groupMediaTitle', 'groupMediaDesc', 'groupOtherTitle', 'groupOtherDesc', 'sectionFoldAppearance', 'featMinimizedFoldTitle', 'featAlwaysShowBarTitle', 'featAlwaysShowBarDesc', 'featTitleModeTitle', 'featTitleModeDesc', 'featTitleModeAlways', 'featTitleModeWhenFolded', 'featTitleModeNever', 'featTooltipModeTitle', 'featTooltipModeDesc', 'featTooltipModeOff', 'featTooltipModeNative', 'featTooltipModeCustom', 'featFoldScopeTitle', 'featFoldScopeDesc', 'featProbeTitle', 'resetAppearanceBtn', 'resetAppearanceDesc', 'projectUrlLabel', 'langToggleTitle', 'popupSubtitle', 'optionsBtn', 'resetPopupTitle', 'statusNeedsReload', 'statusHookBlocked'];
   c.ok('all page keys resolve in en', pageKeys.every((k) => i18n.t(k, 'en') !== k));
   c.ok('all page keys resolve in zh-TW', pageKeys.every((k) => i18n.t(k, 'zh-TW') !== k));
 
@@ -123,8 +123,8 @@ function run(c) {
   // two groups is silently overwritten by the last spread — no test above can see it, because both
   // locales would still agree and the key would still resolve. The count is what notices: a
   // repeat makes it one short. Adding a key means raising this number on purpose.
-  c.equals('en key count is what the three groups declare', enKeys.length, 50);
-  c.equals('zh-TW key count matches', zhKeys.length, 50);
+  c.equals('en key count is what the three groups declare', enKeys.length, 55);
+  c.equals('zh-TW key count matches', zhKeys.length, 55);
 
   /* --- feed-only keys were trimmed from the shared module --- */
   c.equals('feed badge keys removed', i18n.t('badgeSponsored', 'zh-TW'), 'badgeSponsored');

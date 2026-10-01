@@ -828,6 +828,13 @@ window.FBDietFold = (() => {
       const ui = getUI();
       const isMini = Boolean(settings.minimizedFoldMode);
       const showTitle = resolveShowTitle(settings, !isFolded);
+      // Hover tooltip mode for the bar ('off' / 'native' / 'custom', default
+      // 'custom'). Normalized here so TitleBar sees one vocabulary; an unknown
+      // stored value falls back to the schema default.
+      const defaults = window.FB_DIET_DEFAULTS;
+      const tooltipMode = defaults && typeof defaults.normalizeTooltipMode === 'function'
+        ? defaults.normalizeTooltipMode(settings.tooltipMode)
+        : (settings.tooltipMode === 'off' || settings.tooltipMode === 'custom' ? settings.tooltipMode : 'native');
       // The relay mode keeps its no-DOM-scan invariant (STRATEGY.md decision #36): the bar
       // renders Relay-sourced title text only, so the title bar skips its subtree scanner.
       // 'dom' allows it — there it is the only title source there is.
@@ -850,6 +857,7 @@ window.FBDietFold = (() => {
           isExpanded: !isFolded,
           isMini,
           showTitle,
+          tooltipMode,
           allowDomScan,
           enrichment,
           onToggle,

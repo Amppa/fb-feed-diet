@@ -20,6 +20,7 @@
     minimizedFoldMode: false,
     alwaysShowFoldBar: true,
     showTitleMode: 'whenFolded',
+    tooltipMode: 'native',
     restrictFoldScope: true,
     debugProbe: false
   };
@@ -216,6 +217,15 @@
     return VALID_TITLE_MODES.has(value) ? value : fallback;
   }
 
+  // Hover tooltip for the fold bar (the TitleBar `tooltipMode` prop): 'off' shows
+  // nothing, 'native' keeps the browser title tooltip, 'custom' shows the large
+  // portal popup. Unknown values fall back to the schema default.
+  const VALID_TOOLTIP_MODES = new Set(['off', 'native', 'custom']);
+
+  function normalizeTooltipMode(value, fallback = 'native') {
+    return VALID_TOOLTIP_MODES.has(value) ? value : fallback;
+  }
+
   function getTodayDateString(d) {
     const now = d || new Date();
     const year = now.getFullYear();
@@ -334,6 +344,7 @@
     getTodayDateString,
     normalizeFoldMode,
     normalizeTitleMode,
+    normalizeTooltipMode,
     normalizeDetectionMode,
     normalizeLocale,
     resolveFeedLocale,

@@ -909,7 +909,7 @@ function run(c) {
     c.equals('snippet rendered', kids[2].props.children, 'Spread spectrum technology');
   }
 
-  /* --- title bar tooltip: folded shows full text, expanded offers collapse --- */
+  /* --- title bar tooltip modes: custom arms hover, native keeps title --- */
   {
     const t = setup({});
     const ui = t.win.FBDietUI;
@@ -919,40 +919,76 @@ function run(c) {
       groupName: 'Vienna Group',
       adUrl: ''
     });
+    // Custom: folded bars carry no native title and arm hover instead.
     t.React.resetHooks();
     const foldedBar = ui.TitleBar({
       category: 'suggested',
       unitId: 'u-tip-fold',
       showTitle: true,
-      isExpanded: false
+      isExpanded: false,
+      tooltipMode: 'custom'
     });
-    c.equals('folded bar tooltip is the full snippet', foldedBar.props.title, 'Spread spectrum technology');
-    const foldedKids = foldedBar.props.children.props.children;
-    c.ok('folded group span carries no tooltip', !('title' in foldedKids[1].props));
-    c.ok('folded author span carries no tooltip', !('title' in foldedKids[2].props));
-    c.ok('folded snippet span carries no tooltip', !('title' in foldedKids[3].props));
+    c.ok('custom folded bar carries no native title', !('title' in foldedBar.props));
+    c.equals('custom folded bar arms hover', typeof foldedBar.props.onMouseEnter, 'function');
+    c.equals('custom folded bar arms hover-out', typeof foldedBar.props.onMouseLeave, 'function');
 
-    // Expanded bars offer collapse in the feed locale instead of the post text.
-    t.bridge.setSettings({ lang: 'en' });
+    // Custom expanded bars show nothing and arm nothing.
     t.React.resetHooks();
     const expandedBar = ui.TitleBar({
       category: 'suggested',
       unitId: 'u-tip-fold',
       showTitle: true,
-      isExpanded: true
+      isExpanded: true,
+      tooltipMode: 'custom'
     });
-    c.equals('expanded bar tooltip collapses in en', expandedBar.props.title, 'Collapse');
-    t.bridge.setSettings({ lang: 'zh-TW' });
+    c.ok('custom expanded bar carries no tooltip', !('title' in expandedBar.props));
+    c.ok('custom expanded bar arms no hover', !('onMouseEnter' in expandedBar.props));
+
+    // Off: nothing anywhere, even folded with text.
     t.React.resetHooks();
-    const expandedZhBar = ui.TitleBar({
+    const offBar = ui.TitleBar({
       category: 'suggested',
       unitId: 'u-tip-fold',
       showTitle: true,
-      isExpanded: true
+      isExpanded: false,
+      tooltipMode: 'off'
     });
-    c.equals('expanded bar tooltip collapses in zh-TW', expandedZhBar.props.title, '收合');
+    c.ok('off bar carries no title', !('title' in offBar.props));
+    c.ok('off bar arms no hover', !('onMouseEnter' in offBar.props));
 
-    // No text to show means no tooltip at all — never an empty popup.
+    // Native keeps the previous contract: folded shows the full snippet,
+    // expanded offers collapse in the feed locale.
+    t.React.resetHooks();
+    const nativeBar = ui.TitleBar({
+      category: 'suggested',
+      unitId: 'u-tip-fold',
+      showTitle: true,
+      isExpanded: false,
+      tooltipMode: 'native'
+    });
+    c.equals('native folded bar tooltip is the full snippet', nativeBar.props.title, 'Spread spectrum technology');
+    t.bridge.setSettings({ lang: 'en' });
+    t.React.resetHooks();
+    const nativeExpandedBar = ui.TitleBar({
+      category: 'suggested',
+      unitId: 'u-tip-fold',
+      showTitle: true,
+      isExpanded: true,
+      tooltipMode: 'native'
+    });
+    c.equals('native expanded bar tooltip collapses in en', nativeExpandedBar.props.title, 'Collapse');
+
+    // Missing mode falls back to the schema default (native).
+    t.React.resetHooks();
+    const defaultBar = ui.TitleBar({
+      category: 'suggested',
+      unitId: 'u-tip-fold',
+      showTitle: true,
+      isExpanded: false
+    });
+    c.equals('missing tooltipMode falls back to native', defaultBar.props.title, 'Spread spectrum technology');
+
+    // No text to show means no tooltip and no hover in any mode.
     // A fresh setup: the harness keeps useState values across TitleBar calls,
     // so reusing this block's instance would leak the cached snippet above.
     const t2 = setup({});
@@ -962,17 +998,21 @@ function run(c) {
       category: 'regular',
       unitId: 'u-tip-empty',
       showTitle: true,
-      isExpanded: false
+      isExpanded: false,
+      tooltipMode: 'custom'
     });
     c.ok('folded bar without text carries no tooltip', !('title' in emptyBar.props));
+    c.ok('folded bar without text arms no hover', !('onMouseEnter' in emptyBar.props));
     t2.React.resetHooks();
     const storiesBar = ui2.TitleBar({
       category: 'stories',
       unitId: 'u-tip-stories',
       showTitle: true,
-      isExpanded: false
+      isExpanded: false,
+      tooltipMode: 'custom'
     });
     c.ok('folded media bar carries no tooltip', !('title' in storiesBar.props));
+    c.ok('folded media bar arms no hover', !('onMouseEnter' in storiesBar.props));
   }
 
   /* --- dom mode, always show title, folded state displays title extracted from DOM --- */

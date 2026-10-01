@@ -64,6 +64,7 @@ function run(checker) {
   checker.equals('settings.minimizedFoldMode is false', settings && settings.minimizedFoldMode, false);
   checker.equals('settings.alwaysShowFoldBar is true', settings && settings.alwaysShowFoldBar, true);
   checker.equals('settings.showTitleMode is whenFolded', settings && settings.showTitleMode, 'whenFolded');
+  checker.equals('settings.tooltipMode is native', settings && settings.tooltipMode, 'native');
   checker.equals('settings.debugProbe is false', settings && settings.debugProbe, false);
   checker.equals('settings.restrictFoldScope is true', settings && settings.restrictFoldScope, true);
 
@@ -180,6 +181,15 @@ function run(checker) {
   checker.equals('stale preview value falls back to the new default', defaults.normalizeTitleMode('whenExpanded'), 'whenFolded');
   checker.equals('undefined falls back to the new default', defaults.normalizeTitleMode(undefined), 'whenFolded');
   checker.equals('custom fallback honoured', defaults.normalizeTitleMode('wat', 'always'), 'always');
+
+  /* --- fold bar hover tooltip modes --- */
+  checker.ok('normalizeTooltipMode exists', typeof defaults.normalizeTooltipMode === 'function');
+  checker.equals('tooltip mode off passes through', defaults.normalizeTooltipMode('off'), 'off');
+  checker.equals('tooltip mode native passes through', defaults.normalizeTooltipMode('native'), 'native');
+  checker.equals('tooltip mode custom passes through', defaults.normalizeTooltipMode('custom'), 'custom');
+  checker.equals('unknown tooltip value falls back to native', defaults.normalizeTooltipMode('wat'), 'native');
+  checker.equals('missing tooltip value falls back to native', defaults.normalizeTooltipMode(undefined), 'native');
+  checker.equals('custom tooltip fallback honoured', defaults.normalizeTooltipMode('wat', 'off'), 'off');
 
   /* --- feed UI labels: one table per locale, and the locale the feed renders with --- */
   const labels = defaults && defaults.FEED_LABELS;

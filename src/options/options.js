@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Settings keys owned by the Appearance Settings section; the Defaults button
   // restores exactly these from FB_DIET_DEFAULTS.SETTINGS (STRATEGY.md decision #27).
   // The Detection Source select now lives in this section, so "Defaults" covers it too.
-  const APPEARANCE_KEYS = ['restrictFoldScope', 'alwaysShowFoldBar', 'showTitleMode', 'minimizedFoldMode', 'dietMode', 'debugProbe'];
+  const APPEARANCE_KEYS = ['restrictFoldScope', 'alwaysShowFoldBar', 'showTitleMode', 'tooltipMode', 'minimizedFoldMode', 'dietMode', 'debugProbe'];
 
   // Shared normaliser: the options page shows the current mode name for a profile that may
   // still hold a retired value ('lite' / 'full' / 'relay+dom') in storage.
