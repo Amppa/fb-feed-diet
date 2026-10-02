@@ -43,6 +43,23 @@ function run(checker) {
   checker.ok('the harness MAIN-world list names nothing the manifest does not declare',
     MAIN_WORLD_SCRIPTS.every((file) => mainWorldJs.indexOf('src/inject/' + file) !== -1));
 
+  /* --- the fold siblings must be declared before the coordinator that assembles them --- */
+  // The check above only proves the harness list and the manifest agree on one order; it says
+  // nothing about the order *within* the files it does list. The manifest is a one-shot load,
+  // so a sibling listed after fold.js would be permanently absent on the page - and every
+  // delegation degrades to "do nothing", which folds nothing while still looking healthy to
+  // the drift watchdog. Nothing reads these at eval time, so a wrong order cannot throw; it
+  // can only silently disable the extension. That is why the order itself is asserted.
+  const foldCoordinatorAt = mainWorldJs.indexOf('src/inject/fold.js');
+  checker.ok('the manifest declares fold.js', foldCoordinatorAt !== -1);
+  ['fold-config.js', 'fold-verdict.js', 'fold-observer.js', 'fold-components.js'].forEach((file) => {
+    const at = mainWorldJs.indexOf('src/inject/' + file);
+    checker.ok('the manifest loads ' + file + ' before fold.js', at !== -1 && at < foldCoordinatorAt);
+  });
+  // defaults.js owns the normalizers fold-verdict.js reads; the manifest has always put it
+  // first and the verdict module's own fallback says so, but the promise belongs here.
+  checker.equals('defaults.js is still the first MAIN-world script', mainWorldJs[0], 'src/shared/defaults.js');
+
   const settings = defaults && defaults.SETTINGS;
   checker.ok('SETTINGS object exists', Boolean(settings));
   checker.equals('settings.enabled is true', settings && settings.enabled, true);

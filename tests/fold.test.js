@@ -1,5 +1,5 @@
 'use strict';
-const { Checker, createFakeReact, makeNode, createWindow, loadMainWorld, loadDefaults, createFakeComet, countMessages, ROOT } = require('./harness');
+const { Checker, createFakeReact, makeNode, createWindow, loadInject, loadMainWorld, loadDefaults, createFakeComet, countMessages, ROOT } = require('./harness');
 const fs = require('fs');
 const path = require('path');
 
@@ -73,6 +73,67 @@ function run(c) {
     c.equals('detectOnly removed from defaults', 'detectOnly' in t.bridge.getSettings(), false);
     c.equals('ready message announced at load', countMessages(t.win, 'ready'), 1);
     c.equals('HIDE_MODE is squash', t.fold.HIDE_MODE, 'squash');
+  }
+
+  /* --- the split's own failure mode: a sibling that never loaded must be reported, not diagnosed --- */
+  {
+    // fold.js is a coordinator over four sibling modules. A missing one degrades every
+    // delegation to "do nothing", so without a self-check the page would simply not fold -
+    // and the drift watchdog would read that empty page as a Facebook redesign and warn
+    // that FEED_UNIT_MODULES looks stale. Our own failed load must never be reported as an
+    // upstream rename.
+    const win = createWindow();
+    createFakeComet(win, createFakeReact());
+    win.FB_DIET_DEFAULTS = loadDefaults();
+    // A working hook and a working FB_DIET_DEFAULTS on purpose: the only thing wrong with
+    // this page is the four sibling modules, so a failure here can only be the self-check
+    // and not the pre-existing "no Comet hook" branch.
+    loadInject(win, 'comet.js');
+
+    const origError = console.error;
+    const errors = [];
+    console.error = (...args) => { errors.push(args.join(' ')); };
+    let bootTimers;
+    try {
+      loadInject(win, 'fold.js');
+      bootTimers = win.__timers.length;
+    } finally {
+      console.error = origError;
+    }
+
+    const registered = () => Object.keys(win.FBDietComet.listRegistered()).length;
+    c.equals('a page whose hook is armed but whose siblings are missing registers nothing', registered(), 0);
+    c.equals('…and schedules no drift check at all', bootTimers, 0);
+    c.ok('…and says so, naming the missing files',
+      errors.length > 0 && errors.join(' ').indexOf('src/inject/fold-components.js') !== -1);
+    c.ok('…naming the whole missing set, not just the first file',
+      ['fold-config.js', 'fold-verdict.js', 'fold-observer.js', 'fold-components.js']
+        .every((file) => errors.join(' ').indexOf(file) !== -1));
+    c.equals('…and the public API still exists, so a reader is not left with a TypeError', typeof win.FBDietFold.install, 'function');
+
+    const origError2 = console.error;
+    let installResult = null;
+    console.error = () => {};
+    try {
+      installResult = win.FBDietFold.install();
+    } finally {
+      console.error = origError2;
+    }
+    c.equals('install() reports the missing modules instead of claiming success', installResult, false);
+    c.equals('…and a second install still registers nothing', registered(), 0);
+  }
+
+  /* --- getStatus().hydration is the live counters, not a snapshot --- */
+  {
+    // The counters live in fold-components.js and grow as units commit. A copy would freeze
+    // the count at the first read and the drift report would carry that frozen number.
+    const t = setup({});
+    const first = t.fold.getStatus().hydration;
+    c.ok('getStatus exposes the hydration counters', Boolean(first) && typeof first.count === 'number');
+    c.equals('…and they are the same object on every read', t.fold.getStatus().hydration, first);
+    t.render(payloadOf('u-hydration-1'));
+    c.equals('…so they still count a unit committed after the first read', first.count >= 1, true);
+    c.equals('…and getStatus agrees', t.fold.getStatus().hydration.count, first.count);
   }
 
   /* --- two-layer classification: category -> user-facing group --- */

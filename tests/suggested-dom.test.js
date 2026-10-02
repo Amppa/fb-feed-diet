@@ -478,6 +478,10 @@ function run(c) {
     loadInject(winTest, 'ui.js');
     loadInject(winTest, 'probe-popup.js');
     loadInject(winTest, 'probe.js');
+    loadInject(winTest, 'fold-config.js');
+    loadInject(winTest, 'fold-verdict.js');
+    loadInject(winTest, 'fold-observer.js');
+    loadInject(winTest, 'fold-components.js');
     loadInject(winTest, 'fold.js');
 
     function SourceCmp() {

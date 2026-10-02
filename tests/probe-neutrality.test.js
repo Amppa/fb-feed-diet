@@ -248,7 +248,7 @@ function run(c) {
     // Load every remaining module and the block disappears entirely rather than becoming an empty
     // list. `reelWorld` is deliberately a partial world, so "missing" is the honest answer until
     // the rest of the page load is simulated.
-    for (const m of ['comet.js', 'relay-metadata.js', 'fold.js']) {
+    for (const m of ['comet.js', 'relay-metadata.js', 'fold-config.js', 'fold-verdict.js', 'fold-observer.js', 'fold-components.js', 'fold.js']) {
       if (!win[m.replace('.js', '')]) loadInject(win, m);
     }
     win.FBDietDOMSponsored = { detect() { return null; }, explain() { return { scanned: false, outcome: 'not_scanned' }; } };

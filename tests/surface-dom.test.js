@@ -501,7 +501,8 @@ function mountUnit(dietMode, surfaceVerdict) {
   // Not the harness default set: this world has the sponsorship slot and skips dom-metadata.js,
   // so the exact list is spelled out rather than assembled from the manifest.
   loadMainWorld(win, { scripts: ['comet.js', 'relay-metadata.js', 'relay-classify.js', 'bridge.js',
-    'dom-surface.js', 'dom-suggested.js', 'dom-sponsored.js', 'ui.js', 'probe-popup.js', 'probe.js', 'fold.js'] });
+    'dom-surface.js', 'dom-suggested.js', 'dom-sponsored.js', 'ui.js', 'probe-popup.js', 'probe.js',
+    'fold-config.js', 'fold-verdict.js', 'fold-observer.js', 'fold-components.js', 'fold.js'] });
 
   const calls = { surface: 0, suggested: 0 };
   win.FBDietDOMSurface.detect = () => { calls.surface += 1; return surfaceVerdict; };

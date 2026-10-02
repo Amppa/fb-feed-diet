@@ -371,7 +371,7 @@ function loadDefaults() {
 const MAIN_WORLD_SCRIPTS = [
   'comet.js', 'relay.js', 'relay-metadata.js', 'relay-classify.js', 'bridge.js',
   'dom-surface.js', 'dom-suggested.js', 'dom-sponsored.js', 'dom-metadata.js',
-  'ui.js', 'probe-popup.js', 'probe.js', 'fold.js'
+  'ui.js', 'probe-popup.js', 'probe.js', 'fold-config.js', 'fold-verdict.js', 'fold-observer.js', 'fold-components.js', 'fold.js'
 ];
 
 /**
