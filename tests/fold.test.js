@@ -1,5 +1,5 @@
 'use strict';
-const { Checker, createFakeReact, makeNode, createWindow, loadInject, loadDefaults, createFakeComet, countMessages, ROOT } = require('./harness');
+const { Checker, createFakeReact, makeNode, createWindow, loadMainWorld, loadDefaults, createFakeComet, countMessages, ROOT } = require('./harness');
 const fs = require('fs');
 const path = require('path');
 
@@ -11,23 +11,9 @@ function setup(relayMap, opts) {
   const win = createWindow();
   const loader = createFakeComet(win, React);
 
-  win.FB_DIET_DEFAULTS = loadDefaults();
   // comet.js reads the settings cache itself (it runs before bridge.js exists), so a test that
   // wants the hard-disabled boot path must arm the cache before comet.js loads.
-  if (opts && opts.cachedSettings !== undefined) {
-    const cached = JSON.stringify(opts.cachedSettings);
-    win.localStorage = { getItem: (key) => (key === 'fb_diet_settings_cache' ? cached : null) };
-  }
-  loadInject(win, 'comet.js');
-  loadInject(win, 'relay-metadata.js');
-  loadInject(win, 'relay-classify.js');
-  loadInject(win, 'bridge.js');
-  loadInject(win, 'dom-surface.js');
-  loadInject(win, 'dom-suggested.js');
-  loadInject(win, 'dom-metadata.js');
-  loadInject(win, 'ui.js');
-  loadInject(win, 'probe.js');
-  loadInject(win, 'fold.js');
+  loadMainWorld(win, opts);
 
   win.FBDietRelayClassify.setRelayReader((ids, path) => {
     if (typeof relayMap === 'function') {

@@ -6,7 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
-const { ROOT } = require('./harness');
+const { ROOT, MAIN_WORLD_SCRIPTS } = require('./harness');
 
 function run(checker) {
   const code = fs.readFileSync(path.join(ROOT, 'src', 'shared', 'defaults.js'), 'utf8');
@@ -22,6 +22,26 @@ function run(checker) {
   checker.ok('FB_DIET_DEFAULTS is defined on globalThis', Boolean(defaults));
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8'));
   checker.equals('VERSION matches manifest.json', defaults && defaults.VERSION, manifest.version);
+
+  /* --- the harness MAIN-world loader list must track the manifest --- */
+  // tests/harness.js builds its window doubles from MAIN_WORLD_SCRIPTS. The manifest is the
+  // contract for what a page loads and in what order, so a suite list that drifts from it would
+  // quietly keep testing a load order the extension never ships. Entries may be missing (a suite
+  // deliberately loads a subset) but the shared order may not be reordered, and no name may be
+  // invented.
+  const mainWorldJs = manifest.content_scripts.filter((entry) => entry.world === 'MAIN')[0].js;
+  let cursor = 0;
+  let orderedByManifest = true;
+  MAIN_WORLD_SCRIPTS.forEach((file) => {
+    if (orderedByManifest) {
+      const at = mainWorldJs.findIndex((declared, i) => i >= cursor && declared === 'src/inject/' + file);
+      if (at === -1) orderedByManifest = false;
+      else cursor = at + 1;
+    }
+  });
+  checker.ok('the harness MAIN-world list follows the manifest order', orderedByManifest);
+  checker.ok('the harness MAIN-world list names nothing the manifest does not declare',
+    MAIN_WORLD_SCRIPTS.every((file) => mainWorldJs.indexOf('src/inject/' + file) !== -1));
 
   const settings = defaults && defaults.SETTINGS;
   checker.ok('SETTINGS object exists', Boolean(settings));
@@ -248,6 +268,33 @@ function run(checker) {
     ['profile.php', 'groups', 'pages', 'watch', 'reel', 'stories', 'story.php', 'share', 'events',
      'reels', 'hashtag', 'photos', 'photo.php', 'media', 'policies', 'privacy', 'help', 'settings']
       .every((route) => defaults.RESERVED_PROFILE_SEGMENTS.indexOf(route) !== -1));
+
+  /* --- shared storage key, id fingerprint, debug flag (SSOT) --- */
+  // comet.js reads this key before bridge.js exists and bridge.js writes it afterwards. Pinned
+  // here because a rename is silent everywhere else: the hard-disable read would just miss and
+  // every profile would keep folding regardless of the master switch.
+  checker.equals('SETTINGS_CACHE_KEY is the key both worlds agree on',
+    defaults.SETTINGS_CACHE_KEY, 'fb_diet_settings_cache');
+
+  // The empty fallback is the load-bearing one: content.js logs `shortUnitId(id) || null`, so a
+  // '-' default would fill fbDietLog's unitId with a meaningless placeholder.
+  checker.equals('a missing id shortens to the empty fallback by default', defaults.shortUnitId(undefined), '');
+  checker.equals('a caller can name its own missing-id fallback', defaults.shortUnitId(null, '-'), '-');
+  checker.equals('an id at or under the limit is shown whole', defaults.shortUnitId('abc'), 'abc');
+  checker.equals('exactly ten characters is not truncated', defaults.shortUnitId('0123456789'), '0123456789');
+  checker.equals('a longer id keeps its last ten characters',
+    defaults.shortUnitId('0123456789A'), '…123456789A');
+  checker.equals('the fallback only applies to a missing id', defaults.shortUnitId('anything', '-'), 'anything');
+
+  // `fb_diet_debug=10` must not read as the flag: the regex anchors the value, and every caller
+  // passes the query it already holds rather than letting this module reach for a window.
+  checker.equals('the flag alone turns debug on', defaults.isDebugUrl('?fb_diet_debug=1'), true);
+  checker.equals('the flag after another parameter', defaults.isDebugUrl('?a=1&fb_diet_debug=1'), true);
+  checker.equals('the flag before another parameter', defaults.isDebugUrl('?fb_diet_debug=1&b=2'), true);
+  checker.equals('a longer value is not the flag', defaults.isDebugUrl('?fb_diet_debug=10'), false);
+  checker.equals('another value is not the flag', defaults.isDebugUrl('?fb_diet_debug=2'), false);
+  checker.equals('an empty query is not the flag', defaults.isDebugUrl(''), false);
+  checker.equals('a missing query is not the flag', defaults.isDebugUrl(undefined), false);
 
   // Idempotency: repeated execution does not throw
   let threw = false;

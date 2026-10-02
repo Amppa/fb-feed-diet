@@ -233,9 +233,9 @@ a[target^="rhcad"],
  * Custom hover tooltip (JS portal, MAIN world TitleBar)
  *
  * Large-type alternative to the native title tooltip: appended to
- * document.body and positioned under the bar (bar left + 50px), so the bar's
+ * document.body and positioned under the bar (bar left + 20px), so the bar's
  * own overflow:hidden never clips it. Width is set inline per bar
- * (bar width minus 100px, 50px inset on both sides); the max-width below
+ * (bar width minus 40px, 20px inset on both sides); the max-width below
  * is only the no-JS fallback.
  * ------------------------------------------------------------------ */
 .fb-diet-tooltip {

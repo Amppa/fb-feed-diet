@@ -584,15 +584,19 @@ window.FBDietRelayClassify = (() => {
 
   /** Unit ids are opaque base64 blobs; show a short fingerprint instead. */
   function shortUnitId(id) {
-    if (!id) return '-';
-    return id.length > 10 ? '…' + id.slice(-10) : id;
+    const defaults = getDefaults();
+    if (defaults && typeof defaults.shortUnitId === 'function') return defaults.shortUnitId(id, '-');
+    return id ? (id.length > 10 ? '…' + id.slice(-10) : id) : '-';
   }
 
   /** Bound to the bridge's shared debug flag (URL fb_diet_debug=1 / __fbDietDebug()). */
   function isDebugEnabled() {
     const bridge = window.FBDietBridge;
     if (bridge && typeof bridge.isDebugEnabled === 'function') return bridge.isDebugEnabled();
-    return /[?&]fb_diet_debug=1(?:&|$)/.test(window.location.search);
+    const defaults = getDefaults();
+    return defaults && typeof defaults.isDebugUrl === 'function'
+      ? defaults.isDebugUrl(window.location.search)
+      : /[?&]fb_diet_debug=1(?:&|$)/.test(window.location.search);
   }
 
   /**

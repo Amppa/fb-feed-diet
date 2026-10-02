@@ -43,13 +43,16 @@
 
   // Unit ids are opaque base64 blobs; show a short fingerprint instead.
   function shortUnitId(id) {
-    if (!id) return '';
-    return id.length > 10 ? '…' + id.slice(-10) : id;
+    return typeof DEFAULTS.shortUnitId === 'function'
+      ? DEFAULTS.shortUnitId(id, '')
+      : (id ? (id.length > 10 ? '…' + id.slice(-10) : id) : '');
   }
 
   // Diagnostic logs are intentionally silent unless fb_diet_debug=1 is on.
   function isDebugUrl() {
-    return /[?&]fb_diet_debug=1(?:&|$)/.test(window.location.search);
+    return typeof DEFAULTS.isDebugUrl === 'function'
+      ? DEFAULTS.isDebugUrl(window.location.search)
+      : /[?&]fb_diet_debug=1(?:&|$)/.test(window.location.search);
   }
 
   /**
@@ -402,11 +405,12 @@
   }
 
   /**
-   * Tracks a blocked item and queues stats
+   * Tracks one classified item and queues stats. `isBlocked` separates a folded unit from a
+   * matched-but-allowed one: the group counter is the same for both, only `filtered` differs.
    */
-  function recordBlock(category) {
+  function recordCategory(category, isBlocked) {
     countBuffer.total += 1;
-    countBuffer.filtered = (countBuffer.filtered || 0) + 1;
+    if (isBlocked) countBuffer.filtered = (countBuffer.filtered || 0) + 1;
     const group = (DEFAULTS.GROUP_BY_CATEGORY && DEFAULTS.GROUP_BY_CATEGORY[category]) || category;
     if (countBuffer[group] !== undefined) {
       countBuffer[group] += 1;
@@ -417,17 +421,17 @@
   }
 
   /**
+   * Tracks a blocked item and queues stats
+   */
+  function recordBlock(category) {
+    recordCategory(category, true);
+  }
+
+  /**
    * Tracks an allowed item (matched category but user filter disabled)
    */
   function recordAllowed(category) {
-    countBuffer.total += 1;
-    const group = (DEFAULTS.GROUP_BY_CATEGORY && DEFAULTS.GROUP_BY_CATEGORY[category]) || category;
-    if (countBuffer[group] !== undefined) {
-      countBuffer[group] += 1;
-    } else if (countBuffer[category] !== undefined) {
-      countBuffer[category] += 1;
-    }
-    scheduleCountFlush();
+    recordCategory(category, false);
   }
 
   /**

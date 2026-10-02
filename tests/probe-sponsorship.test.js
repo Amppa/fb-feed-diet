@@ -9,19 +9,14 @@
  * The detector is stubbed in most cases (its matching is covered by dom-sponsored.test.js); the
  * last block runs the real module so the two halves are proven to fit together.
  */
-const { createWindow, loadInject, loadDefaults, makeNode } = require('./harness');
+const { createWindow, loadInject, loadDefaults, loadMainWorld, makeNode } = require('./harness');
 
 const FEED_MODULE = 'CometFeedUnitErrorBoundary.react';
 
 function buildWorld(detector) {
   const win = createWindow();
-  win.FB_DIET_DEFAULTS = loadDefaults();
   win.document = { documentElement: { lang: 'zh-TW' } };
-  loadInject(win, 'relay.js');
-  loadInject(win, 'bridge.js');
-  loadInject(win, 'dom-metadata.js');
-  loadInject(win, 'ui.js');
-  loadInject(win, 'probe.js');
+  loadMainWorld(win, { scripts: ['relay.js', 'bridge.js', 'dom-metadata.js', 'ui.js', 'probe-popup.js', 'probe.js'] });
   if (detector) win.FBDietDOMSponsored = detector;
   return win;
 }
@@ -284,14 +279,8 @@ function run(c) {
   /* --- the real module, end to end with the report --- */
   {
     const win = createWindow();
-    win.FB_DIET_DEFAULTS = loadDefaults();
     win.document = { documentElement: { lang: 'zh-TW' } };
-    loadInject(win, 'relay.js');
-    loadInject(win, 'bridge.js');
-loadInject(win, 'dom-metadata.js');
-  loadInject(win, 'ui.js');
-    loadInject(win, 'dom-sponsored.js');
-    loadInject(win, 'probe.js');
+    loadMainWorld(win, { scripts: ['relay.js', 'bridge.js', 'dom-metadata.js', 'ui.js', 'dom-sponsored.js', 'probe-popup.js', 'probe.js'] });
 
     // The plain-text path needs no childNodes: a leaf span is read through textContent alone.
     const card = makeNode('div', {}, [makeNode('span', {}, [], 'Sponsored')]);
@@ -345,6 +334,7 @@ loadInject(win, 'dom-metadata.js');
     loadInject(real, 'bridge.js');
     loadInject(real, 'ui.js');
     loadInject(real, 'dom-sponsored.js');
+    loadInject(real, 'probe-popup.js');
     loadInject(real, 'probe.js');
 
     const hit = real.FBDietProbe.buildProbeReport(props, regularClassify, [], makeNode('div', {}, [makeNode('span', {}, [], 'Sponsored')])).report;

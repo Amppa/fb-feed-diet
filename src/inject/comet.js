@@ -50,10 +50,11 @@ window.FBDietComet = (() => {
 
   // Hard disable. FBDietBridge does not exist yet when this script runs (manifest loads
   // bridge.js after comet.js), so the master switch is read straight from the settings
-  // cache the bridge keeps in localStorage. That key and its value shape ("the whole
-  // settings object, JSON encoded", src/inject/bridge.js) are a cross-file compatibility
-  // contract: change one side and the other must change with it.
-  const SETTINGS_CACHE_KEY = 'fb_diet_settings_cache';
+  // cache the bridge keeps in localStorage. The key lives in src/shared/defaults.js, but
+  // its value shape ("the whole settings object, JSON encoded", src/inject/bridge.js) is a
+  // cross-file compatibility contract: change one side and the other must change with it.
+  const defs = (typeof window !== 'undefined' && window.FB_DIET_DEFAULTS) || (typeof globalThis !== 'undefined' && globalThis.FB_DIET_DEFAULTS) || {};
+  const SETTINGS_CACHE_KEY = defs.SETTINGS_CACHE_KEY || 'fb_diet_settings_cache';
   const hookState = { active: false };
 
   /**

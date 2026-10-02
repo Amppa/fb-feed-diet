@@ -119,6 +119,19 @@ function run(checker) {
     checker.equals('count flush preserves regular totals', counts.storageData.counts && counts.storageData.counts.regular, 1);
     checker.equals('count flush uses the current date', counts.storageData.counts && counts.storageData.counts.date, today);
 
+    // `filtered` counts what was actually taken out, so an allowed unit must leave it alone while
+    // still counting as seen. Blocked and allowed share one counting path, and this is what keeps
+    // that shared path from quietly counting every classified unit as filtered.
+    const filtered = createHarness();
+    await settleContentScript();
+    filtered.dispatchMain('blocked', { category: 'sponsored', unitId: 'blocked-filtered' });
+    await filtered.runTimer(3000);
+    checker.equals('a blocked unit is counted as filtered', filtered.storageData.counts.filtered, 1);
+    filtered.dispatchMain('allowed', { category: 'suggested', unitId: 'allowed-filtered' });
+    await filtered.runTimer(3000);
+    checker.equals('an allowed unit does not count as filtered', filtered.storageData.counts.filtered, 1);
+    checker.equals('both classified units are counted as seen', filtered.storageData.counts.total, 2);
+
     const extended = createHarness({ extraCounts: { experimentalCategory: 0 } });
     extended.dispatchMain('blocked', { category: 'experimentalCategory', unitId: 'blocked-extended' });
     await extended.runTimer(3000);

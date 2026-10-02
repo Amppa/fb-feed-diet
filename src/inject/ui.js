@@ -36,12 +36,9 @@ window.FBDietUI = (() => {
   const TITLE_BAR_SCAN_TIMEOUT_MS = 4000;
   const TITLE_BAR_SCAN_THROTTLE_MS = 200;
 
-  // Hover delay before the custom portal tooltip appears (ms). Fixed, not a
-  // setting: the native title tooltip it replaces has no adjustable delay either.
-  const TOOLTIP_HOVER_DELAY_MS = 0;
-  // The custom tooltip is inset from the bar's own box: 50px indent on the left,
-  // and 50px inset on the right (width stops 100px short of the bar).
-  const TOOLTIP_INDENT_PX = 50;
+  // The custom tooltip is inset from the bar's own box: 20px indent on the left,
+  // and 20px inset on the right (width stops 40px short of the bar).
+  const TOOLTIP_INDENT_PX = 20;
   // Narrow bars (zoomed layouts) still get a usable popup instead of a sliver.
   const TOOLTIP_MIN_WIDTH_PX = 200;
   // Floating vertical gap between the fold bar bottom and the tooltip top.
@@ -76,39 +73,33 @@ window.FBDietUI = (() => {
   }
 
   /**
-   * The expanded bar's tooltip, in the language the injected UI renders in. Same lookup
-   * as the media labels above: the words and the locale rule both live in the shared
-   * constants module (FEED_LABELS, resolveFeedLocale).
+   * A feed-surface label in the language the injected UI renders in. Both the words and the locale
+   * rule live in the shared constants module — the only file the MAIN world and the extension
+   * pages load in common (FEED_LABELS, resolveFeedLocale). `fallback` differs per caller: the
+   * collapse tooltip has an English one to fall back to, a media label has none.
    */
-  function getCollapseLabel() {
+  function getFeedLabelFor(key, fallback) {
     try {
       const doc = typeof document !== 'undefined' ? document : (typeof window !== 'undefined' ? window.document : null);
       const nav = typeof navigator !== 'undefined' ? navigator : (typeof window !== 'undefined' ? window.navigator : null);
       if (typeof DEFAULTS.getFeedLabel === 'function') {
-        return DEFAULTS.getFeedLabel('collapseBar', DEFAULTS.resolveFeedLocale(getBridgeSettings(), doc, nav));
+        const label = DEFAULTS.getFeedLabel(key, DEFAULTS.resolveFeedLocale(getBridgeSettings(), doc, nav));
+        if (label) return label;
       }
     } catch (e) {
-      // A page without a document or navigator simply gets the fallback below.
+      // A page without a document or navigator simply gets the caller's fallback.
     }
-    return 'Collapse';
+    return fallback || '';
   }
 
-  /**
-   * The bar label for a media surface, in the language the injected UI renders in. Both the
-   * words and the locale rule live in the shared constants module — the only file the MAIN
-   * world and the extension pages load in common (FEED_LABELS, resolveFeedLocale).
-   */
+  /** The expanded bar's tooltip. */
+  function getCollapseLabel() {
+    return getFeedLabelFor('collapseBar', 'Collapse');
+  }
+
+  /** The bar label for a media surface, or '' when the table has no name for it. */
   function getMediaLabel(category) {
-    try {
-      const doc = typeof document !== 'undefined' ? document : (typeof window !== 'undefined' ? window.document : null);
-      const nav = typeof navigator !== 'undefined' ? navigator : (typeof window !== 'undefined' ? window.navigator : null);
-      if (typeof DEFAULTS.getFeedLabel === 'function') {
-        return DEFAULTS.getFeedLabel(category, DEFAULTS.resolveFeedLocale(getBridgeSettings(), doc, nav));
-      }
-    } catch (e) {
-      // A page without a document or navigator simply gets no label.
-    }
-    return '';
+    return getFeedLabelFor(category, '');
   }
 
   /**
@@ -125,7 +116,7 @@ window.FBDietUI = (() => {
       const React = window.FBDietComet ? window.FBDietComet.getReact() : null;
       const barRef = React && typeof React.useRef === 'function' ? React.useRef(null) : { current: null };
       const hoverRef = React && typeof React.useRef === 'function' ? React.useRef(null) : { current: null };
-      if (hoverRef && !hoverRef.current) hoverRef.current = { timer: null, node: null, onScroll: null };
+      if (hoverRef && !hoverRef.current) hoverRef.current = { node: null, onScroll: null };
 
       const unitId = props.unitId;
       const cached = unitId ? titleBarCache.get(unitId) : null;
@@ -325,22 +316,17 @@ window.FBDietUI = (() => {
 
       // Tooltip mode: 'off' shows nothing, 'native' keeps the browser title
       // tooltip, 'custom' shows the large portal popup. Hover handlers attach
-      // only for custom + folded + text — every other combination shows nothing
-      // and must not arm a timer.
+      // only for custom + folded + text — every other combination shows nothing.
       const tooltipMode = (DEFAULTS && typeof DEFAULTS.normalizeTooltipMode === 'function')
         ? DEFAULTS.normalizeTooltipMode(props.tooltipMode)
         : (props.tooltipMode === 'off' || props.tooltipMode === 'custom' ? props.tooltipMode : 'native');
       const useCustomTooltip = tooltipMode === 'custom' && !isExpanded && Boolean(tooltipText);
 
-      /** Clears the pending hover timer and removes the portal node, if any. */
+      /** Removes the portal node and its scroll listener, if any. */
       function hideBarTooltip() {
         try {
           const hover = hoverRef ? hoverRef.current : null;
           if (!hover) return;
-          if (hover.timer) {
-            try { clearTimeout(hover.timer); } catch (e) {}
-            hover.timer = null;
-          }
           if (hover.onScroll && typeof window !== 'undefined' && window.removeEventListener) {
             try { window.removeEventListener('scroll', hover.onScroll, true); } catch (e) {}
             hover.onScroll = null;
@@ -352,7 +338,7 @@ window.FBDietUI = (() => {
         } catch (e) {}
       }
 
-      /** Builds and positions the portal tooltip under the bar. Runs on the hover timer. */
+      /** Builds and positions the portal tooltip under the bar, on hover. */
       function showBarTooltip() {
         hideBarTooltip();
         try {
@@ -389,12 +375,8 @@ window.FBDietUI = (() => {
       function handleBarMouseEnter() {
         try {
           const hover = hoverRef ? hoverRef.current : null;
-          if (!hover || hover.timer || hover.node) return;
-          if (TOOLTIP_HOVER_DELAY_MS > 0) {
-            hover.timer = setTimeout(showBarTooltip, TOOLTIP_HOVER_DELAY_MS);
-          } else {
-            showBarTooltip();
-          }
+          if (!hover || hover.node) return;
+          showBarTooltip();
         } catch (e) {}
       }
 

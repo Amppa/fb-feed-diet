@@ -19,7 +19,7 @@
  * verbatim copy on every unit of the page; DOM-only mode has no render-path result at all, so the
  * block is always there, which is the mode whose whole purpose is the comparison.
  */
-const { createWindow, loadInject, loadDefaults, makeNode } = require('./harness');
+const { createWindow, loadInject, loadMainWorld, makeNode } = require('./harness');
 const H = { makeNode };
 
 const FEED_MODULE = 'CometFeedUnitErrorBoundary.react';
@@ -27,16 +27,8 @@ const FEED_MODULE = 'CometFeedUnitErrorBoundary.react';
 /** A store that reports a Reels tray: the `ShowcaseFeedUnit` typename is the whole answer. */
 function reelWorld() {
   const win = createWindow();
-  win.FB_DIET_DEFAULTS = loadDefaults();
   win.document = { documentElement: { lang: 'zh-TW' } };
-  loadInject(win, 'relay.js');
-  loadInject(win, 'relay-classify.js');
-  loadInject(win, 'bridge.js');
-  loadInject(win, 'dom-metadata.js');
-  loadInject(win, 'ui.js');
-  loadInject(win, 'dom-surface.js');
-  loadInject(win, 'dom-suggested.js');
-  loadInject(win, 'probe.js');
+  loadMainWorld(win, { scripts: ['relay.js', 'relay-classify.js', 'bridge.js', 'dom-metadata.js', 'ui.js', 'dom-surface.js', 'dom-suggested.js', 'probe-popup.js', 'probe.js'] });
   win.FBDietRelayClassify.setRelayReader(() => null);
   return win;
 }

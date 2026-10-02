@@ -364,6 +364,52 @@ function loadDefaults() {
 }
 
 /**
+ * MAIN-world scripts in manifest order. The loader walks this list so a suite that adds a
+ * module still loads it where the manifest puts it — `fold.js` reads every detector lazily
+ * through `window[detectorName]`, but the position is the manifest's contract and worth keeping.
+ */
+const MAIN_WORLD_SCRIPTS = [
+  'comet.js', 'relay.js', 'relay-metadata.js', 'relay-classify.js', 'bridge.js',
+  'dom-surface.js', 'dom-suggested.js', 'dom-sponsored.js', 'dom-metadata.js',
+  'ui.js', 'probe-popup.js', 'probe.js', 'fold.js'
+];
+
+/**
+ * The default set: the whole MAIN world minus `relay.js` (the store proxy, which has its own
+ * suite) and `dom-sponsored.js` (a third slot on the shared DOM observer). Suites that want
+ * either one ask for it by name rather than restating the list.
+ */
+const MAIN_WORLD_DEFAULT = MAIN_WORLD_SCRIPTS.filter(
+  (file) => file !== 'relay.js' && file !== 'dom-sponsored.js'
+);
+
+/**
+ * Loads a MAIN-world module set into a window double.
+ *
+ * opts.scripts          exact list, loaded verbatim in the given order (probe suites need
+ *                       their own, deliberately non-manifest order)
+ * opts.include          extra manifest modules, inserted at their manifest position
+ * opts.cachedSettings   arms a localStorage double before the first module loads, for the
+ *                       hard-disabled boot path (comet.js reads the cache before bridge.js exists)
+ */
+function loadMainWorld(win, opts) {
+  opts = opts || {};
+  if (!win.FB_DIET_DEFAULTS) win.FB_DIET_DEFAULTS = loadDefaults();
+  if (opts.cachedSettings !== undefined) {
+    const cached = JSON.stringify(opts.cachedSettings);
+    win.localStorage = { getItem: (key) => (key === 'fb_diet_settings_cache' ? cached : null) };
+  }
+  if (opts.scripts) {
+    opts.scripts.forEach((file) => loadInject(win, file));
+    return;
+  }
+  const wanted = new Set(MAIN_WORLD_DEFAULT.concat(opts.include || []));
+  MAIN_WORLD_SCRIPTS.forEach((file) => {
+    if (wanted.has(file)) loadInject(win, file);
+  });
+}
+
+/**
  * Minimal Comet loader. Supports both __d argument shapes; require() executes the
  * stored factory with the canonical 7 arguments (index 6 = exports object, matching
  * definerPath "[6].default").
@@ -425,6 +471,8 @@ module.exports = {
   flushTimers,
   loadInject,
   loadDefaults,
+  loadMainWorld,
+  MAIN_WORLD_SCRIPTS,
   createFakeComet,
   countMessages,
   ROOT

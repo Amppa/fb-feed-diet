@@ -18,8 +18,7 @@
 const {
   createFakeReact,
   createWindow,
-  loadInject,
-  loadDefaults,
+  loadMainWorld,
   createFakeComet,
   makeNode,
   flushTimers
@@ -34,18 +33,7 @@ function setup(relayMap) {
   const win = createWindow();
   const comet = createFakeComet(win, React);
 
-  win.FB_DIET_DEFAULTS = loadDefaults();
-  loadInject(win, 'comet.js');
-  loadInject(win, 'relay-metadata.js');
-  loadInject(win, 'relay-classify.js');
-  loadInject(win, 'bridge.js');
-  loadInject(win, 'dom-surface.js');
-  loadInject(win, 'dom-suggested.js');
-  loadInject(win, 'dom-sponsored.js');
-  loadInject(win, 'dom-metadata.js');
-  loadInject(win, 'ui.js');
-  loadInject(win, 'probe.js');
-  loadInject(win, 'fold.js');
+  loadMainWorld(win, { include: ['dom-sponsored.js'] });
 
   win.FBDietRelayClassify.setRelayReader((ids, path) => {
     const id = Array.isArray(ids) ? ids[0] : ids;

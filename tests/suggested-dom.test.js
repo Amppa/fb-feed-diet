@@ -1,5 +1,5 @@
 'use strict';
-const { Checker, createFakeReact, createWindow, loadInject, loadDefaults, createFakeComet, countMessages, flushTimers } = require('./harness');
+const { Checker, createFakeReact, createWindow, loadInject, loadDefaults, loadMainWorld, createFakeComet, countMessages, flushTimers } = require('./harness');
 
 const FEED_MODULE = 'CometFeedUnitErrorBoundary.react';
 
@@ -104,17 +104,7 @@ function makeNode(tag, attrs = {}, children = [], text = '') {
 
 function run(c) {
   const win = createWindow();
-  win.FB_DIET_DEFAULTS = loadDefaults();
-  loadInject(win, 'comet.js');
-  loadInject(win, 'relay-metadata.js');
-  loadInject(win, 'relay-classify.js');
-  loadInject(win, 'bridge.js');
-  loadInject(win, 'dom-surface.js');
-  loadInject(win, 'dom-suggested.js');
-  loadInject(win, 'dom-metadata.js');
-  loadInject(win, 'ui.js');
-  loadInject(win, 'probe.js');
-  loadInject(win, 'fold.js');
+  loadMainWorld(win);
   const detector = win.FBDietDOMSuggested;
   c.ok('DOM suggested detector exposed on window', Boolean(detector) && typeof detector.detect === 'function');
   c.ok('UI no longer owns the suggested detector', typeof win.FBDietUI.detectSuggestedFromDom !== 'function');
@@ -486,6 +476,7 @@ function run(c) {
     loadInject(winTest, 'dom-surface.js');
     loadInject(winTest, 'dom-suggested.js');
     loadInject(winTest, 'ui.js');
+    loadInject(winTest, 'probe-popup.js');
     loadInject(winTest, 'probe.js');
     loadInject(winTest, 'fold.js');
 

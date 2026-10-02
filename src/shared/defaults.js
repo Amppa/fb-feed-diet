@@ -247,6 +247,26 @@
     return current;
   }
 
+  // The localStorage key the hard-disable read (comet.js) and the settings cache write
+  // (bridge.js) must agree on. One definition: the two run at different times and in
+  // different worlds, so a drift here is silent.
+  const SETTINGS_CACHE_KEY = 'fb_diet_settings_cache';
+
+  /**
+   * Unit ids are opaque base64 blobs; show a short fingerprint instead. The fallback differs
+   * per surface ('' in the log, '-' on a classify console line), so it is a parameter rather
+   * than a constant.
+   */
+  function shortUnitId(id, fallback = '') {
+    if (!id) return fallback;
+    return id.length > 10 ? '…' + id.slice(-10) : id;
+  }
+
+  /** Whether the fb_diet_debug=1 query flag is set. The caller passes the query it owns. */
+  function isDebugUrl(search) {
+    return /[?&]fb_diet_debug=1(?:&|$)/.test(typeof search === 'string' ? search : '');
+  }
+
   // ---------------------------------------------------------------------------
   // Section 5: feed UI labels
   // ---------------------------------------------------------------------------
@@ -326,7 +346,7 @@
     return (fallbackTable && fallbackTable[key]) || '';
   }
 
-  const EXTENSION_VERSION = '2.9.3';
+  const EXTENSION_VERSION = '2.9.4';
 
   globalThis.FB_DIET_DEFAULTS = {
     SETTINGS: DEFAULT_SETTINGS,
@@ -341,7 +361,10 @@
     FEED_LABELS,
     RESERVED_PROFILE_SEGMENTS,
     VERSION: EXTENSION_VERSION,
+    SETTINGS_CACHE_KEY,
     getTodayDateString,
+    shortUnitId,
+    isDebugUrl,
     normalizeFoldMode,
     normalizeTitleMode,
     normalizeTooltipMode,

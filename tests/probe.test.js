@@ -9,18 +9,12 @@
  * configurations it exists to compare cannot do its job. `tests/probe-neutrality.test.js` covers
  * that directly; this file covers the report shape around it.
  */
-const { createWindow, loadInject, loadDefaults, makeNode } = require('./harness');
+const { createWindow, loadMainWorld, makeNode } = require('./harness');
 
 function run(c) {
   const win = createWindow();
-  win.FB_DIET_DEFAULTS = loadDefaults();
   win.document = { documentElement: { lang: 'zh-TW' } };
-  loadInject(win, 'comet.js');
-loadInject(win, 'relay.js');
-  loadInject(win, 'bridge.js');
-  loadInject(win, 'dom-metadata.js');
-  loadInject(win, 'ui.js');
-  loadInject(win, 'probe.js');
+  loadMainWorld(win, { scripts: ['comet.js', 'relay.js', 'bridge.js', 'dom-metadata.js', 'ui.js', 'probe-popup.js', 'probe.js'] });
 
   const probe = win.FBDietProbe;
   c.ok('FBDietProbe API is exposed', Boolean(probe));

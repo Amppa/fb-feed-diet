@@ -27,6 +27,9 @@ window.FBDietProbe = (() => {
   const defaults = window.FB_DIET_DEFAULTS || globalThis.FB_DIET_DEFAULTS || {};
   const keywords = defaults.KEYWORDS || {};
   const DIAGNOSTIC_KEYWORDS = Array.isArray(keywords.DIAGNOSTIC) ? keywords.DIAGNOSTIC : [];
+  const UPPER_DIAGNOSTIC_KEYWORDS = DIAGNOSTIC_KEYWORDS
+    .map(kw => (typeof kw === 'string' ? kw.toUpperCase() : ''))
+    .filter(Boolean);
 
   // The report states the *current* mode name, so a profile stored under a retired value still
   // shows "relay" / "dom" rather than the legacy value it actually holds.
@@ -35,7 +38,6 @@ window.FBDietProbe = (() => {
       ? defaults.normalizeDetectionMode(value)
       : 'relay';
   }
-  let activeProbePopup = null;
 
   /** Serialize a report with a circular-safe fallback and a hard size cap. */
   function serializeReport(report) {
@@ -53,14 +55,14 @@ window.FBDietProbe = (() => {
     if ((!payload || typeof payload !== 'object') && (!lastCmp || typeof lastCmp !== 'object')) return null;
     const matches = [];
     const visited = new Set();
-    const keywords = DIAGNOSTIC_KEYWORDS;
+    const keywords = UPPER_DIAGNOSTIC_KEYWORDS;
 
     function walk(current, path, depth) {
       if (depth > 14 || current === null || current === undefined) return;
       if (typeof current === 'string') {
         const upper = current.toUpperCase();
         for (const kw of keywords) {
-          if (upper.indexOf(kw.toUpperCase()) !== -1) {
+          if (upper.indexOf(kw) !== -1) {
             matches.push({ path, value: current.length > 80 ? current.slice(0, 80) + '…' : current });
             break;
           }
@@ -232,12 +234,13 @@ window.FBDietProbe = (() => {
    * gathered once per report so the builders can never drift apart.
    */
   function collectProbeContext(props, classifyResult, relayReads, container, renderedAt, holder) {
-    const nowIso = new Date().toISOString();
+    const now = new Date();
+    const nowIso = now.toISOString();
     const renderIso = renderedAt || nowIso;
     let probeAgeMs = null;
     if (renderedAt) {
       try {
-        const diff = new Date(nowIso).getTime() - new Date(renderedAt).getTime();
+        const diff = now.getTime() - new Date(renderedAt).getTime();
         if (!isNaN(diff) && diff >= 0) probeAgeMs = diff;
       } catch (e) {}
     }
@@ -591,8 +594,10 @@ window.FBDietProbe = (() => {
     if (typeof value === 'object') {
       if (depth >= PROBE_MAX_COMPACT_DEPTH) return value;
       const out = {};
-      for (const [k, v] of Object.entries(value)) {
-        const kept = compactValue(v, depth + 1);
+      const keys = Object.keys(value);
+      for (let i = 0; i < keys.length; i++) {
+        const k = keys[i];
+        const kept = compactValue(value[k], depth + 1);
         if (kept !== undefined) out[k] = kept;
       }
       return Object.keys(out).length ? out : undefined;
@@ -898,7 +903,23 @@ window.FBDietProbe = (() => {
     return serializeReport(report);
   }
 
+  /**
+   * Popup UI delegation (combination A split): presentation lives in
+   * probe-popup.js (`window.FBDietProbePopup`). These wrappers keep the
+   * window.FBDietProbe surface unchanged. Fallbacks are safe no-ops: the popup
+   * is a debug-only affordance, so a missing popup module must never break the
+   * render path or the copy path's caller. API names (copyProbeReport, ...)
+   * are kept 100% identical to the pre-split exports.
+   */
+  function getPopup() {
+    return (typeof window !== 'undefined' && window.FBDietProbePopup) || null;
+  }
+
   function promptFallbackCopy(payload) {
+    const popup = getPopup();
+    if (popup && typeof popup.promptFallbackCopy === 'function') {
+      return popup.promptFallbackCopy(payload);
+    }
     try {
       window.prompt('FB Diet diagnostics - select all & copy (Ctrl+C / Cmd+C):', payload);
     } catch (e) {
@@ -907,176 +928,28 @@ window.FBDietProbe = (() => {
   }
 
   function copyProbeReport(text) {
-    let copied = false;
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-        const request = navigator.clipboard.writeText(text);
-        if (request && typeof request.then === 'function') {
-          request.then(
-            () => console.info('[FB Diet][Probe] Diagnostics copied to clipboard.'),
-            () => promptFallbackCopy(text)
-          );
-          copied = true;
-        }
-      }
-    } catch (e) {
-      // Fall through to the prompt
+    const popup = getPopup();
+    if (popup && typeof popup.copyProbeReport === 'function') {
+      return popup.copyProbeReport(text);
     }
-    if (!copied) promptFallbackCopy(text);
-  }
-
-  function closeActiveProbePopup() {
-    if (!activeProbePopup) return;
-    const popup = activeProbePopup;
-    activeProbePopup = null;
     try {
-      const doc = (typeof document !== 'undefined' ? document : null) || (typeof window !== 'undefined' && window.document ? window.document : null);
-      if (doc && typeof doc.removeEventListener === 'function') {
-        doc.removeEventListener('click', onOutsideProbeClick, true);
+      if (typeof console !== 'undefined' && typeof console.info === 'function') {
+        console.info('[FB Diet][Probe] popup module missing; report not copied.');
       }
-      if (popup.classList && typeof popup.classList.add === 'function') {
-        popup.classList.add('fb-diet-probe-popup-fadeout');
-      }
-      setTimeout(() => {
-        try { popup.remove(); } catch (e) {}
-      }, 200);
     } catch (e) {}
   }
 
-  function onOutsideProbeClick(e) {
-    if (!activeProbePopup) return;
-    if (e && e.target && activeProbePopup.contains(e.target)) {
-      return;
+  function closeActiveProbePopup() {
+    const popup = getPopup();
+    if (popup && typeof popup.closeActiveProbePopup === 'function') {
+      return popup.closeActiveProbePopup();
     }
-    closeActiveProbePopup();
-  }
-
-  function popupRow(doc, text) {
-    const row = doc.createElement('div');
-    row.className = 'fb-diet-probe-popup-row';
-    row.textContent = text;
-    return row;
-  }
-
-  function popupCopiedFooter(doc, label) {
-    const spacer = doc.createElement('div');
-    spacer.className = 'fb-diet-probe-popup-spacer';
-    return [spacer, popupRow(doc, '已複製 ' + label + ' 診斷 JSON 到剪貼簿 (Copied)')];
-  }
-
-  function renderUnifiedPopup(doc, popup, report, classifyResult, props) {
-    const modeStr = (report && report.env && report.env.dietMode ? report.env.dietMode : 'relay').toUpperCase();
-    const verdict = (report && report.verdict) || {};
-    const category = verdict.category
-      || (classifyResult && classifyResult.category)
-      || (props && props.entryCategory)
-      || 'regular';
-    const reason = verdict.reason
-      || (classifyResult && classifyResult.reason)
-      || (props && props.moduleName ? 'component:' + props.moduleName : 'no-match');
-
-    const evidence = classifyResult && classifyResult.evidence;
-    const source = evidence && evidence.source && evidence.source !== 'none' ? evidence.source : null;
-    const mod = (classifyResult && classifyResult.moduleName) || (report && report.unit && report.unit.moduleName) || null;
-    let evidenceText = source || '';
-    if (mod) {
-      evidenceText = evidenceText ? evidenceText + ' (' + mod + ')' : mod;
-    }
-    if (!evidenceText) evidenceText = 'none';
-
-    const ui = window.FBDietUI;
-    const userFacingGroup = ui && typeof ui.groupOf === 'function' ? ui.groupOf(category) : 'regular';
-    const groupMeta = (ui && ui.GROUP_META && ui.GROUP_META[userFacingGroup]) || { badgeText: 'Other' };
-
-    const foldMode = verdict.foldMode || 'off';
-    const statusText = foldMode !== 'off' ? 'ON (' + foldMode + ')' : 'OFF';
-
-    popup.appendChild(popupRow(doc, 'Mode: ' + modeStr + ' · Filter: ' + statusText));
-    const uiTagSuffix = verdict.displayedTag && verdict.displayedTag !== groupMeta.badgeText ? ' [UI: ' + verdict.displayedTag + ']' : '';
-    popup.appendChild(popupRow(doc, 'Category: ' + groupMeta.badgeText + ' (' + category + ')' + uiTagSuffix));
-    popup.appendChild(popupRow(doc, 'Signal: ' + reason));
-    const sourceText = verdict.detectionSource ? evidenceText + ' · Detection: ' + verdict.detectionSource : evidenceText;
-    popup.appendChild(popupRow(doc, 'Source: ' + sourceText));
-
-    const scope = verdict.scope;
-    if (scope) {
-      popup.appendChild(popupRow(doc, 'Scope: ' + (scope.allowed ? 'home/search/marketplace' : 'groups/profile')));
-    }
-
-    const dom = (report && report.dom) || {};
-    const ext = dom.extracted || {};
-    const urls = dom.urls || {};
-
-    if (ext.actor || ext.group) {
-      popup.appendChild(popupRow(doc, 'Author: ' + (ext.actor || '-') + (ext.group ? ' · Group: ' + ext.group : '')));
-    }
-    if (ext.title && ext.title.text) {
-      popup.appendChild(popupRow(doc, 'Title: ' + (ext.title.text.length > 40 ? ext.title.text.slice(0, 40) + '…' : ext.title.text)));
-    }
-    if (ext.snippet) {
-      popup.appendChild(popupRow(doc, 'Snippet: ' + (ext.snippet.length > 40 ? ext.snippet.slice(0, 40) + '…' : ext.snippet)));
-    }
-    if (ext.media) {
-      popup.appendChild(popupRow(doc, 'Media: ' + ext.media));
-    }
-
-    const targetUrl = urls.synthesized || urls.primary || urls.ad;
-    if (targetUrl) {
-      const linkRow = doc.createElement('div');
-      linkRow.className = 'fb-diet-probe-popup-row';
-      const linkPrefix = doc.createElement('span');
-      linkPrefix.textContent = 'Link: ';
-      linkRow.appendChild(linkPrefix);
-      const anchor = doc.createElement('a');
-      anchor.href = targetUrl;
-      anchor.target = '_blank';
-      anchor.rel = 'noopener noreferrer';
-      anchor.textContent = targetUrl.length > 50 ? targetUrl.slice(0, 50) + '…' : targetUrl;
-      if (anchor.style) {
-        anchor.style.color = '#60a5fa';
-        anchor.style.textDecoration = 'underline';
-        anchor.style.cursor = 'pointer';
-      }
-      anchor.title = targetUrl;
-      if (typeof anchor.addEventListener === 'function') {
-        anchor.addEventListener('click', (e) => {
-          if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-        });
-      }
-      linkRow.appendChild(anchor);
-      popup.appendChild(linkRow);
-    }
-
-    const footer = popupCopiedFooter(doc, '生命週期');
-    footer.forEach((node) => popup.appendChild(node));
   }
 
   function showProbePopup(holder, classifyResult, props, report) {
-    try {
-      const doc = (typeof document !== 'undefined' ? document : null)
-        || (typeof window !== 'undefined' && window.document ? window.document : null)
-        || (holder && holder.ownerDocument ? holder.ownerDocument : null);
-      if (!holder || !doc || typeof doc.createElement !== 'function') return;
-
-      closeActiveProbePopup();
-
-      const popup = doc.createElement('div');
-      popup.className = 'fb-diet-probe-popup';
-      popup.title = '點擊外部可關閉提示 (Click outside to dismiss)';
-
-      renderUnifiedPopup(doc, popup, report, classifyResult, props);
-
-      holder.appendChild(popup);
-      activeProbePopup = popup;
-
-      // Close on subsequent outside click
-      setTimeout(() => {
-        if (activeProbePopup === popup && doc && typeof doc.addEventListener === 'function') {
-          doc.addEventListener('click', onOutsideProbeClick, true);
-        }
-      }, 0);
-    } catch (e) {
-      // Non-fatal
+    const popup = getPopup();
+    if (popup && typeof popup.showProbePopup === 'function') {
+      return popup.showProbePopup(holder, classifyResult, props, report);
     }
   }
 

@@ -26,7 +26,7 @@ window.FBDietBridge = (() => {
   const defs = (typeof window !== 'undefined' && window.FB_DIET_DEFAULTS) || (typeof globalThis !== 'undefined' && globalThis.FB_DIET_DEFAULTS) || {};
   const DEFAULT_SETTINGS = defs.SETTINGS || {};
 
-  const STORAGE_CACHE_KEY = 'fb_diet_settings_cache';
+  const STORAGE_CACHE_KEY = defs.SETTINGS_CACHE_KEY || 'fb_diet_settings_cache';
 
   function loadCachedSettings() {
     try {
@@ -51,7 +51,9 @@ window.FBDietBridge = (() => {
 
   let settings = loadCachedSettings();
   let lastError = null;
-  let debugEnabled = /[?&]fb_diet_debug=1(?:&|$)/.test(window.location.search);
+  let debugEnabled = typeof defs.isDebugUrl === 'function'
+    ? defs.isDebugUrl(window.location.search)
+    : /[?&]fb_diet_debug=1(?:&|$)/.test(window.location.search);
 
   function debugLog(event, payload) {
     if (!debugEnabled) return;
@@ -173,48 +175,38 @@ window.FBDietBridge = (() => {
     recentReports.push(Object.assign({ type, at: Date.now() }, payload));
     while (recentReports.length > MAX_REPORTS) recentReports.shift();
   }
-  function reportBlocked(result) {
+  /**
+   * The shared report path for a categorized unit. `debugEvent` is what the console log calls
+   * this decision, which is not always the message type: a folded unit posts 'blocked' but logs
+   * 'folded'.
+   *
+   * The post payload and the debug log share one object, but `attachReport` gets the classifier's
+   * own `result` — that is the wider record (signal, isSuggested, …) behind
+   * `FBDietBridge.getRecentReports()`, and narrowing it to the payload would quietly shrink a
+   * user-visible diagnostic.
+   */
+  function reportCategorized(type, debugEvent, list, set, result) {
     const key = result.unitId + ':' + result.category;
-    if (!remember(reportedBlocked, reportedBlockedSet, key, MAX_EXPANDED)) return;
-    post('blocked', {
+    if (!remember(list, set, key, MAX_EXPANDED)) return;
+    const payload = {
       category: result.category,
       unitId: result.unitId,
       reason: result.reason,
       unitTypename: result.unitTypename || null,
       moduleName: result.moduleName || null,
       evidence: result.evidence || null
-    });
-    attachReport('blocked', result);
-    debugLog('folded', {
-      category: result.category,
-      unitId: result.unitId,
-      reason: result.reason,
-      unitTypename: result.unitTypename || null,
-      moduleName: result.moduleName || null,
-      evidence: result.evidence || null
-    });
+    };
+    post(type, payload);
+    attachReport(type, result);
+    debugLog(debugEvent, payload);
+  }
+
+  function reportBlocked(result) {
+    reportCategorized('blocked', 'folded', reportedBlocked, reportedBlockedSet, result);
   }
 
   function reportAllowed(result) {
-    const key = result.unitId + ':' + result.category;
-    if (!remember(reportedAllowed, reportedAllowedSet, key, MAX_EXPANDED)) return;
-    post('allowed', {
-      category: result.category,
-      unitId: result.unitId,
-      reason: result.reason,
-      unitTypename: result.unitTypename || null,
-      moduleName: result.moduleName || null,
-      evidence: result.evidence || null
-    });
-    attachReport('allowed', result);
-    debugLog('allowed', {
-      category: result.category,
-      unitId: result.unitId,
-      reason: result.reason,
-      unitTypename: result.unitTypename || null,
-      moduleName: result.moduleName || null,
-      evidence: result.evidence || null
-    });
+    reportCategorized('allowed', 'allowed', reportedAllowed, reportedAllowedSet, result);
   }
 
   function reportRegular(result) {
