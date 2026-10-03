@@ -4,6 +4,12 @@ A modern, lightweight Chrome Extension designed to put your Facebook feed on a c
 
 Instead of abruptly wiping elements or breaking your feed, **FB Feed Diet** neatly folds sponsored posts, suggestions, and ads into elegant inline placeholders with seamless **one-click expand and restore**.
 
+### 📸 Overview: Before & After
+
+| Before (Cluttered Feed) | After (Clean Diet) |
+| :---: | :---: |
+| ![Before](screenshots/before.png) | ![After - Default Diet](screenshots/after-default.png) |
+
 ---
 
 ## ✨ Features
@@ -13,17 +19,24 @@ Instead of abruptly wiping elements or breaking your feed, **FB Feed Diet** neat
 - **🤵 Fold Facebook Suggestions**: Folds recommended posts from people you don't follow ("Suggested for you").
 - **🎬 Fold Reels & Stories**: Keeps your feed focused by folding Reels and Stories carousels.
 - **👥 Fold Other Recommendations**: Folds group recommendations ("Groups you should join").
-- **🔎 Detection Source**: choose where posts are classified from — **Relay Only** (default, reads Facebook data directly) or **DOM Only** (scans the rendered page independently).
-- **🌐 English / 繁體中文**: switch the Options and popup interface language.
+- **👤 Fold Regular Posts (Optional)**: Option to fold regular posts from accounts you follow for extreme focus.
 - **One-Click Expand & Restore**:
   - Folded items are replaced with a sleek, non-intrusive placeholder bar matching Facebook's Light and Dark themes.
-  - Curious about a folded post? Click anywhere on the placeholder bar to reveal the original content, and click again to fold it back.
-- **Live Diet Dashboard & Counters**:
-  - Real-time statistics showing how many distractions have been folded.
-  - Category breakdown and a one-click reset in the Options page.
+  - Hover over any placeholder bar to read the full post preview tooltip without expanding.
+  - Click anywhere on the placeholder bar to reveal the original content; expanded posts can keep a header bar to let you collapse them back anytime.
+
+| Single Post Header & Fold/Unfold | Hover Tooltip Preview (Large) |
+| :---: | :---: |
+| ![Single Post Header](screenshots/after-unfold-single-feed.png) | ![Hover Tooltip Preview](screenshots/after-tooltip-large.png) |
+
+| All Folded (Comfortable 36px) | Minimized Mode (Compact 18px) |
+| :---: | :---: |
+| ![All Folded Mode](screenshots/after-all-shrink.png) | ![Minimized Mode](screenshots/after-minimize-mode.png) |  
+
+- **🔎 Detection Source**: choose where posts are classified from — **Relay Only** (default, reads Facebook data directly) or **DOM Only** (scans the rendered page independently).
+- **🌐 English / 繁體中文**: switch the Options and popup interface language.
 - **Privacy-First & Ultra-Lightweight**:
   - Zero data collection, zero telemetry. All settings and statistics stay strictly on your local device.
-  - Highly optimized (< 50KB) with zero third-party dependencies and minimal runtime overhead.
 
 ---
 
@@ -52,7 +65,12 @@ The same package also runs on Firefox — the MAIN-world content scripts require
 ## 💡 How to Use
 
 - **Quick Toggle**: Click the **FB Feed Diet** icon in your Chrome toolbar to turn filtering ON or OFF instantly.
-- **Detailed Settings**: Click **"Options"** in the popup to customize which types of content to fold (e.g. keep Reels while folding Sponsored ads).
+- **Detailed Settings**: Click **"Options"** in the popup to customize which types of content to fold (e.g. keep Reels while folding Sponsored ads), adjust display preferences, and monitor diet statistics.
+
+| Live Stats & Header | Feed Classifications | Appearance & Detection Source |
+| :---: | :---: | :---: |
+| ![Settings - Live Stats](screenshots/setting1.png) | ![Settings - Feed Classifies](screenshots/setting2.png) | ![Settings - Appearance](screenshots/setting3.png) |
+
 - **Expand a Post**: When a post is folded, click its placeholder bar to view it without reloading the page — hovering the bar previews the full post text — and click again to collapse it back.
 
 ---

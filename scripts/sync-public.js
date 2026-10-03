@@ -35,7 +35,8 @@ const PUBLIC_INCLUDES = [
   'icons',
   'src',
   'tests',
-  'scripts'
+  'scripts',
+  'screenshots'
 ];
 
 // 3. Paths that must NEVER appear in the public tree. Checked before every commit.

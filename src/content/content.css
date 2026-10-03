@@ -4,6 +4,40 @@
  */
 
 /* ------------------------------------------------------------------ *
+ * Theme Tokens Layer
+ * Resolves color scheme across Facebook's Light, Dark, and Auto modes.
+ * ------------------------------------------------------------------ */
+
+:root {
+  /* Dark mode default: blends with native Facebook dark theme (#242526 / #18191a) */
+  --fb-diet-bar-bg: var(--secondary-button-background, #3a3b3c);
+  --fb-diet-bar-border: none;
+  --fb-diet-bar-hover-tint: white 5%;
+  --fb-diet-bar-text: var(--primary-text, #e4e6eb);
+}
+
+/* Light mode tokens:
+ * Applied when:
+ * 1) Facebook explicitly forces light mode (__fb-light-mode), OR
+ * 2) System is in light mode (prefers-color-scheme: light) AND Facebook has not explicitly forced dark mode (__fb-dark-mode).
+ */
+html.__fb-light-mode {
+  --fb-diet-bar-bg: #F3F3F3;
+  --fb-diet-bar-border: 1px solid var(--media-inner-border, #ced0d4);
+  --fb-diet-bar-hover-tint: black 4%;
+  --fb-diet-bar-text: var(--primary-text, #050505);
+}
+
+@media (prefers-color-scheme: light) {
+  html:not(.__fb-dark-mode) {
+    --fb-diet-bar-bg: #F3F3F3;
+    --fb-diet-bar-border: 1px solid var(--media-inner-border, #ced0d4);
+    --fb-diet-bar-hover-tint: black 4%;
+    --fb-diet-bar-text: var(--primary-text, #050505);
+  }
+}
+
+/* ------------------------------------------------------------------ *
  * Fold bar base
  * ------------------------------------------------------------------ */
 .fb-diet-titlebar {
@@ -11,27 +45,71 @@
   align-items: center !important;
   justify-content: space-between !important;
   width: 100% !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  padding: 4px 12px !important;
   margin: 0 0 8px 0 !important;
-  border: none !important;
-  box-shadow: none !important;
+  border: var(--fb-diet-bar-border) !important;
   border-radius: 8px !important;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+  box-shadow: none !important;
   box-sizing: border-box !important;
+  background-color: var(--fb-diet-bar-bg) !important;
+  color: var(--fb-diet-bar-text) !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+  font-size: 13px !important;
+  line-height: 24px !important;
   user-select: none !important;
   cursor: pointer !important;
   overflow: hidden !important;
 }
 
 .fb-diet-titlebar:hover {
-  background-color: color-mix(in srgb, var(--fb-diet-bar-bg) 95%, white 5%) !important;
+  background-color: color-mix(in srgb, var(--fb-diet-bar-bg) 95%, var(--fb-diet-bar-hover-tint)) !important;
 }
+
+/* 18px compact variant for Minimized Fold Bar */
+.fb-diet-titlebar.fb-diet-titlebar-mini {
+  margin: 0 0 4px 0 !important;
+  height: 18px !important;
+  min-height: 18px !important;
+  max-height: 18px !important;
+  padding: 1px 8px !important;
+  font-size: 11px !important;
+  line-height: 16px !important;
+}
+
+/* ------------------------------------------------------------------ *
+ * Expanded Header Overlap Pattern
+ * The expanded fold bar extends 8px downward behind the post card,
+ * while the unfolded post body wrapper stacks above (z-index: 1)
+ * to achieve a seamless composite card without gaps.
+ * ------------------------------------------------------------------ */
 
 .fb-diet-titlebar.fb-diet-state-expanded {
-  margin: 0 !important;
+  position: relative !important;
+  z-index: 0 !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  max-height: 44px !important;
+  padding: 4px 12px 12px 12px !important;
+  margin: 0 0 -8px 0 !important;
   border-radius: 8px 8px 0 0 !important;
+  border-bottom: none !important;
 }
 
-/* Badge for the fold group (Ads, Suggested, etc.) */
+.fb-diet-titlebar.fb-diet-titlebar-mini.fb-diet-state-expanded {
+  height: 26px !important;
+  min-height: 26px !important;
+  max-height: 26px !important;
+  padding: 1px 8px 9px 8px !important;
+  margin: 0 0 -8px 0 !important;
+  border-bottom: none !important;
+}
+/* ------------------------------------------------------------------ *
+ * Badges (category tags: Ads, Suggested, Media, etc.)
+ * ------------------------------------------------------------------ */
+
 .fb-diet-badge {
   display: inline-flex !important;
   align-items: center !important;
@@ -70,31 +148,9 @@
   color: #3b82f6 !important;
 }
 
-/* 36px Title mode fold bar */
-.fb-diet-titlebar {
-  height: 36px !important;
-  min-height: 36px !important;
-  max-height: 36px !important;
-  padding: 4px 12px !important;
-  /* The bar's own colour token, stated once: hover lightens this exact value instead of
-   * restating it, so the two can never drift apart. */
-  --fb-diet-bar-bg: var(--secondary-button-background, #f0f2f5);
-  background-color: var(--fb-diet-bar-bg) !important;
-  font-size: 13px !important;
-  line-height: 24px !important;
-  color: var(--primary-text, #050505) !important;
-}
-
-/* 18px compact variant for Minimized Fold Bar */
-.fb-diet-titlebar.fb-diet-titlebar-mini {
-  margin: 0 0 4px 0 !important;
-  height: 18px !important;
-  min-height: 18px !important;
-  max-height: 18px !important;
-  padding: 1px 8px !important;
-  font-size: 11px !important;
-  line-height: 16px !important;
-}
+/* ------------------------------------------------------------------ *
+ * Title bar content elements
+ * ------------------------------------------------------------------ */
 
 .fb-diet-title-content {
   display: flex !important;
@@ -217,9 +273,10 @@ a[target^="rhcad"],
  *   rails and all four corner radii.
  * ------------------------------------------------------------------ */
 
-/* The wrapper anchors the frame pseudo. It carries no border itself. */
+/* The wrapper anchors the frame pseudo. It carries no border itself and stacks above the extended header. */
 .fb-diet-titlebar.fb-diet-state-expanded~.fb-diet-expand-body {
   position: relative !important;
+  z-index: 1 !important;
   border: none !important;
   --fb-diet-strip-h: 36px;
 }

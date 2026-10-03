@@ -21,6 +21,16 @@ window.FBDietUI = (() => {
     return GROUP_BY_CATEGORY[category] || 'regular';
   }
 
+  function resolveBadgeText(category) {
+    if (typeof DEFAULTS.resolveBadgeText === 'function') {
+      return DEFAULTS.resolveBadgeText(category);
+    }
+    if (category === 'reels') return 'Reels';
+    if (category === 'stories') return 'Stories';
+    const meta = GROUP_META[groupOf(category)] || GROUP_META.other;
+    return meta.badgeText || 'Other';
+  }
+
   function createEl(type, props, children) {
     const comet = window.FBDietComet;
     const React = comet ? comet.getReact() : null;
@@ -262,7 +272,8 @@ window.FBDietUI = (() => {
       const effectiveMsg = (domData && domData.snippetText) || initialMsg;
       const effectiveGroup = (domData && domData.groupName) || initialGroup;
 
-      const badge = createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [meta.badgeText]);
+      const badgeText = resolveBadgeText(props.category);
+      const badge = createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [badgeText]);
       const contentKids = [badge];
 
       // Tooltip source text: folded shows the full post text (the visible snippet
@@ -429,6 +440,7 @@ window.FBDietUI = (() => {
     createEl,
     titleBarCache,
     TitleBar,
+    resolveBadgeText,
     getMediaLabel,
     getCollapseLabel
   };

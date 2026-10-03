@@ -170,6 +170,14 @@ function run(checker) {
   checker.equals('media badge text is Reels & Stories', groupMeta && groupMeta.media && groupMeta.media.badgeText, 'Reels & Stories');
   checker.equals('other badge text is Other', groupMeta && groupMeta.other && groupMeta.other.badgeText, 'Other');
 
+  /* --- resolveBadgeText helper --- */
+  checker.ok('resolveBadgeText exists', typeof defaults.resolveBadgeText === 'function');
+  checker.equals('resolveBadgeText for reels is Reels', defaults.resolveBadgeText('reels'), 'Reels');
+  checker.equals('resolveBadgeText for stories is Stories', defaults.resolveBadgeText('stories'), 'Stories');
+  checker.equals('resolveBadgeText for sponsored is Ads', defaults.resolveBadgeText('sponsored'), 'Ads');
+  checker.equals('resolveBadgeText for regular is Regular', defaults.resolveBadgeText('regular'), 'Regular');
+  checker.equals('resolveBadgeText for suggested is Suggested', defaults.resolveBadgeText('suggested'), 'Suggested');
+
   /* --- shared keyword schema --- */
   const keywords = defaults && defaults.KEYWORDS;
   checker.ok('KEYWORDS object exists', Boolean(keywords));

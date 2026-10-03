@@ -92,6 +92,18 @@
     }
   };
 
+  // Fine-category badge text overrides; falls back to GROUP_META[group].badgeText.
+  const CATEGORY_BADGE_TEXT = {
+    reels: 'Reels',
+    stories: 'Stories'
+  };
+
+  function resolveBadgeText(category) {
+    if (CATEGORY_BADGE_TEXT[category]) return CATEGORY_BADGE_TEXT[category];
+    const group = GROUP_BY_CATEGORY[category] || 'other';
+    return (GROUP_META[group] && GROUP_META[group].badgeText) || 'Other';
+  }
+
   // Section 3: shared keyword matrices
 
   // Multilingual vocabulary shared by MAIN and ISOLATED consumers.
@@ -269,7 +281,7 @@
     return (fallbackTable && fallbackTable[key]) || '';
   }
 
-  const EXTENSION_VERSION = '2.9.6';
+  const EXTENSION_VERSION = '2.9.7';
 
   globalThis.FB_DIET_DEFAULTS = {
     SETTINGS: DEFAULT_SETTINGS,
@@ -295,6 +307,8 @@
     normalizeLocale,
     resolveFeedLocale,
     getFeedLabel,
+    resolveBadgeText,
+    CATEGORY_BADGE_TEXT,
     isFoldScopeAllowed,
     readProp
   };

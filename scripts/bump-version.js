@@ -22,7 +22,10 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const PACKAGE_PATH = path.join(ROOT_DIR, 'package.json');
 const MANIFEST_PATH = path.join(ROOT_DIR, 'manifest.json');
 const DEFAULTS_PATH = path.join(ROOT_DIR, 'src', 'shared', 'defaults.js');
-const TEST_PATH = path.join(ROOT_DIR, 'tests', 'bump-version.test.js');
+const TEST_PATHS = [
+  path.join(ROOT_DIR, 'tests', 'private', 'bump-version.test.js'),
+  path.join(ROOT_DIR, 'tests', 'bump-version.test.js'),
+];
 
 const SEMVER_REGEX = /^(\d+)\.(\d+)\.(\d+)$/;
 
@@ -123,14 +126,14 @@ function run() {
   fs.writeFileSync(DEFAULTS_PATH, defaultsContent, 'utf8');
   console.log(`  ✓ Updated src/shared/defaults.js`);
 
-  // 4. Update tests/bump-version.test.js if present
-  if (fs.existsSync(TEST_PATH)) {
-    const updated = rewriteVersionAssertion(fs.readFileSync(TEST_PATH, 'utf8'), newVersion);
-    if (updated === null) {
-      console.warn('  ! tests/bump-version.test.js still pins the old version - update its assertion by hand');
-    } else {
-      fs.writeFileSync(TEST_PATH, updated, 'utf8');
-      console.log(`  ✓ Updated tests/bump-version.test.js`);
+  // 4. Update bump-version test assertion if present
+  for (const testPath of TEST_PATHS) {
+    if (fs.existsSync(testPath)) {
+      const updated = rewriteVersionAssertion(fs.readFileSync(testPath, 'utf8'), newVersion);
+      if (updated !== null) {
+        fs.writeFileSync(testPath, updated, 'utf8');
+        console.log(`  ✓ Updated ${path.relative(ROOT_DIR, testPath)}`);
+      }
     }
   }
 

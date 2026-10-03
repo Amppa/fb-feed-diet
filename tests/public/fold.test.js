@@ -1185,6 +1185,7 @@ function run(c) {
     });
     const storiesKids = storiesBar.props.children.props.children;
     c.equals('stories bar has media badge', storiesKids[0].props.className, 'fb-diet-badge fb-diet-badge-media');
+    c.equals('stories bar badge text is Stories', storiesKids[0].props.children, 'Stories');
     c.equals('stories bar uses non-bold fb-diet-title-media class', storiesKids[1].props.className, 'fb-diet-title-media');
     c.equals('stories bar shows 限時動態（朋友）', storiesKids[1].props.children, '限時動態（朋友）');
     c.equals('stories bar has no snippet', storiesKids.length, 2);
@@ -1198,6 +1199,7 @@ function run(c) {
     });
     const reelsKids = reelsBar.props.children.props.children;
     c.equals('reels bar has media badge', reelsKids[0].props.className, 'fb-diet-badge fb-diet-badge-media');
+    c.equals('reels bar badge text is Reels', reelsKids[0].props.children, 'Reels');
     c.equals('reels bar uses non-bold fb-diet-title-media class', reelsKids[1].props.className, 'fb-diet-title-media');
     c.equals('reels bar shows 連續短片', reelsKids[1].props.children, '連續短片');
     c.equals('reels bar has no snippet', reelsKids.length, 2);
