@@ -47,6 +47,7 @@ const FORBIDDEN_PATHS = [
   'design',
   'release',
   'tests/testcase',
+  'tests/private',
   '.kilo'
 ];
 
@@ -64,12 +65,17 @@ function copyWhitelist(destDir) {
       console.log(`  + Copied: ${item}`);
     }
   }
-  // tests/testcase/ is git-ignored locally so it never arrives via git, but a
-  // working tree copy could still carry it — remove explicitly either way.
+  // tests/testcase/ and tests/private/ must never arrive in the public tree —
+  // remove explicitly either way.
   const testcaseDir = path.join(destDir, 'tests', 'testcase');
   if (fs.existsSync(testcaseDir)) {
     fs.rmSync(testcaseDir, { recursive: true, force: true });
     console.log('  - Excluded: tests/testcase/');
+  }
+  const privateDir = path.join(destDir, 'tests', 'private');
+  if (fs.existsSync(privateDir)) {
+    fs.rmSync(privateDir, { recursive: true, force: true });
+    console.log('  - Excluded: tests/private/');
   }
 }
 

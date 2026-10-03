@@ -1,7 +1,7 @@
 'use strict';
 /**
  * Lifecycle test for the sponsorship slot of the shared DOM observer in
- * src/inject/fold.js (decision #39).
+ * src/inject/fold.js. // per STRATEGY.md §1.1
  *
  * scanner.test.js covers the shared infrastructure; what is unique here and therefore
  * worth its own suite:
@@ -227,7 +227,7 @@ function run(c) {
   {
     // entryCategory is structural (this IS the tray): surface and suggested can never change
     // the verdict, so sweeping them per pass is pure waste. Only the unconditional
-    // sponsorship override (decision #39) still can, so it stays armed.
+    // sponsorship override still can, so it stays armed. // per STRATEGY.md §1.1
     const t = setup({});
     t.win.FBDietBridge.setSettings(DOM);
     let surfaceCalls = 0;

@@ -629,7 +629,7 @@ function run(c) {
     c.equals('later scans do not sweep the DOM detector again', detectCalls, 1);
     winTest.FBDietDOMSuggested.detect = origDetect;
 
-    // 8b. Lite passes allowDomScan=false (STRATEGY.md decision #36): the title is rendered from
+    // 8b. Lite passes allowDomScan=false (per docs/architecture.md): the title is rendered from
     // Relay data, so the bar must not sweep the subtree, notify the detector, or arm its ladder.
     const liteDetectCallsBefore = detectCalls;
     let liteNotify = 0;
@@ -744,7 +744,8 @@ function run(c) {
    *      role="link"><svg aria-label="左岸咖啡誌，查看限時動態" …></a>
    *
    * One `a[href*="/stories/"]`, on the unit's own surface, passing every own-surface test — which
-   * is pitfall 11 exactly, reached from the other side. Decision #41 narrowed the *decision* path
+   * is the story-ring case exactly, reached from the other side. // rationale: decisions-history.md #41
+    * That decision narrowed the *decision* path
    * for this and deliberately left the *veto* path on the weak signal, reasoning that a false
    * tray there costs one missed fold rather than a wrong fold.
    *
@@ -806,7 +807,7 @@ function run(c) {
     c.equals('a row of story tiles is still vetoed as a tray', detector.explain(trayWithoutMarker).outcomeReason, 'stories_link');
 
     // One ring plus a story link the poster typed in the message is still one link, not a row.
-    // The own-surface guard is what makes that true, and it is the same guard pitfall 9 forced on
+    // The own-surface guard is what makes that true, and it is the same guard the post-mortem table in
     // the hscroll marker.
     const ringPlusBodyLink = makeNode('div', { role: 'article' }, [
       makeNode('div', {}, [storyRing('Kevin West', '9000000000000002')]),
@@ -883,7 +884,7 @@ function run(c) {
   /* --- The shared surface module is a hard dependency, and its absence is a named decline ---
    * The tray veto and the reshare exclusion now live in dom-surface.js. Without them every tile of a
    * Reels tray satisfies the cue heuristics, so a detector that carried on would fold a Reel as a
-   * suggestion (STRATEGY.md, misclassification 8) — the exact bug the veto exists to prevent.
+   * suggestion (per STRATEGY.md §3.3) — the exact bug the veto exists to prevent.
    * Declining is therefore the safe answer, and the report must name the missing dependency rather
    * than look like a clean scan.
    */

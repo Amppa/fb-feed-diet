@@ -12,7 +12,10 @@ const fs = require('fs');
 const path = require('path');
 const { Checker } = require('./harness');
 
-const TESTCASE_DIR = path.join(__dirname, 'testcase');
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const PRIVATE_DIR = path.join(__dirname, 'private');
+const TESTCASE_DIR = path.join(PRIVATE_DIR, 'testcase');
+const LEGACY_TESTCASE_DIR = path.join(__dirname, 'testcase');
 
 /** Suites directly inside one directory, titled by their path relative to tests/. */
 function listSuites(dir, label) {
@@ -24,9 +27,25 @@ function listSuites(dir, label) {
     .map((name) => ({ title: label + name, file: path.join(dir, name) }));
 }
 
-const suites = listSuites(__dirname, '');
-const localSuites = listSuites(TESTCASE_DIR, 'testcase/');
-suites.push(...localSuites);
+const publicSuites = listSuites(PUBLIC_DIR, 'public/');
+const privateSuites = listSuites(PRIVATE_DIR, 'private/');
+const rootSuites = listSuites(__dirname, '');
+const localSuites = [
+  ...listSuites(TESTCASE_DIR, 'private/testcase/'),
+  ...listSuites(LEGACY_TESTCASE_DIR, 'testcase/')
+];
+
+const hasPrivate = privateSuites.length > 0;
+const suites = hasPrivate
+  ? [
+      ...privateSuites,
+      ...rootSuites,
+      ...localSuites
+    ]
+  : [
+      ...publicSuites,
+      ...rootSuites
+    ];
 
 let failedSuites = 0;
 
@@ -47,8 +66,15 @@ async function runSuite(suite) {
   }
 
   console.log('\n========================================');
-  if (!localSuites.length) {
-    console.log('SKIPPED tests/testcase/ (git-ignored local captures — none on this machine)');
+  if (hasPrivate) {
+    if (publicSuites.length) {
+      console.log('NOTICE: Executed tests/private/ (skipped tests/public/ mirror to avoid duplication)');
+    }
+  } else {
+    if (!publicSuites.length) {
+      console.log('NOTICE: tests/public/ has no test suites yet');
+    }
+    console.log('SKIPPED tests/private/ (private test suites — omitted in public mirror)');
   }
   if (failedSuites === 0) {
     console.log('ALL SUITES PASSED (' + suites.map((suite) => suite.title).join(', ') + ')');

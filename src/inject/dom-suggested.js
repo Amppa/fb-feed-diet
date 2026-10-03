@@ -19,8 +19,8 @@ window.FBDietDOMSuggested = (() => {
   //
   // When that module is absent the detector declines to answer at all rather than carrying on:
   // without the tray walk every tile of a Reels tray satisfies the "this button looks like a cue"
-  // heuristics (STRATEGY.md, misclassification 8), so the failure mode of guessing is a false
-  // positive on the feed. No suggestion found is the cheaper lie. `explain` reports the reason.
+  // heuristics, so the failure mode of guessing is a false positive on the feed. No suggestion
+  // found is the cheaper lie. // per STRATEGY.md §3.3
   function surface() {
     return window.FBDietDOMSurface || globalThis.FBDietDOMSurface || null;
   }

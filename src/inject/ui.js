@@ -29,7 +29,7 @@ window.FBDietUI = (() => {
   }
 
   const titleBarCache = new Map();
-  // Folded bars stay mounted for the life of the tab (STRATEGY.md squash design), so an
+  // Folded bars stay mounted for the life of the tab (per docs/architecture.md), so an
   // uncapped cache would grow with every unit the user ever scrolls past. Map iteration
   // order gives FIFO eviction for free; a miss just re-runs the scan.
   const TITLE_BAR_CACHE_MAX = 300;
@@ -52,12 +52,18 @@ window.FBDietUI = (() => {
   }
 
   /** The same module owns the snippet-cleaning rules; without it the raw text stands. */
-  function cleanPostSnippet(rawText, author, group) {
+  function cleanPostSnippet(rawText, author, group, limits) {
     const domMeta = window.FBDietDOMMetadata;
     if (domMeta && typeof domMeta.cleanPostSnippet === 'function') {
-      return domMeta.cleanPostSnippet(rawText, author, group);
+      return domMeta.cleanPostSnippet(rawText, author, group, limits);
     }
     return typeof rawText === 'string' ? rawText : '';
+  }
+
+  /** Tooltip cleaning limits (10 lines, 200 chars); undefined keeps bar snippet limits. */
+  function titleBarTooltipLimits() {
+    const domMeta = window.FBDietDOMMetadata;
+    return (domMeta && (domMeta.titleBarTooltipLimits || domMeta.tooltipSnippetLimits)) || undefined;
   }
 
   /**
@@ -132,7 +138,7 @@ window.FBDietUI = (() => {
       if (React && typeof React.useEffect === 'function') {
         React.useEffect(() => {
           if (!showTitle || isStaticCategory) return;
-          // `allowDomScan === false` means Relay-only mode (STRATEGY.md decision #36), which reads
+          // `allowDomScan === false` means Relay-only mode (per docs/architecture.md), which reads
           // the header text from Relay/props only, so it must not attach a subtree scanner or run
           // the DOM suggested detector here. Every other mode mounts a visual engine and may scan.
           if (props.allowDomScan === false) return;
@@ -308,7 +314,9 @@ window.FBDietUI = (() => {
           contentKids.push(
             createEl('span', { className: 'fb-diet-title-snippet' }, [snippetText])
           );
-          if (!isExpanded) tooltipText = snippetText;
+          if (!isExpanded) {
+            tooltipText = (effectiveMsg && cleanPostSnippet(effectiveMsg, effectiveActor, effectiveGroup, titleBarTooltipLimits())) || snippetText;
+          }
         }
       }
 

@@ -10,10 +10,6 @@
  * here is read from props or from the Relay store through FBDietRelay. The page
  * side lives in `FBDietDOMMetadata`.
  *
- * This is the Phase B foundation (STRATEGY.md, decisions #8/#10): before adding
- * relationship rules (followed page / joined group / friend vs stranger), the
- * probe must surface the real field values first.
- *
  * Public API (window.FBDietRelayMetadata):
  *   collect(classifyResult, props) -> enrichment object | null
  */

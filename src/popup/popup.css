@@ -138,3 +138,8 @@ body {
   border-color: var(--border-hover);
   color: var(--text-on-accent);
 }
+
+/* Direct-feed button sits under Options; same look, stacked with a gap. */
+.feed-btn {
+  margin-top: var(--space-row);
+}

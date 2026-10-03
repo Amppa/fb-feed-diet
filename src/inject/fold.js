@@ -1,38 +1,21 @@
 /**
  * FB Diet - React fold wrapper coordinator (MAIN world)
  *
- * Boot and diagnosis only. This file owns what happens once per page load - the
- * pre-hydration right-rail stylesheet, the Comet registration pass, the settings
- * listener, and the module drift watchdog - and assembles the public
- * window.FBDietFold surface out of its four siblings:
+ * Boot and diagnosis only: right-rail stylesheet, Comet registration pass, settings
+ * listener, drift watchdog, and the window.FBDietFold surface assembled from its four
+ * siblings (fold-config, fold-verdict, fold-observer, fold-components), read at call time.
+ * Decides no category, renders no unit, watches no DOM; badges, bars and probe reports
+ * live in window.FBDietUI / window.FBDietProbe. Naming: docs/conventions.md
  *
- *   fold-config.js      (window.FBDietFoldConfig)      the fold table and every tuning
- *   fold-verdict.js     (window.FBDietFoldVerdict)     scope gate, mode, verdict, report
- *   fold-observer.js    (window.FBDietFoldObserver)    the shared DOM arm
- *   fold-components.js  (window.FBDietFoldComponents)  FoldUnit and its two siblings
- *
- * Nothing here decides a category, renders a unit, or watches the DOM. Group badges,
- * fold bars and probe reports live in their own modules (window.FBDietUI /
- * window.FBDietProbe) and are always read from there. Members are not prefixed with the
- * module's own name, so the module reads window.FBDietUI.TitleBar rather than
- * window.FBDietUI.FBDietTitleBar.
- *
- * Public API (window.FBDietFold): FEED_UNIT_MODULES, HIDE_MODE, FoldUnit, install(),
- * checkModuleDrift(), getStatus()
+ * Public API: FEED_UNIT_MODULES, HIDE_MODE, FoldUnit, install(), checkModuleDrift(),
+ * getStatus()
  */
 window.FBDietFold = (() => {
   'use strict';
 
   const driftState = { warned: false, hookWarned: false };
 
-  /**
-   * Constants delegation: the fold table, hide mode and the two tunings live in
-   * fold-config.js (`window.FBDietFoldConfig`). Every read happens at call time, so
-   * this module never needs its sibling present while it is being evaluated. The
-   * fallbacks are deliberately empty — a missing constants module must make the fold
-   * do nothing rather than wrap modules against a guessed definer path or a guessed
-   * threshold.
-   */
+  /** Constants via fold-config.js at call time; missing module means do nothing. */
   function getConfig() {
     return window.FBDietFoldConfig || {};
   }
@@ -43,14 +26,7 @@ window.FBDietFold = (() => {
     return config.withDefaultDefinerPath();
   }
 
-  /**
-   * Component delegation (fold.js split): the three registered components, the element
-   * helpers and the hydration counters live in fold-components.js
-   * (`window.FBDietFoldComponents`). Only install(), the drift report and getStatus()
-   * read them, and every read is resolved at call time. A missing components module
-   * answers undefined, which registerComponent then refuses - the fold registers
-   * nothing rather than wrapping modules with a component that is not there.
-   */
+  /** Components via fold-components.js at call time; missing module registers nothing. */
   function getComponents() {
     return window.FBDietFoldComponents || {};
   }
@@ -304,7 +280,7 @@ window.FBDietFold = (() => {
     get HIDE_MODE() { return getConfig().HIDE_MODE; },
     get FoldUnit() { return getComponents().FoldUnit; },
     // Pure: takes the props and both DOM verdicts, returns the reconciled one. Exported so the
-    // DOM-override rule can be tested without mounting a feed unit (STRATEGY.md decision #39).
+    // DOM-override rule can be tested without mounting a feed unit. // per STRATEGY.md §1.1
     // A missing verdict module answers null, the same "classification impossible" answer the
     // function already returns when no classifier module is present.
     resolveVerdict(props, domSuggested, domSponsored, opts) {

@@ -171,19 +171,28 @@ window.FBDietDOMMetadata = (() => {
     return false;
   }
 
-  // Max lines joined and max characters kept: a bar is one row, so the snippet
-  // stays a single line no matter how many lines the post has.
-  const SNIPPET_MAX_LINES = 3;
-  const SNIPPET_MAX_CHARS = 140;
+  // TitleBar single-row inline snippet limits:
+  // a bar is one row, so the snippet stays a single line capped at 80 chars.
+  const TITLE_BAR_SNIPPET_MAX_LINES = 10;
+  const TITLE_BAR_SNIPPET_MAX_CHARS = 80;
+  const TITLE_BAR_SNIPPET_LIMITS = { maxLines: TITLE_BAR_SNIPPET_MAX_LINES, maxChars: TITLE_BAR_SNIPPET_MAX_CHARS };
 
-  function cleanPostSnippet(rawText, author, group) {
+  // TitleBar hover tooltip limits:
+  // shows a fuller preview (up to 10 lines and 200 chars).
+  const TITLE_BAR_TOOLTIP_MAX_LINES = 10;
+  const TITLE_BAR_TOOLTIP_MAX_CHARS = 200;
+  const TITLE_BAR_TOOLTIP_LIMITS = { maxLines: TITLE_BAR_TOOLTIP_MAX_LINES, maxChars: TITLE_BAR_TOOLTIP_MAX_CHARS };
+
+  function cleanPostSnippet(rawText, author, group, limits) {
     if (!rawText || typeof rawText !== 'string') return '';
+    const maxLines = limits && typeof limits.maxLines === 'number' ? limits.maxLines : TITLE_BAR_SNIPPET_MAX_LINES;
+    const maxChars = limits && typeof limits.maxChars === 'number' ? limits.maxChars : TITLE_BAR_SNIPPET_MAX_CHARS;
     // Multi-line posts: join the first meaningful lines so a title bar built from
     // the store alone still reads past a one-word opener ("#這邊", "節錄：").
     // Lines carrying nothing but punctuation/whitespace (".", "……") are paragraph
     // spacers, not content.
     const lines = rawText.split('\n').map((l) => l.trim()).filter((l) => l && !/^[\p{P}\s]+$/u.test(l));
-    let text = lines.slice(0, SNIPPET_MAX_LINES).join(' ');
+    let text = lines.slice(0, maxLines).join(' ');
     if (author) {
       const esc = author.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       text = text.replace(new RegExp('^' + esc + '[:\\s·•]*', 'i'), '');
@@ -196,7 +205,7 @@ window.FBDietDOMMetadata = (() => {
     text = text.replace(/^[·•\s]*(追蹤|Follow|關注|加入|Join)[·•\s]*/i, '');
     // Strip trailing translation notice
     text = text.replace(/[·•\s]*(查看原文|為此翻譯評分|See original|Rate this translation)[\s\S]*$/i, '').trim();
-    if (text.length > SNIPPET_MAX_CHARS) text = text.slice(0, SNIPPET_MAX_CHARS).trim() + '…';
+    if (text.length > maxChars) text = text.slice(0, maxChars).trim() + '…';
     return text.trim();
   }
 
@@ -758,6 +767,11 @@ window.FBDietDOMMetadata = (() => {
   return {
     collect: collectDomMetadata,
     cleanPostSnippet,
+    titleBarSnippetLimits: TITLE_BAR_SNIPPET_LIMITS,
+    titleBarTooltipLimits: TITLE_BAR_TOOLTIP_LIMITS,
+    // Compatibility aliases
+    snippetLimits: TITLE_BAR_SNIPPET_LIMITS,
+    tooltipSnippetLimits: TITLE_BAR_TOOLTIP_LIMITS,
     extractAuthorFromDom,
     extractPostTitleFromDom,
     extractMessageFromDom,

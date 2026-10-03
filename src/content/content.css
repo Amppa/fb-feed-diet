@@ -44,7 +44,7 @@
   letter-spacing: 0.2px !important;
 }
 
-/* Specific Badge Types (one per user-facing group, STRATEGY.md decision #8) */
+/* Specific Badge Types (one per user-facing group, per docs/architecture.md) */
 .fb-diet-badge-ads {
   background: rgba(239, 68, 68, 0.12) !important;
   color: #ef4444 !important;

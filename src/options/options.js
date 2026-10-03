@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Settings keys owned by the Appearance Settings section; the Defaults button
-  // restores exactly these from FB_DIET_DEFAULTS.SETTINGS (STRATEGY.md decision #27).
+  // restores exactly these from FB_DIET_DEFAULTS.SETTINGS. // per docs/architecture.md
   // The Detection Source select now lives in this section, so "Defaults" covers it too.
   const APPEARANCE_KEYS = ['restrictFoldScope', 'alwaysShowFoldBar', 'showTitleMode', 'tooltipMode', 'minimizedFoldMode', 'dietMode', 'debugProbe'];
 

@@ -1,21 +1,6 @@
 /**
- * FB Diet - Relay store reader (MAIN world)
- *
- * Feed unit metadata (sponsored_data.ad_id, subscribe_status, viewer_forum_join_state,
- * showcase_story_type, story_header) only exists inside the Relay store, not in the DOM.
- * This module captures that store so the classifier can read it.
- *
-  * The reference implementation used to grab the store by rewriting the source string of
- * relay-runtime/store/RelayPublishQueue (which needs an inline <script> and is therefore
- * subject to the page CSP). FB Diet instead wraps the exported class of
- * relay-runtime/mutations/RelayRecordSourceProxy with a Proxy construct trap, and every store
- * instance Relay commits is remembered, with no eval and no source rewriting.
- *
- * Public API (window.FBDietRelay):
- *   read(recordIds, path, options)   -> value | null
- *   readFirst(recordIds, paths)      -> value | null
- *   isReady() / getSourceCount() / getLastError()
- *   getCaptureStats() -> how far the capture got (see the capture counters below)
+ * FB Diet - Relay store reader: captures the store via Proxy construct
+ * trap (no eval, no source rewrite, CSP-safe) so the classifier can read it.
  */
 window.FBDietRelay = (() => {
   'use strict';
@@ -30,15 +15,7 @@ window.FBDietRelay = (() => {
   let installed = false;
   let lastError = null;
 
-  /**
-   * Capture diagnostics, reported by probe v6 as `relay.capture`. A zero
-   * `sourceCount` is meaningless on its own; the first counter that stays at zero says
-   * which link of the chain (hook -> exports -> wrap -> construct -> accept) broke.
-   *
-   * The probe therefore emits this block only when the capture is unhealthy (decision #45),
-   * so an absent `capture` beside a populated `sourceCount` is the healthy reading rather
-   * than missing evidence.
-   */
+  /** Capture diagnostics (`relay.capture`); emitted only when unhealthy. // per docs/debugging.md */
   const capture = {
     hooked: 0,          // the factory hook fired for RELAY_PROXY_MODULE
     noExports: 0,       // comet.js handed the hook a null exports object
@@ -83,7 +60,7 @@ window.FBDietRelay = (() => {
     // Wake-up broadcast: units that rendered before the first store capture resolved
     // to `no-unit-id` / regular. They have no other re-render trigger, so the first
     // capture wakes them for a re-verdict. Event bus only (no DOM reads), so the
-    // relay zero-DOM invariant (decision #40) still holds.
+    // relay zero-DOM invariant still holds. // per STRATEGY.md §1
     if (!wasReady && typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
       try {
         window.dispatchEvent(new CustomEvent('fb-diet:relay-ready', {
@@ -93,16 +70,7 @@ window.FBDietRelay = (() => {
     }
   }
 
-  /**
-   * Captures the store through the prototype instead of the constructor.
-   *
-   * The construct trap is not enough on a real page: Facebook builds the Relay store while
-   * the module is still being evaluated, so no instance is ever created through our Proxy
-   * (`constructs: 0` while `applied: true` — the class really is ours, it is simply never
-   * `new`ed again afterwards). Patching `prototype.get` sidesteps the ordering entirely:
-   * the first read of any record passes the store as `this`, and a store that already exists
-   * is captured just as well as one built later.
-   */
+  /** Prototype fallback: construct trap misses pre-built stores; first get() captures. */
   function patchPrototype(Original) {
     const proto = Original && Original.prototype;
     if (!proto || typeof proto.get !== 'function') return false;

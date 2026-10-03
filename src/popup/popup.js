@@ -110,6 +110,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.runtime.openOptionsPage();
   });
 
+  // Open Facebook's built-in chronological feed in a new tab.
+  const feedBtn = document.getElementById('feedBtn');
+  if (feedBtn) {
+    feedBtn.addEventListener('click', () => {
+      const url = 'https://www.facebook.com/?filter=all&sk=h_chr';
+      if (chrome && chrome.tabs && typeof chrome.tabs.create === 'function') {
+        chrome.tabs.create({ url });
+      } else {
+        window.open(url, '_blank');
+      }
+    });
+  }
+
   // Handle Reset button
   const resetBtn = document.getElementById('resetBtn');
   if (resetBtn) {

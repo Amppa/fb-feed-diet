@@ -39,7 +39,7 @@ function setup() {
   win.FBDietRelayClassify.setRelayReader(() => null);
 
   // This suite is about the shared observer, and the sponsorship detector now shares the
-  // same arm (decision #39 needs no dedicated scanner of its own). Removing the module keeps
+  // same arm (STRATEGY.md §1.1 needs no dedicated scanner of its own). Removing the module keeps
   // the slot math to the two under test (suggested + surface); the sponsorship slot has its
   // own suite (tests/sponsored-scanner.test.js).
   delete win.FBDietDOMSponsored;

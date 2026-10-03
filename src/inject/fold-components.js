@@ -1,23 +1,6 @@
 /**
- * FB Diet - React fold components (MAIN world)
- *
- * Owns the three components the Comet hook registers - FoldUnit, SideAdHidden and
- * RightRailUnitWrapper - together with the element helpers and the fold-nesting React
- * context they share, and the hydration counters they report. Split out of fold.js;
- * this file decides nothing and registers nothing.
- *
- * Siblings it calls: fold-verdict.js (window.FBDietFoldVerdict) for the scope gate,
- * the title rule, the mode resolution, the verdict and the counter report, and
- * fold-observer.js (window.FBDietFoldObserver) for the shared DOM arm. Every read is
- * resolved at call time, so this file declares no load order.
- * Members are not prefixed with the module own name, so the module reads
- * window.FBDietFoldComponents.FoldUnit rather than
- * window.FBDietFoldComponents.FBDietFoldUnit.
- *
- * FBDietContext lives here and must stay here: FoldUnit reads it and
- * wrapWithFoldContext writes it. That is one React context object - moving either side
- * to another file would leave the provider and the reader holding two different contexts,
- * and the nesting guard would silently stop working.
+ * React fold components: FoldUnit, SideAdHidden, RightRailUnitWrapper.
+ * Reads fold-verdict.js / fold-observer.js at call time; FBDietContext stays here for nesting guard.
  */
 window.FBDietFoldComponents = (() => {
   'use strict';
@@ -46,28 +29,21 @@ window.FBDietFoldComponents = (() => {
     return window.FBDietProbe || {};
   }
 
-  /**
-   * Verdict delegation (fold.js split): the fold-scope gate, the title rule, the mode
-   * resolution, the DOM staged pipeline and the counter report shape live in
-   * fold-verdict.js (`window.FBDietFoldVerdict`). These wrappers keep the internal call
-   * sites in one shape while the split is in flight. Every fallback degrades to "do
-   * nothing" and copies no real rule: a missing verdict module must leave the unit
-   * rendered untouched rather than classify it against a guessed mode or a guessed title.
-   */
+  /** Verdict delegation to fold-verdict.js; missing module degrades to do-nothing. */
   function getVerdict() {
     return window.FBDietFoldVerdict || {};
   }
 
-  function resolveShowTitle(settings, expanded) {
+  function shouldShowTitle(settings, expanded) {
     const verdict = getVerdict();
-    if (typeof verdict.resolveShowTitle !== 'function') return !expanded;
-    return verdict.resolveShowTitle(settings, expanded);
+    if (typeof verdict.shouldShowTitle !== 'function') return !expanded;
+    return verdict.shouldShowTitle(settings, expanded);
   }
 
-  function detectionMode(settings) {
+  function resolveDetectionMode(settings) {
     const verdict = getVerdict();
-    if (typeof verdict.detectionMode !== 'function') return undefined;
-    return verdict.detectionMode(settings);
+    if (typeof verdict.resolveDetectionMode !== 'function') return undefined;
+    return verdict.resolveDetectionMode(settings);
   }
 
   function isFoldScopeBlocked(settings) {
@@ -82,10 +58,10 @@ window.FBDietFoldComponents = (() => {
     return verdict.resolveVerdict(props, domSuggested, domSponsored, opts);
   }
 
-  function verdictReport(props, verdict) {
+  function buildVerdictReport(props, verdict) {
     const module = getVerdict();
-    if (typeof module.verdictReport !== 'function') return null;
-    return module.verdictReport(props, verdict);
+    if (typeof module.buildVerdictReport !== 'function') return null;
+    return module.buildVerdictReport(props, verdict);
   }
 
   function createEl(type, props, children) {
@@ -97,21 +73,16 @@ window.FBDietFoldComponents = (() => {
     return comet.createElement(React, type, props, children);
   }
 
-  function addProbe(element, props, verdict, reads) {
+  function mountProbe(element, props, verdict, relayReads) {
     const probe = getProbe();
-    if (typeof probe.addProbe === 'function') {
-      return probe.addProbe(element, props, verdict, reads);
+    const mount = probe.mountProbe || probe.addProbe;
+    if (typeof mount === 'function') {
+      return mount.call(probe, element, props, verdict, relayReads);
     }
     return element;
   }
 
-  /**
-   * Observer delegation (fold.js split): the shared three-slot DOM observer lives in
-   * fold-observer.js (`window.FBDietFoldObserver`). A missing observer module answers
-   * undefined, which is the effect's own "nothing was scheduled" contract, so the unit
-   * simply keeps its render-time verdict instead of paying for an observer with no
-   * schedule behind it.
-   */
+  /** Observer delegation to fold-observer.js; missing answers undefined (nothing scheduled). */
   function getObserver() {
     return window.FBDietFoldObserver || {};
   }
@@ -137,13 +108,8 @@ window.FBDietFoldComponents = (() => {
     return wrapWithFoldContext(React, FoldContext, [bar, expandedBody]);
   }
 
-  /**
-   * Folded unit: notice bar plus the original tree squashed into 1x1 (never unmounted).
-   * The squash exists so IntersectionObserver still counts the unit as visible, which keeps
-   * Facebook's own windowing from unmounting it (STRATEGY.md). Setting
-   * `window.__fbDietHideMode = 'none'` from the page console swaps in a real display:none
-   * hide, which lets media/DOM under folded posts be released for memory comparison.
-   */
+  /** Folded: bar + 1x1 squashed tree (never unmounted) so IntersectionObserver stays visible. // per docs/architecture.md */
+  /** __fbDietHideMode='none' swaps in display:none for memory comparison. */
   function renderFoldedView(React, FoldContext, bar, rendered, containerRef) {
     const hideClass = (typeof window !== 'undefined' && window.__fbDietHideMode === 'none')
       ? 'fb-diet-fold-hidden'
@@ -161,9 +127,7 @@ window.FBDietFoldComponents = (() => {
     return wrapWithFoldContext(React, FoldContext, [bar, hidden]);
   }
 
-  /**
-   * The component that replaces a matched feed unit.
-   */
+  /** Replaces a matched feed unit. */
   function FoldUnit(props) {
     const rendered = props.lastCmp;
     const React = window.FBDietComet ? window.FBDietComet.getReact() : null;
@@ -175,15 +139,10 @@ window.FBDietFoldComponents = (() => {
 
     const [tick, setTick] = typeof React.useState === 'function' ? React.useState(0) : [0, function noop() {}];
     const [isHydrated, setIsHydrated] = typeof React.useState === 'function' ? React.useState(false) : [true, function noop() {}];
-    // The three DOM detection slots converge in one state: a hit in one slot must never
-    // disturb the others, and the effect below re-arms only for the slots still open.
-    // Kept as slots (not a single verdict) because the render path and the probe each need
-    // the per-detector evidence shapes, not just the winning category.
+    // Three DOM slots converge in one state; per-detector evidence kept for render/probe.
     const [domScan, setDomScan] = typeof React.useState === 'function' ? React.useState({ suggested: null, sponsored: null, surface: null }) : [{ suggested: null, sponsored: null, surface: null }, function noop() {}];
     const containerRef = (React && typeof React.useRef === 'function') ? React.useRef(null) : { current: null };
-    // Set when the relay verdict was undecided because the store was not captured yet.
-    // The relay-ready broadcast clears it via a re-render; a plain boolean ref (not state)
-    // so marking it never schedules a render by itself.
+    // Pending store-not-ready flag: boolean ref cleared by relay-ready broadcast.
     const pendingStoreRef = (React && typeof React.useRef === 'function') ? React.useRef(false) : { current: false };
 
     if (typeof React.useEffect === 'function') {
@@ -220,33 +179,22 @@ window.FBDietFoldComponents = (() => {
       }, []);
     }
 
-    // Merges one detector result into the converged scan state. Object-spread (not a
-    // functional update) because the unit-test harness stores setState values as-is.
+    // Merge one detector result; object-spread for test-harness setState shape.
     const mergeScan = (slot, detected) => {
       setDomScan(Object.assign({}, domScan, { [slot]: detected }));
     };
 
     if (typeof React.useEffect === 'function') {
       React.useEffect(() => {
-        // isHydrated is a dependency on purpose: this effect has to run *after* the hydration
-        // commit, because that is the commit which mounts the wrapper carrying containerRef
-        // (during the SSR-shaped pass the unit returns its original tree and the ref stays
-        // null, so an observer set up earlier would attach to nothing).
-        // isNested never changes; it only keeps nested units from scheduling work for a
-        // container that is never attached.
+        // Run after hydration commit (ref mounted); nested units never schedule work.
         if (!isHydrated || isNested) return;
         const bridge = window.FBDietBridge;
         if (bridge && typeof bridge.getSettings === 'function') {
           const currentSettings = bridge.getSettings();
-          // 'dom' is the sole authority of its mounted-DOM engine (STRATEGY.md decision #40):
-          // a mode that mounted none of the detectors would be blind. One shared observer
-          // watches whatever slots are still open; each fill re-runs this effect, which
-          // tears the old observer down and re-arms for the narrower remainder.
-          const mode = detectionMode(currentSettings);
+          // 'dom' owns its engine: one observer re-arms for still-open slots. // per STRATEGY.md §1
+          const mode = resolveDetectionMode(currentSettings);
           if (mode === 'dom') {
-            // Stage-1 short-circuit: a props-decided ad can never be outranked by anything
-            // the DOM could say, so mounting an observer for it would cost an observer and
-            // seven timers per unit for nothing.
+            // Stage-1 short-circuit: props-decided ad never needs an observer.
             if (!props.entryCategory && props.payload) {
               const classify = window.FBDietRelayClassify;
               if (classify && typeof classify.adVerdictFromProps === 'function') {
@@ -261,10 +209,7 @@ window.FBDietFoldComponents = (() => {
             }
             // A decided sponsorship is likewise unbeatable from this side.
             if (domScan.sponsored && domScan.sponsored.isSponsored) return;
-            // A module-declared category is structural (this IS the tray / side ad), so the
-            // surface and suggested slots can never change the verdict — only the
-            // unconditional sponsorship override still can (decision #39). Arm the sponsored
-            // slot alone instead of sweeping all three detectors per pass.
+            // Declared category is structural; arm sponsored slot alone. // per STRATEGY.md §1.1
             const entryDeclared = Boolean(props.entryCategory);
             const skip = {
               suggested: entryDeclared || Boolean(domScan.suggested && domScan.suggested.isSuggested),
@@ -274,8 +219,7 @@ window.FBDietFoldComponents = (() => {
             if (skip.suggested && skip.sponsored && skip.surface) return;
             return setupDomObserver(containerRef, {
               skip,
-              // A decided surface IS a tray, so the veto is already proven without a walk.
-              // A declared entry category is structural for the same reason.
+              // Decided surface / declared category already proves veto without a walk.
               vetoYes: entryDeclared || Boolean(domScan.surface && domScan.surface.isSurface),
               onResult: (slot, detected) => {
                 mergeScan(slot, detected);
@@ -295,20 +239,15 @@ window.FBDietFoldComponents = (() => {
       if (!bridge) return rendered;
 
       const settings = bridge.getSettings();
-      // If disabled, let original render untouched
       if (!settings.enabled) return rendered;
 
-      // Fold scope (STRATEGY.md decision #26): outside the allowlisted surfaces skip
-      // classification, counters, logs and fold bars entirely. Probe stays available
-      // with a null classify result.
+      // Fold scope: outside allowlist skip everything; probe stays with null. // per docs/architecture.md
       if (isFoldScopeBlocked(settings)) {
-        return addProbe(rendered, props, null, null);
+        return mountProbe(rendered, props, null, null);
       }
 
-      // The pipeline split lives here and nowhere else (decision #40). 'dom' skips the data
-      // engine entirely: the store classifier is never called for the unit, so there is no Relay
-      // read, no store-id requirement and no dependence on the classifier answering 'regular'.
-      const mode = detectionMode(settings);
+      // Pipeline split: 'dom' skips data engine entirely, no Relay read. // per STRATEGY.md §1
+      const mode = resolveDetectionMode(settings);
       const skipDataEngine = mode === 'dom';
       const verdict = resolveVerdict(props, domScan.suggested, domScan.sponsored, { skipDataEngine, domSurface: domScan.surface });
       if (!verdict) return rendered;
@@ -316,41 +255,27 @@ window.FBDietFoldComponents = (() => {
       const verdictCategory = verdict.category;
       const unitId = verdict.unitId;
       const store = verdict.store;
-      const reads = verdict.reads;
+      const relayReads = verdict.reads;
 
-      // Only the DISPLAYED category is substituted, and the verdict itself is left alone: an
-      // undecided unit shows as `regular` because that is the group it counts towards, while
-      // `category: null` with `source: 'dom'` is what the report has to say instead — "the engine
-      // looked and found nothing" and "this is a regular post" are different facts.
+      // Only DISPLAYED category substituted; verdict left alone (display-vs-verdict).
       const category = verdict.display.category;
 
       if (mode === 'relay' && !verdictCategory) {
-        // The store could not identify this unit at all (`no-unit-id`), so there is no category to
-        // display, no fold bar to show and nothing the counters could file. Render it untouched and
-        // hand the verdict to the report, which is where "we could not classify this" belongs.
-        //
-        // `dom` mode is not here: an undecided unit there displays as `regular` (it has to be
-        // counted against something) and renders the ordinary regular bar, so the diagnostic mode
-        // can see a unit its engine looked at and did not fold.
-        //
-        // Store-not-ready yet (vs genuinely unidentifiable): skip the regular report so the
-        // relay-ready wake-up does not double-count regular-then-blocked, and mark the unit
-        // pending so the broadcast re-renders it once the store lands.
+        // No-unit-id in relay: render untouched, hand verdict to report.
+        // Store-not-ready: skip report, mark pending for relay-ready re-render.
         const relay = window.FBDietRelay;
-        // No relay module (unit-test harness, partially loaded MAIN world): behave as before
-        // and report regular — no wake-up will ever arrive, so pending would leak.
+        // No relay module (tests): report regular, pending would leak with no wake-up.
         const relayReady = !relay || typeof relay.isReady !== 'function' || relay.isReady();
         if (!relayReady) {
           pendingStoreRef.current = true;
-          return addProbe(rendered, props, verdict, reads);
+          return mountProbe(rendered, props, verdict, relayReads);
         }
         pendingStoreRef.current = false;
-        if (typeof bridge.reportRegular === 'function') bridge.reportRegular(store || verdictReport(props, verdict));
-        return addProbe(rendered, props, verdict, reads);
+        if (typeof bridge.reportRegular === 'function') bridge.reportRegular(store || buildVerdictReport(props, verdict));
+        return mountProbe(rendered, props, verdict, relayReads);
       }
 
-      // A resolved relay verdict clears the pending flag: the wake-up has served its purpose
-      // (or was never needed because the store was already captured).
+      // Resolved relay verdict clears pending flag.
       if (mode === 'relay') {
         pendingStoreRef.current = false;
       }
@@ -364,14 +289,14 @@ window.FBDietFoldComponents = (() => {
 
       // Report counters: any folded unit counts toward blocked/filtered
       if (isFolded) {
-        bridge.reportBlocked(verdictReport(props, verdict));
+        bridge.reportBlocked(buildVerdictReport(props, verdict));
       } else if (category === 'regular') {
         if (typeof bridge.reportRegular === 'function') {
-          bridge.reportRegular(store || verdictReport(props, verdict));
+          bridge.reportRegular(store || buildVerdictReport(props, verdict));
         }
       } else {
         if (typeof bridge.reportAllowed === 'function') {
-          bridge.reportAllowed(verdictReport(props, verdict));
+          bridge.reportAllowed(buildVerdictReport(props, verdict));
         }
       }
 
@@ -380,39 +305,30 @@ window.FBDietFoldComponents = (() => {
           bridge.toggle(unitId);
           setTick(tick + 1);
         } catch (e) {
-          // Ignore
         }
       };
 
-      // When unfolded and alwaysShowFoldBar is disabled, return native render cleanly without any bar
       const keepBar = settings.alwaysShowFoldBar !== false;
       if (!isFolded && !keepBar) {
         if (mode === 'dom' && !domScan.suggested) {
           const wrapped = createEl('div', { ref: containerRef, className: 'fb-diet-full-container', style: { display: 'contents' } }, [rendered]);
-          return addProbe(wrapped || rendered, props, verdict, reads);
+          return mountProbe(wrapped || rendered, props, verdict, relayReads);
         }
-        return addProbe(rendered, props, verdict, reads);
+        return mountProbe(rendered, props, verdict, relayReads);
       }
 
       const ui = getUI();
       const isMini = Boolean(settings.minimizedFoldMode);
-      const showTitle = resolveShowTitle(settings, !isFolded);
-      // Hover tooltip mode for the bar ('off' / 'native' / 'custom', default
-      // 'custom'). Normalized here so TitleBar sees one vocabulary; an unknown
-      // stored value falls back to the schema default.
+      const showTitle = shouldShowTitle(settings, !isFolded);
+      // Tooltip mode normalized here for TitleBar.
       const defaults = window.FB_DIET_DEFAULTS;
       const tooltipMode = defaults && typeof defaults.normalizeTooltipMode === 'function'
         ? defaults.normalizeTooltipMode(settings.tooltipMode)
         : (settings.tooltipMode === 'off' || settings.tooltipMode === 'custom' ? settings.tooltipMode : 'native');
-      // The relay mode keeps its no-DOM-scan invariant (STRATEGY.md decision #36): the bar
-      // renders Relay-sourced title text only, so the title bar skips its subtree scanner.
-      // 'dom' allows it — there it is the only title source there is.
+      // Relay keeps no-DOM-scan invariant; 'dom' allows title scan. // per docs/architecture.md
       const allowDomScan = mode === 'dom';
 
-      // Only collect metadata if showTitle is enabled to save work, and only where a store result
-      // exists: `FBDietRelayMetadata.collect` derives the record ids it reads from that result, so
-      // handing it a `dom`-mode verdict would either do nothing or reach the store with a key that
-      // was never a record id. In `dom` mode the title bar reads the DOM instead.
+      // Enrichment only with store result (record ids); 'dom' reads DOM instead.
       const enrichment = (showTitle && store && window.FBDietRelayMetadata)
         ? window.FBDietRelayMetadata.collect(store, props)
         : null;
@@ -436,20 +352,18 @@ window.FBDietFoldComponents = (() => {
       );
 
       if (!isFolded) {
-        // Unfolded with top bar
-        return addProbe(
+        return mountProbe(
           renderExpandedView(React, FoldContext, bar, rendered, containerRef),
           props,
           verdict,
-          reads
+          relayReads
         );
       }
 
-      // Folded: bar plus the 1x1 squashed original tree, or the untouched render when the
-      // bar / squash container could not be created.
+      // Folded bar + squashed tree, else untouched render.
       const folded = renderFoldedView(React, FoldContext, bar, rendered, containerRef);
       if (!folded) return rendered;
-      return addProbe(folded, props, verdict, reads);
+      return mountProbe(folded, props, verdict, relayReads);
     } catch (e) {
       return rendered;
     }
@@ -478,8 +392,7 @@ window.FBDietFoldComponents = (() => {
     const settings = bridge.getSettings();
     if (!settings.enabled || settings.foldAds === false) return rendered;
 
-    // Pure visual hide: independent of restrictFoldScope and never counted or logged
-    // (STRATEGY.md decision #26). Empty hidden node, no placeholder, no unfold.
+    // Pure visual hide, never counted/logged. // per docs/architecture.md
     return createEl('div', { className: 'adhidden fb-diet-side-ad-hidden', style: { display: 'none' } }, []);
   }
 
@@ -506,8 +419,7 @@ window.FBDietFoldComponents = (() => {
     FoldUnit,
     SideAdHidden,
     RightRailUnitWrapper,
-    // The live object, not a copy: getStatus().hydration reports what the components
-    // have committed so far, so a snapshot would freeze it at the first read.
+    // Live object: hydration reports committed counts so far.
     get hydration() {
       return hydrationStats;
     }

@@ -1,17 +1,7 @@
 /**
- * FB Diet - shared DOM observation (MAIN world)
- *
- * Owns stage 3 of the DOM pipeline: the three-slot precedence order, the one shared
- * observer per mounted unit, the coalescing throttle, the streaming-Suspense retry
- * ladder, the hard timeout and the tray veto. Split out of fold.js; this file holds no
- * verdict and renders nothing.
- *
- * Siblings it calls: fold-config.js (window.FBDietFoldConfig) for the three scan
- * tunings. Every other module reads it, and it reads only FB_DIET_DEFAULTS and the
- * window.FBDietDOM* detectors by name, so it declares no load order.
- * Members are not prefixed with the module own name, so the module reads
- * window.FBDietFoldObserver.setupDomObserver rather than
- * window.FBDietFoldObserver.FBDietSetupDomObserver.
+ * FB Diet - shared DOM observation: three slots, one observer,
+ * coalescing throttle, retry ladder, hard timeout, tray veto.
+ * Naming: docs/conventions.md
  */
 window.FBDietFoldObserver = (() => {
   'use strict';
@@ -20,13 +10,7 @@ window.FBDietFoldObserver = (() => {
     return window.FBDietFoldConfig || {};
   }
 
-  /**
-   * The three DOM detection slots, in the precedence order each observation round applies.
-   * Surface (structural) precedes suggested (content cues) so a tray tile carrying buttons
-   * never reads as a suggestion (misclassification #8); sponsorship is evaluated in the same
-   * round but applied as an unconditional override at convergence (decision #39), never by
-   * first-hit-wins.
-   */
+  /** Three DOM slots in precedence order. // per STRATEGY.md §1.1 */
   const DOM_SCAN_SLOTS = [
     { slot: 'surface', detectorName: 'FBDietDOMSurface', hitKey: 'isSurface' },
     { slot: 'suggested', detectorName: 'FBDietDOMSuggested', hitKey: 'isSuggested' },
@@ -34,37 +18,11 @@ window.FBDietFoldObserver = (() => {
   ];
 
   /**
-   * Watches a mounted unit for streaming DOM that the render-time verdict could not see
-   * (Comet renders posts while Suspense resolves them). Armed in `dom` mode only.
-   *
-   * Stage 3 of the DOM pipeline: every entry point — the retry ladder, a MutationObserver
-   * burst, an IntersectionObserver callback — funnels through `schedule`, so a busy post
-   * costs one detection pass per throttle window instead of one per mutation batch.
-   * The hard timeout calls `stop()`, and stopping is final: observers are disconnected,
-   * the pending scan and the ladder are cleared, and `finished` keeps a late mutation from
-   * re-arming any of it (a folded unit stays mounted for the life of the tab, so nothing
-   * else would stop it).
-   *
-   * One observer serves all unfilled slots (`options.skip` names the slots that already
-   * answered — a missing detector module counts as answered, since it can never fire).
-   * A slot that answers is reported once via `options.onResult(slot, detected)` and then
-   * silenced for the rest of this arm; the observer itself keeps watching the remaining
-   * slots until the timeout. The caller re-arms (a fresh arm with a narrower skip set)
-   * when new results land, so no slot ever starves because another one answered first.
-   *
-   * Two bailouts keep virtual-scroll and skeleton renders cheap. Both skip the pass
-   * without stopping: stopping is final, and a node that is merely not ready yet must
-   * still be there when the next ladder rung fires.
-   *   - detached: `el.isConnected === false` (virtual scroll recycled the node).
-   *   - skeleton: at most one child element and no text yet (Suspense placeholder).
-   *
-   * A tray veto (`options.vetoYes`, or computed once per round) skips the suggested sweep
-   * outright: a tray satisfies every "looks like a cue" heuristic at once, so running the
-   * five scans on it is pure waste. The veto is cached only when positive — a negative on
-   * a skeleton may simply mean the tray has not streamed in yet, so it is re-checked.
-   *
-   * Returns the effect cleanup function, or undefined when the synchronous first pass
-   * already filled every armed slot and nothing had to be scheduled.
+   * Watch streaming DOM `dom` mode missed (Suspense). Entries funnel via
+   * `schedule`: one pass per throttle window. // per STRATEGY.md §1.2
+   * Stopping is final: observers disconnected, timers cleared, `finished`
+   * blocks re-arm (folded units stay mounted; must disconnect or leak).
+   * One observer serves unfilled slots; answered slots silenced, caller re-arms narrower.
    */
   function setupDomObserver(containerRef, options) {
     const config = getConfig();
@@ -72,9 +30,7 @@ window.FBDietFoldObserver = (() => {
     const scanTimeoutMs = config.DOM_SCAN_TIMEOUT_MS;
     const scanThrottleMs = config.DOM_SCAN_THROTTLE_MS;
 
-    // The retry ladder, the coalescing window and the hard timeout all come from the
-    // constants module. Without them there is no schedule to run, so the arm watches
-    // nothing at all rather than inventing one.
+    // No tunings = no schedule; watch nothing rather than invent one.
     if (!Array.isArray(scanDelays) || typeof scanTimeoutMs !== 'number' || typeof scanThrottleMs !== 'number') {
       return undefined;
     }
@@ -90,9 +46,7 @@ window.FBDietFoldObserver = (() => {
       return Boolean(detector && typeof detector.detect === 'function');
     });
 
-    // Nothing to watch: no observer, no timers — the effect cleanup stays undefined.
-    // A detector module that never loaded can never fire, so arming its observer and timer
-    // ladder would cost an observer and seven timers per unit for nothing.
+    // Nothing to watch: no observer, no timers.
     if (!armed.length) return undefined;
 
     let observer = null;
@@ -206,8 +160,7 @@ window.FBDietFoldObserver = (() => {
       return filled;
     };
 
-    // The synchronous first pass. Slots it fills never cost a timer; the rest fall
-    // through to the ladder below.
+    // Sync first pass; unfilled slots fall through to the ladder.
     check();
     const remaining = armed.some((entry) => !reported[entry.slot]);
     if (!remaining) {
@@ -215,13 +168,9 @@ window.FBDietFoldObserver = (() => {
       return undefined;
     }
 
-    // Fallback timer ladder for streaming Suspense. These check directly: the delays are
-    // already spread out, and the first pass must not wait for a throttle window.
+    // Fallback ladder for streaming Suspense; checks run directly.
     ladder = scanDelays.map((delay) => {
       const timer = setTimeout(check, delay);
-      // Defensive only: a Node Timeout object would keep an event loop alive, but the browser
-      // returns a number and this repo's harness records timers without ever running them, so
-      // the guard is a no-op in every environment the module is loaded in today.
       if (timer && typeof timer.unref === 'function') timer.unref();
       return timer;
     });

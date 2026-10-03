@@ -408,7 +408,7 @@ function run(c) {
   // the byline (header/h2-h5 subtree). The field says no — the real card in
   // tests/fixtures/dom-sponsored/closed-shadow-root-label.json carries its /ads/about/ link
   // as a SIBLING of the author h4, not inside any heading, so the gate missed a real ad
-  // (decision #39 territory: a miss here costs the reader an advertisement). Byline scoping
+  // (STRATEGY.md §1.1 territory: a miss here costs the reader an advertisement). Byline scoping
   // stays an open idea, but heading-subtree scoping is falsified; what survives is the host
   // pin below, which is pure win with no field cost.
   {

@@ -1,7 +1,4 @@
-/**
- * FB Diet - Background Service Worker
- * Manages initial extension state, settings persistence, and count synchronization.
- */
+/** FB Diet - Background Service Worker: settings + counts sync. */
 
 try {
   importScripts('../shared/defaults.js');
@@ -15,7 +12,6 @@ const FACEBOOK_URL_PATTERNS = ['*://*.facebook.com/*'];
 
 const DEFAULT_COUNTS = (globalThis.FB_DIET_DEFAULTS && globalThis.FB_DIET_DEFAULTS.COUNTS) || {};
 
-// Initialize settings and counts on install/update
 chrome.runtime.onInstalled.addListener(async () => {
   const data = await chrome.storage.local.get(['settings', 'counts']);
   const mergedSettings = Object.assign({}, DEFAULT_SETTINGS, data.settings || {});
@@ -28,14 +24,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   pushSettingsToFacebookTabs(mergedSettings);
 });
 
-/**
- * Pushes the current settings straight into the MAIN world of every open Facebook tab.
- *
- * MAIN world scripts have no chrome.* access, so this is the authoritative settings path.
- * The content script independently observes the same storage write and forwards it over
- * postMessage, which covers tabs where the extension was reloaded and service worker
- * injection is not available. One storage write therefore triggers exactly one fan-out.
- */
+/** Fan-out settings to MAIN world of every Facebook tab (authoritative path). */
 async function pushSettingsToFacebookTabs(providedSettings) {
   let settings = providedSettings;
   if (!settings) {
@@ -71,18 +60,11 @@ async function pushSettingsToFacebookTabs(providedSettings) {
   }
 }
 
-// Keep every open Facebook tab in sync when a switch changes
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.settings) pushSettingsToFacebookTabs(changes.settings.newValue);
 });
 
-/**
- * Fresh counter row for today. Every load path declares defaults.js first (the manifest
- * `scripts` array, the service worker's `importScripts`, and Firefox's `scripts` array), but the
- * two DEFAULT_* constants above deliberately fail open to `{}` — this must not be the one call
- * that throws, because a throw would leave the popup/options Reset button waiting for a
- * response that never arrives.
- */
+/** Fresh counter row for today; never throws (Reset button waits on it). */
 function resetCounts() {
   const defaults = globalThis.FB_DIET_DEFAULTS;
   const date = defaults && typeof defaults.getTodayDateString === 'function'
@@ -92,20 +74,10 @@ function resetCounts() {
   return { ...DEFAULT_COUNTS, date };
 }
 
-/**
- * Nothing readable from the page: a chrome:// tab, a mid-navigation frame, or a Facebook page
- * that the extension was never injected into. `present` is absent rather than false because the
- * distinction between "no answer" and "no FB Diet here" belongs to the page, not to the failure.
- */
+/** No answer from page (chrome://, mid-navigation, never injected). */
 const unavailable = { available: false };
 
-/**
- * The version of the extension that is installed right now.
- *
- * `getManifest()` is the only live source: after an update or a manual reload the manifest is
- * the new one, while every tab that was already open keeps running the build that was injected
- * into it. Fails open to null — a version nobody can read must not invent a mismatch.
- */
+/** Installed version via getManifest(); fails open to null. */
 function readInstalledVersion() {
   try {
     const manifest = chrome.runtime.getManifest();
@@ -116,18 +88,8 @@ function readInstalledVersion() {
 }
 
 /**
- * Reads whether one tab can actually fold right now, and which build it is running.
- *
- * The master switch in chrome.storage is user *intent*; the __d hook in the MAIN world is the
- * *ability* to honour it. They diverge whenever the switch was turned on after the page loaded,
- * because the hook cannot retroactively intercept modules Facebook already defined. Only the page
- * knows its own hook state, so this reads it once per popup open. It is never polled: a repeated
- * cross-world read on a timer is how this extension once leaked gigabytes of RAM.
- *
- * `present` and `version` answer a different question from the hook state: whether the page is
- * running FB Diet at all, and which build. A tab that outlived an update reports the old version,
- * and a tab that was never injected reports nothing — both of which look exactly like a working
- * page from the outside, because the popup cannot fold anything either way.
+ * Read one tab's hook state + build. Once per popup open, never polled
+ * (repeated cross-world reads leaked RAM).
  */
 async function readTabHookState(tabId) {
   try {
@@ -137,8 +99,7 @@ async function readTabHookState(tabId) {
       func: () => {
         try {
           const defaults = window.FB_DIET_DEFAULTS;
-          // The build baked into this page. defaults.js is the first file the manifest injects,
-          // so its presence is what says "the script list ran here at all".
+          // defaults.js first in manifest; presence proves injection ran.
           const version = defaults && typeof defaults.VERSION === 'string' ? defaults.VERSION : null;
           const comet = window.FBDietComet;
           if (!comet || typeof comet.getModuleHealth !== 'function') {
@@ -162,17 +123,14 @@ async function readTabHookState(tabId) {
     const extensionVersion = readInstalledVersion();
     return Object.assign({}, result, {
       extensionVersion: extensionVersion,
-      // Only a version on both sides can disagree. No live manifest, or no page build, is not a
-      // mismatch: it is an absence of evidence, and this must never cry wolf.
+      // Absence of evidence is not a mismatch.
       staleBuild: typeof result.version === 'string' && extensionVersion !== null && result.version !== extensionVersion
     });
   } catch (e) {
-    // chrome:// page, mid-navigation, or the MAIN world script is not there yet
     return unavailable;
   }
 }
 
-// Handle incoming messages from the popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'GET_TAB_STATE') {
     (async () => {

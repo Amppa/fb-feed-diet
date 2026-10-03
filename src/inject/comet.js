@@ -1,36 +1,8 @@
 /**
- * FB Diet - Comet Module Hook (MAIN world)
- *
- * Runs in the page's own JavaScript world at document_start, before Facebook boots, and
- * wraps the Comet module registrar (window.__d) so selected modules can have their
- * exported React component replaced by an FBDiet wrapper. "Comet" is Facebook's own
- * name for this module system — every name in FEED_UNIT_MODULES is a `Comet*.react`
- * module — so the module is named for the thing it hooks, not for the JS Proxy it
- * happens to build and not for the Relay store, which it does not read at all.
- *
- * Modelling notes (inspired by the esuit suggest-blocker proxy):
- *   - __d is intercepted with both a getter and a setter, so the hook also works when
- *     Comet assigned window.__d before this script ran.
- *   - Only factories of *registered* modules are wrapped, keeping __d fast.
- *   - The original component runs untouched; only its output is decorated. The original
- *     error is always re-thrown so Facebook keeps its own error reporting.
- *   - Deliberately no eval / new Function / inline <script>: this script only patches
- *     live objects, so the Facebook page CSP cannot block it (unlike the reference
- *     implementation, which rewrites module source strings).
- *   - Every hook runs inside try/catch: a broken hook degrades one feature instead of
- *     breaking rendering.
- *   - The master switch is honoured *before* the hook goes on (hard disable). A disabled
- *     extension leaves window.__d exactly as Facebook shipped it: no accessor, no Proxy.
- *     Turning the switch on later cannot retroactively intercept the modules Facebook
- *     already defined, so the popup asks for a reload (see src/popup/popup.js).
- *
- * Public API (window.FBDietComet):
- *   registerComponent(moduleName, { component, definerPath, order })
- *   registerFactoryHook(moduleName, cb)
- *   createElement(React, type, props, children)
- *   getReact()
- *   isModuleLoaded(name) / getModuleArgs(name) / listRegistered() / getStats()
- *   getModuleHealth() / getErrors()
+ * Comet module hook (MAIN world): wraps window.__d to decorate exports.
+ * No eval / new Function: patches live objects so page CSP cannot block it.
+ * Hard disable leaves window.__d untouched; re-enable needs reload.
+ * Public API: window.FBDietComet (registerComponent, registerFactoryHook, health).
  */
 window.FBDietComet = (() => {
   'use strict';
@@ -48,21 +20,12 @@ window.FBDietComet = (() => {
   const stats = { intercepted: 0, patched: 0, hookRuns: 0, dCalls: 0, patchedModules: [] };
   let reactCache = null;
 
-  // Hard disable. FBDietBridge does not exist yet when this script runs (manifest loads
-  // bridge.js after comet.js), so the master switch is read straight from the settings
-  // cache the bridge keeps in localStorage. The key lives in src/shared/defaults.js, but
-  // its value shape ("the whole settings object, JSON encoded", src/inject/bridge.js) is a
-  // cross-file compatibility contract: change one side and the other must change with it.
+  // Hard disable: master switch read from localStorage cache (bridge.js writes it).
   const defs = (typeof window !== 'undefined' && window.FB_DIET_DEFAULTS) || (typeof globalThis !== 'undefined' && globalThis.FB_DIET_DEFAULTS) || {};
   const SETTINGS_CACHE_KEY = defs.SETTINGS_CACHE_KEY || 'fb_diet_settings_cache';
   const hookState = { active: false };
 
-  /**
-   * Only an explicit `enabled: false` counts as disabled. A missing cache (fresh install,
-   * the user never touched the switch), unreadable storage (private mode, quota, blocked
-   * localStorage) or malformed JSON all fail open, so the extension can never brick itself
-   * into permanent silence.
-   */
+  /** Only explicit enabled:false disables; missing/corrupt fails open. */
   function isHardDisabled() {
     try {
       const raw = window.localStorage.getItem(SETTINGS_CACHE_KEY);
@@ -74,9 +37,7 @@ window.FBDietComet = (() => {
     }
   }
 
-  /* ------------------------------------------------------------------ *
-   * Diagnostics
-   * ------------------------------------------------------------------ */
+  // Diagnostics
 
   function recordError(context, error) {
     try {
@@ -87,7 +48,6 @@ window.FBDietComet = (() => {
       });
       if (errors.length > 40) errors.shift();
     } catch (e) {
-      // Diagnostics must never throw
     }
   }
 
@@ -100,9 +60,7 @@ window.FBDietComet = (() => {
     }
   }
 
-  /* ------------------------------------------------------------------ *
-   * Generic helpers
-   * ------------------------------------------------------------------ */
+  // Generic helpers
 
   function splitPath(path) {
     return String(path || '')
@@ -128,10 +86,7 @@ window.FBDietComet = (() => {
     );
   }
 
-  /**
-   * Resolves React from the module loader. Only called while rendering, so the loader
-   * is guaranteed to be ready by then.
-   */
+  /** Resolves React from the module loader (called during render). */
   function getReact() {
     if (isReactNamespace(reactCache)) return reactCache;
 
@@ -146,10 +101,7 @@ window.FBDietComet = (() => {
     return candidate;
   }
 
-  /**
-   * Creates a React element through whichever factory the runtime exposes.
-   * Used by this module and by src/inject/fold.js.
-   */
+  /** Creates element via createElement/jsx; used by fold.js. */
   function createElement(React, type, props, children) {
     if (!React || !type) return null;
     const kids = children || [];
@@ -167,14 +119,9 @@ window.FBDietComet = (() => {
 
     return null;
   }
-/* ------------------------------------------------------------------ *
-   * Comet module argument inspection
-   * ------------------------------------------------------------------ */
+  // Comet module argument inspection
 
-  // __d has been observed in two shapes across Comet builds:
-  //   __d(factory, moduleName, dependencies, ...)          (canonical)
-  //   __d(moduleName, extId, factory, dependencies, ...)   (extension flavoured)
-  // Both are supported so a Facebook reshuffle cannot silently disable the hook.
+  // __d has canonical and extension-flavoured shapes; both supported.
   function readDArgs(args) {
     if (!args || args.length === 0) return null;
 
@@ -191,11 +138,7 @@ window.FBDietComet = (() => {
     return null;
   }
 
-  /**
-   * The exports object is handed to the factory as one of its arguments. Prefer whichever
-   * argument exposes .exports (the module record), then fall back to index 6, which is the
-   * index the reference implementation relies on.
-   */
+  /** Exports object is the factory arg exposing .exports; fallback index 6. */
   function findExports(args) {
     for (let i = 0; i < args.length; i += 1) {
       const candidate = args[i];
@@ -208,11 +151,7 @@ window.FBDietComet = (() => {
     return null;
   }
 
-  /**
-   * Resolves { container, key } for a definer path such as "[6].default" (relative to the
-   * factory arguments) or "default.render" (relative to the exports object). Class methods
-   * are also looked up on the prototype chain, so class components can be wrapped too.
-   */
+  /** Resolves { container, key } for definer path, incl. prototype chain. */
   function resolveContainer(root, parts) {
     if (!root || parts.length === 0) return null;
 
@@ -248,9 +187,7 @@ window.FBDietComet = (() => {
 
     return null;
   }
-/* ------------------------------------------------------------------ *
-   * Component wrapping
-   * ------------------------------------------------------------------ */
+  // Component wrapping
 
   function wrapComponent(moduleName, entry, SourceComponent) {
     function FBDietWrappedComponent() {
@@ -260,7 +197,6 @@ window.FBDietComet = (() => {
       try {
         lastCmp = SourceComponent.apply(this, callingArgs);
       } catch (error) {
-        // Facebook's own failure: report it and let the original error surface.
         recordError('source ' + moduleName, error);
         throw error;
       }
@@ -354,18 +290,8 @@ function wrapFactory(moduleName, factory) {
         }
       }
 
-      // Retaining a factory's argument array pins that module's factory closure and every
-      // dependency export it received, so the loader can never collect them. Facebook
-      // defines thousands of modules per session while only the ~15 registered/hooked names
-      // are ever read back (`getModuleHealth` scans `registrations`; `register()` re-applies
-      // to an already-defined module), so nothing else may be kept here.
-      //
-      // This check is a defensive invariant, not the active guard: `transformDArgs` already
-      // returns early for unregistered names, `wrapFactory` has that one call site, and
-      // `registrations` / `factoryHooks` are grow-only (there is no uninstall path), so the
-      // condition is true whenever this runs today. Keeping it means the "args are never
-      // retained for unwatched modules" property survives a future widening of the `__d`
-      // hook instead of silently depending on the caller's name filter.
+      // Retaining factory args pins module closures: keep only watched modules.
+      // Defensive invariant: registrations/factoryHooks are grow-only, no uninstall.
       if (registrations.has(moduleName) || factoryHooks.has(moduleName)) {
         moduleArgs.set(moduleName, factoryArgs);
       }
@@ -376,13 +302,10 @@ function wrapFactory(moduleName, factory) {
     return FBDietFactory;
   }
 
-  /* ------------------------------------------------------------------ *
-   * __d interception
-   * ------------------------------------------------------------------ */
+  // __d interception
 
   function transformDArgs(args) {
     try {
-      // Loader activity sample: every __d call means Facebook defined one more module.
       stats.dCalls += 1;
 
       if (registrations.size === 0 && factoryHooks.size === 0) return args;
@@ -416,8 +339,7 @@ function wrapFactory(moduleName, factory) {
   function toHookable(value) {
     if (typeof value !== 'function') return value;
     if (value[COMET_MARK]) return value;
-    // Before the real loader lands Comet installs a stub; wrapping it is pointless and the
-    // setter below wraps the real one as soon as it is assigned.
+    // Comet stub left alone until real loader lands.
     if (String(value).indexOf('__d_stub') !== -1) return value;
     return createDProxy(value);
   }
@@ -439,7 +361,6 @@ function wrapFactory(moduleName, factory) {
       });
       hookState.active = true;
     } catch (e) {
-      // Frozen property: fall back to a plain assignment
       recordError('installDDHook', e);
       hookState.active = safe(() => {
         window.__d = toHookable(window.__d);
@@ -448,17 +369,12 @@ function wrapFactory(moduleName, factory) {
     }
     return hookState.active;
   }
-/* ------------------------------------------------------------------ *
-   * Public API
-   * ------------------------------------------------------------------ */
+  // Public API
 
   const api = {
     EXT_ID,
 
-    /**
-     * Registers a component that decorates a module's exported React component.
-     * The component receives { payload, SourceCmp, lastCmp, callingArgs, moduleName }.
-     */
+    /** Registers decorator component for a module's exported React component. */
     registerComponent(moduleName, options) {
       if (typeof moduleName !== 'string' || !moduleName) return false;
       const source = options || {};
@@ -491,10 +407,7 @@ function wrapFactory(moduleName, factory) {
       return true;
     },
 
-    /**
-     * Runs a callback right after a module factory executed. Used by relay.js to capture
-     * the Relay store instance without rewriting any module source.
-     */
+    /** Runs callback after module factory executes (Relay store capture). */
     registerFactoryHook(moduleName, callback) {
       if (typeof moduleName !== 'string' || !moduleName || typeof callback !== 'function') return false;
       const list = factoryHooks.get(moduleName) || [];
@@ -522,12 +435,7 @@ function wrapFactory(moduleName, factory) {
       return out;
     },
 
-    /**
-     * Loader health for module drift detection: how many __d module definitions
-     * streamed past, and which registered names the loader never defined. When
-     * dCalls keeps rising while seen stays 0, Facebook renamed its modules and
-     * every hook silently stopped matching.
-     */
+    /** Loader health: dCalls vs seen/unseen; rising dCalls with seen 0 means rename. */
     getModuleHealth() {
       const unseen = [];
       const failed = [];
@@ -564,10 +472,7 @@ function wrapFactory(moduleName, factory) {
     }
   };
 
-  // Hard disable: with the master switch off in the cache, window.__d is left exactly as
-  // Facebook shipped it. Registrations still happen (fold.js, relay.js) but they are only
-  // Map entries the absent hook never consults, so a disabled extension costs the page
-  // nothing beyond its own script parse.
+  // Hard disable: switch off leaves __d untouched; registrations stay inert.
   if (!isHardDisabled()) {
     installDDHook();
   }

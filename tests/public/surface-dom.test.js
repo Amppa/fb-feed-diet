@@ -4,7 +4,7 @@
  *
  * The DOM-only pipeline decides `reels`, `stories` and `suggestedGroup` from mounted markup, so
  * every one of these cases is a rule that could fold a real post. The negatives are therefore the
- * load-bearing tests: each one is a misclassification STRATEGY.md already records, re-stated as
+ * load-bearing tests: each one is a misclassification STRATEGY.md §4 already records, re-stated as
  * "and the DOM must not make this mistake either".
  *
  * The last section is the lifecycle contract: the surface scanner is armed only in the mode that
@@ -199,7 +199,7 @@ function run(c) {
     c.equals('reason is the standalone rule', res && res.reason, 'dom:reels_pill_link');
   }
 
-  /* --- pitfall 9 regression: a carousel buried in the post body is not a tray --- */
+  /* --- regression: a carousel buried in the post body is not a tray --- */
   {
     const carousel = makeNode('div', { 'data-type': 'hscroll-child' }, [
       makeNode('a', { role: 'link', href: 'https://www.facebook.com/reel/1/' }, [], '')
@@ -214,7 +214,7 @@ function run(c) {
     c.equals('…and the report says why', detector.explain(card).outcomeReason, 'no_surface_evidence');
   }
 
-  /* --- misclassification 3, DOM form: a friend's share of a reel stays a regular post --- */
+  /* --- nested-typename, DOM form: a friend's share of a reel stays a regular post --- */
   {
     const quoted = makeNode('div', { 'data-ad-preview': 'attachment' }, [
       makeNode('h3', {}, [], 'Reel'),
@@ -311,7 +311,8 @@ function run(c) {
       Boolean(detector.isHorizontalTray(card)) === true
     );
     // The marker here carries the naming half the veto requires, so the pair holds and the real tray
-    // is still declined. This is the half of decision #49 that must not move: the fix is a pairing,
+    // is still declined. This half of the pairing must not move. // rationale: decisions-history.md #49
+    // The fix is a pairing,
     // not a weaker rule.
     c.equals('…and the veto accepts it, wording and all', detector.trayVetoFor(card), 'groups_carousel');
   }
@@ -342,7 +343,7 @@ function run(c) {
     c.equals('…and is not even seen as a tray', detector.isHorizontalTray(postInGroup), null);
 
     // A run of group links inside a message body is content the post displays, not its own
-    // surface — the same correction pitfall 9 forced on the hscroll marker, in group form.
+    // surface — the same correction the post-mortem table in docs/decisions-history.md forced on
     const linksInBody = makeNode('div', { role: 'article' }, [
       makeNode('header', {}, [makeNode('h2', {}, [], 'Someone')]),
       makeNode('div', { 'data-ad-preview': 'message' }, [
@@ -394,7 +395,7 @@ function run(c) {
     c.equals('…and the report shows nothing was read', detector.explain(card).outcomeReason, 'no_surface_evidence');
   }
 
-  /* --- A label buried in the unit's content is not the unit's name (pitfall 9, label form) --- */
+  /* --- A label buried in the unit's content is not the unit's name (label form) --- */
   {
     const card = makeNode('div', { role: 'article' }, [
       makeNode('div', { 'data-type': 'hscroll-child' }, [

@@ -381,7 +381,7 @@ body {
   content: '🙈';
 }
 
-/* Fold Bar Title dropdown (3-state select, STRATEGY.md decision #27).
+/* Fold Bar Title dropdown (3-state select, per docs/architecture.md).
    appearance:none strips the native widget so the dark background and white text
    always win (the arrow is drawn inline), and option rows are styled explicitly
    because the native popup otherwise ignores inherited colors - white on white. */

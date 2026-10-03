@@ -306,7 +306,7 @@ function run(c) {
     c.equals('no-relay-module unit still reports regular', countMessages(bare.win, 'regular'), 1);
   }
 
-  /* --- resolveVerdict: the DOM sponsorship override (STRATEGY.md decision #39) --- */
+  /* --- resolveVerdict: the DOM sponsorship override (per STRATEGY.md §1.1) --- */
   {
     // resolveVerdict is exported as a pure function precisely so this rule can be checked
     // without mounting a feed unit. props is what the wrapper hands it: a payload the
@@ -372,7 +372,7 @@ function run(c) {
     c.equals('an unclassifiable unit returns null', plain.fold.resolveVerdict(propsOf('u-dom-8'), null, domHit), null);
   }
 
-  /* --- dom mode: the mounted-DOM engine is the sole authority (decision #40) --- */
+  /* --- dom mode: the mounted-DOM engine is the sole authority (per STRATEGY.md §1) --- */
   {
     const t = setup({});
     const props = { moduleName: FEED_MODULE, payload: payloadOf('u-dom-only') };
@@ -448,7 +448,7 @@ function run(c) {
     c.ok('…and no DOM evidence, because no scan decided it', !viaProps.domEvidence);
     c.equals('…and the unit id still identifies that one unit', viaProps.unitId, FEED_MODULE + '_p-spo');
 
-    // The guarantee decision #40 actually protects is that the dom verdict never depends on
+    // The guarantee STRATEGY.md §1.3 actually protects is that the dom verdict never depends on
     // store capture. A props read must not reintroduce one, so the relay reader is never asked.
     const noStore = setup({});
     noStore.win.FBDietRelayClassify.setRelayReader(() => {
@@ -477,7 +477,7 @@ function run(c) {
     c.equals('the relay pipeline still reads the store for this unit', relay.reason, 'th_dat_spo');
   }
 
-  /* --- dom mode: the store-independence guarantee covers the metadata layer too (decision #40) --- */
+  /* --- dom mode: the store-independence guarantee covers the metadata layer too (per STRATEGY.md §1.3) --- */
   {
     // The classifier half of this guarantee is tested where `resolveVerdict` is called directly. This
     // is the layer that sat one call away from it: `FBDietRelayMetadata.collect` derives the record
@@ -710,7 +710,7 @@ function run(c) {
     const reportWithEntry = t.win.FBDietProbe.buildProbeReport({ entryCategory: 'marketAds', payload: { feedUnit: {} } }, classifyRes, [], null).report;
     c.equals('entryCategory present under relay when provided', reportWithEntry.relay.entryCategory, 'marketAds');
 
-    /* --- probe report scope fields (STRATEGY.md decision #26) --- */
+    /* --- probe report scope fields (per docs/architecture.md) --- */
     c.ok('scope nested under verdict', Boolean(reportWithoutEntry.verdict.scope) && typeof reportWithoutEntry.verdict.scope === 'object');
     c.equals('scope.restricted reflects the default restriction', reportWithoutEntry.verdict.scope.restricted, true);
     c.equals('scope.path is absent without a pathname', reportWithoutEntry.verdict.scope.path, undefined);
@@ -758,7 +758,7 @@ function run(c) {
     c.ok('re-folded title bar is collapsed again', reFolded.props.children[0].props.isExpanded === false);
   }
 
-  /* --- fold scope restriction: out-of-scope units stay native (STRATEGY.md decision #26) --- */
+  /* --- fold scope restriction: out-of-scope units stay native (per docs/architecture.md) --- */
   {
     const t = setup({ [SPONSORED_PATH]: 'ad-1' });
     t.win.FB_DIET_DEFAULTS = loadDefaults();
@@ -784,7 +784,7 @@ function run(c) {
     c.equals('in-scope blocked reported', countMessages(t.win, 'blocked'), 2);
   }
 
-  /* --- side-rail ad: hiding independent of scope, never counted (decision #26) --- */
+  /* --- side-rail ad: hiding independent of scope, never counted (per docs/architecture.md) --- */
   {
     const t = setup({});
     t.win.FB_DIET_DEFAULTS = loadDefaults();
@@ -810,7 +810,7 @@ function run(c) {
     c.equals('side ad hiding posts no blocked message', countMessages(t.win, 'blocked'), 0);
   }
 
-    /* --- fold bar title modes: showTitleMode three-state (STRATEGY.md decisions #27, #36) --- */
+    /* --- fold bar title modes: showTitleMode three-state (per docs/architecture.md) --- */
   {
     const t = setup({ [SPONSORED_PATH]: 'ad-1' });
     t.win.FB_DIET_DEFAULTS = loadDefaults();
@@ -848,7 +848,7 @@ function run(c) {
     let outLegacyFull = t.render(payloadOf('u-titlemode-legacy-full'));
     c.equals('a legacy full value no longer allows the DOM scan', outLegacyFull.props.children[0].props.allowDomScan, false);
 
-    // The inline mode fallback in detectionMode() cannot fire under manifest load order, but if
+    // The inline mode fallback in resolveDetectionMode() cannot fire under manifest load order, but if
     // it ever does it must not collapse 'dom' into 'relay' — that would re-enable the data
     // engine and silently report a DOM verdict as a Relay one.
     const savedDefaults = t.win.FB_DIET_DEFAULTS;

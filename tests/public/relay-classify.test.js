@@ -63,7 +63,7 @@ function run(c) {
   equals(c, 'suggestedGroup by payload typename', r.category, 'suggestedGroup');
 
   /* --- suggested by join state (props + relay): a can-join group POST is a
-     suggestion, not the "Other" group list (STRATEGY.md, decision #10) --- */
+     suggestion, not the "Other" group list (per STRATEGY.md §2.1) --- */
   r = C.classify({ feedUnit: feedUnitOf({ __typename: 'Story', to: { viewer_forum_join_state: 'CAN_JOIN' } }) });
   equals(c, 'suggested by props join state', r.category, 'suggested');
 
@@ -78,7 +78,7 @@ function run(c) {
 
   // CAN_FOLLOW / NOT_SUBSCRIBED are NOT suggestion evidence: they matched nearly
   // every actor the viewer does not subscribe to and folded real friend activity
-  // (STRATEGY.md, misclassifications 1 & 2).
+  // (per STRATEGY.md §4).
   calls.mapValue = (path) => (path === P.SUBSCRIBE_PATH ? 'NOT_SUBSCRIBED' : null);
   r = C.classify({ feedUnit: feedUnitOf() });
   equals(c, 'NOT_SUBSCRIBED actor is regular, not suggested', r.category, 'regular');
@@ -103,7 +103,7 @@ function run(c) {
   /* --- story header: diagnostic only, never decides a category --- */
   // The probe proved Facebook stores a friend's comment story under the same keyed
   // story_header record as suggestion headers, so headers must not fold
-  // (STRATEGY.md, decision #6). The evidence is still collected for diagnostics.
+  // (per STRATEGY.md §2.2). The evidence is still collected for diagnostics.
   calls.mapValue = (path) => (path === '^story_header{$1}.^title.text' ? 'Suggested for you' : null);
   r = C.classify({ feedUnit: feedUnitOf() });
   equals(c, 'story header never folds a unit (regular)', r.category, 'regular');
@@ -136,7 +136,7 @@ function run(c) {
 
   // A friend's share nests a ShowcaseFeedUnit attachment inside an ordinary Story:
   // the nested record's typename must never trigger the Reels rule
-  // (STRATEGY.md, misclassification 3).
+  // (per STRATEGY.md §4).
   r = C.classify({
     unitTypename: 'Story',
     feedUnit: feedUnitOf(),
@@ -173,7 +173,7 @@ function run(c) {
   /* --- stories: mid-feed Stories row (DiscoverFeedUnit) --- */
   // The Stories row inserted into the home feed arrives via the generic
   // CometFeedUnitErrorBoundary.react wrapper, so only the unit's own typename can
-  // identify it (STRATEGY.md, decision #7).
+  // identify it (per STRATEGY.md §2.1).
   r = C.classify({ feedUnit: feedUnitOf({ __typename: 'DiscoverFeedUnit' }) }, { moduleName: 'CometFeedUnitErrorBoundary.react' });
   equals(c, 'stories by DiscoverFeedUnit typename', r.category, 'stories');
   equals(c, 'stories reason', r.reason, 'unitTypename:DiscoverFeedUnit');

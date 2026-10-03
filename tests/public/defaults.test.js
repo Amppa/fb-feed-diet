@@ -69,7 +69,7 @@ function run(checker) {
   const norm = defaults && defaults.normalizeDetectionMode;
   checker.ok('normalizeDetectionMode is exposed', typeof norm === 'function');
   checker.equals('relay passes through', norm('relay'), 'relay');
-  // The DOM mode (decision #40) is a real value, not a legacy alias: it is selectable on
+  // The DOM mode (per STRATEGY.md §1) is a real value, not a legacy alias: it is selectable on
   // purpose, and reading it back must not rewrite it into something else.
   checker.equals('dom passes through', norm('dom'), 'dom');
   checker.equals('an unknown value still fails closed to the default', norm('dom-only'), 'relay');
@@ -121,7 +121,7 @@ function run(checker) {
   checker.equals('counts does not have legacy sponsored', counts && counts.sponsored, undefined);
   checker.ok('counts.date is a string', typeof (counts && counts.date) === 'string' && counts.date.length >= 8);
 
-  /* --- user-facing groups (STRATEGY.md, decision #8) --- */
+  /* --- user-facing groups (per docs/architecture.md) --- */
   const groupByCategory = defaults && defaults.GROUP_BY_CATEGORY;
   checker.ok('GROUP_BY_CATEGORY exists', Boolean(groupByCategory));
   checker.equals('sponsored maps to ads', groupByCategory && groupByCategory.sponsored, 'ads');
@@ -139,7 +139,7 @@ function run(checker) {
   checker.ok('regular group writes foldRegular', Boolean(keysByGroup) && keysByGroup.regular.join(',') === 'foldRegular');
   checker.ok('every mapped key exists in SETTINGS', Boolean(keysByGroup) && Object.values(keysByGroup).every((keys) => keys.every((key) => key in settings)));
 
-  /* --- category -> storage key (SSOT the classifier reads; STRATEGY.md decision #8) --- */
+  /* --- category -> storage key (SSOT the classifier reads; per docs/architecture.md) --- */
   const ENGINE_CATEGORIES = ['sponsored', 'marketAds', 'searchingAds', 'regular', 'suggested', 'reels', 'stories', 'suggestedGroup'];
   const settingByCategory = defaults && defaults.SETTING_BY_CATEGORY;
   checker.ok('SETTING_BY_CATEGORY exists', Boolean(settingByCategory));
@@ -194,7 +194,7 @@ function run(checker) {
   checker.equals('normalizeFoldMode title + mini:true -> mini', defaults.normalizeFoldMode('title', 'off', true), 'mini');
   checker.equals('normalizeFoldMode fallback', defaults.normalizeFoldMode('unknown', 'off'), 'off');
 
-  /* --- fold scope allowlist (STRATEGY.md decision #26) --- */
+  /* --- fold scope allowlist (per docs/architecture.md) --- */
   checker.ok('isFoldScopeAllowed exists', typeof defaults.isFoldScopeAllowed === 'function');
   checker.equals('home root allowed', defaults.isFoldScopeAllowed('/'), true);
   checker.equals('home.php allowed', defaults.isFoldScopeAllowed('/home.php'), true);
@@ -207,7 +207,7 @@ function run(checker) {
   checker.equals('empty path fails open', defaults.isFoldScopeAllowed(''), true);
   checker.equals('undefined path fails open', defaults.isFoldScopeAllowed(undefined), true);
 
-  /* --- fold bar title modes (STRATEGY.md decision #27) --- */
+  /* --- fold bar title modes (per docs/architecture.md) --- */
   checker.ok('normalizeTitleMode exists', typeof defaults.normalizeTitleMode === 'function');
   checker.equals('title mode always passes through', defaults.normalizeTitleMode('always'), 'always');
   checker.equals('title mode whenFolded passes through', defaults.normalizeTitleMode('whenFolded'), 'whenFolded');
