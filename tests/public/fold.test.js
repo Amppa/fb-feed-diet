@@ -1113,6 +1113,32 @@ function run(c) {
     c.ok('folded media bar arms no hover', !('onMouseEnter' in storiesBar.props));
   }
 
+  /* --- folded tooltip shows the fuller text while the bar itself stays capped --- */
+  {
+    const t = setup({});
+    const ui = t.win.FBDietUI;
+    const longMessage = Array(15).fill('This is a synthetic test message line.').join('\n');
+    t.React.resetHooks();
+    const fullBar = ui.TitleBar({
+      category: 'regular',
+      unitId: 'u-tip-full',
+      showTitle: true,
+      isExpanded: false,
+      tooltipMode: 'large',
+      enrichment: {
+        actor: { name: 'Alice Smith' },
+        group: { name: 'Synthetic Tech Club' },
+        content: { message: longMessage }
+      }
+    });
+    const fullKids = fullBar.props.children.props.children;
+    const barSnippet = fullKids[fullKids.length - 1].props.children;
+    c.ok('bar snippet is capped with ellipsis', typeof barSnippet === 'string' && barSnippet.slice(-1) === '…');
+    c.ok('bar snippet stays within 81 chars (80 + ellipsis)', barSnippet.length <= 81);
+    c.ok('large mode carries no native title', !('title' in fullBar.props));
+    c.equals('large mode arms hover for the fuller text', typeof fullBar.props.onMouseEnter, 'function');
+  }
+
   /* --- dom mode, always show title, folded state displays title extracted from DOM --- */
   {
     const t = setup({});

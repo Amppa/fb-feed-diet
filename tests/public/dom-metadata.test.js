@@ -65,8 +65,10 @@ function run(c) {
   const clean = metadata.cleanPostSnippet;
   c.equals('joins lines past a one-word opener', clean('#這邊\n.\n【受日本教育】的人，往往會比較在意穿著。'), '#這邊 【受日本教育】的人，往往會比較在意穿著。');
   c.equals('drops spacer lines between content', clean('節錄：\n真正的以人為本。\n……\n謝謝老師。'), '節錄： 真正的以人為本。 謝謝老師。');
-  c.equals('keeps at most three lines', clean('一\n二\n三\n四'), '一 二 三');
-  c.equals('caps overlong snippets', clean('字'.repeat(200)), '字'.repeat(140) + '…');
+  c.equals('keeps at most ten lines', clean('1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11'), '1 2 3 4 5 6 7 8 9 10');
+  c.equals('caps overlong snippets at 80 chars', clean('字'.repeat(200)), '字'.repeat(80) + '…');
+  c.equals('tooltip limits keep lines up to twenty', clean('1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21', null, null, metadata.titleBarTooltipLimits), '1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20');
+  c.equals('tooltip limits cap at 300 chars', clean('字'.repeat(500), null, null, metadata.titleBarTooltipLimits), '字'.repeat(300) + '…');
   c.equals('still strips a leading author', clean('Ada Lovelace: hello\nworld', 'Ada Lovelace'), 'hello world');
   c.equals('non-string stays empty', clean(null), '');
 
