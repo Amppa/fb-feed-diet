@@ -34,12 +34,13 @@ window.FBDietI18N = (() => {
   // popup.html only. The four status* strings are read through i18n.t() rather than a
   // data-i18n attribute, because the status line is filled in at runtime.
   const EN_POPUP = {
-    itemsFoldedOnDiet: 'Items Folded on Diet',
+    popupOverview: 'Today\'s overview (filtered/total)',
     popupSubtitle: 'Clean & fold Facebook feeds',
     optionsBtn: '⚙️ Options',
     resetPopupTitle: 'Reset counter',
-    directFeedBtn: 'Direct Feed ↗',
-    directFeedTitle: 'Built-in Facebook feature, only shows your subscription and group posts',
+    directFeedBtn: 'Direct to Feed ↗',
+    directFeedSub: '(no suggest post from stranger)',
+    directFeedTitle: 'Built-in Facebook feature, only shows your subscription and group posts, not ad-free',
     statusNeedsReload: 'Folding is not armed on this tab yet: reload it.',
     statusHookBlocked: 'Facebook blocked the module hook, please check F12.',
     statusVersionMismatch: 'This tab is running another build of the extension. Restart your browser to finish the update.',
@@ -47,12 +48,13 @@ window.FBDietI18N = (() => {
   };
 
   const ZH_POPUP = {
-    itemsFoldedOnDiet: '已過濾的內容數',
+    popupOverview: '今日總覽（已過濾／總貼文數）',
     popupSubtitle: '動態牆瘦身清理',
     optionsBtn: '⚙️ 選項',
     resetPopupTitle: '重設計數器',
-    directFeedBtn: '直連 動態消息 ↗',
-    directFeedTitle: '官網內建，只會顯示你的訂閱和社團貼文',
+    directFeedBtn: '動態消息 ↗',
+    directFeedSub: '(僅顯示你訂閱，無陌生人推薦貼文)',
+    directFeedTitle: '官網內建，只會顯示你的訂閱和社團貼文，但有廣告',
     statusNeedsReload: '此分頁還沒掛上過濾器，請重新整理。',
     statusHookBlocked: '過濾器 hook 掛載失敗，可能 facebook 改版，或是有其他外掛搶占，請打開 F12 檢查錯誤訊息。',
     statusVersionMismatch: '此分頁正在執行另一個版本的外掛，請完全重啟瀏覽器以完成更新。',

@@ -6,6 +6,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const masterToggle = document.getElementById('enabled');
   const totalCounter = document.getElementById('totalCount');
+  const filteredCounter = document.getElementById('filteredCount');
   const settingsBtn = document.getElementById('settingsBtn');
 
   const i18n = window.FBDietI18N;
@@ -26,9 +27,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (i18n) i18n.setLang(settings.lang || i18n.detect());
   applyTranslations();
 
+  // Version footer reads the single source of truth (bump-version keeps it
+  // level with manifest.json); guarded so the test double without it stays quiet.
+  const extVersion = document.getElementById('extVersion');
+  if (extVersion && SHARED_DEFAULTS.VERSION) {
+    extVersion.textContent = 'v' + SHARED_DEFAULTS.VERSION;
+  }
+
   masterToggle.checked = settings.enabled !== false;
-  const initialFiltered = counts.filtered !== undefined ? counts.filtered : (counts.total || 0);
-  totalCounter.textContent = initialFiltered.toLocaleString();
+
+  // Stat headline is the filtered/total pair (今日總覽：已過濾／總貼文數),
+  // styled like the options stat row: gradient filtered, plain total.
+  function renderStat(counts) {
+    const c = counts || {};
+    const filtered = c.filtered !== undefined ? c.filtered : (c.total || 0);
+    const total = c.total || 0;
+    if (filteredCounter) filteredCounter.textContent = filtered.toLocaleString();
+    totalCounter.textContent = total.toLocaleString();
+  }
+  renderStat(counts);
 
   // The toggle is user intent; the page hook is the ability to act on it. A tab that loaded
   // while the extension was off never armed the hook, so folding stays inactive there even
@@ -128,12 +145,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (resetBtn) {
     resetBtn.addEventListener('click', () => {
       chrome.runtime.sendMessage({ type: 'RESET_COUNTS' }, (res) => {
-        if (res && res.counts) {
-          const val = res.counts.filtered !== undefined ? res.counts.filtered : (res.counts.total || 0);
-          totalCounter.textContent = val.toLocaleString();
-        } else {
-          totalCounter.textContent = '0';
-        }
+        renderStat(res && res.counts ? res.counts : null);
       });
     });
   }
@@ -142,9 +154,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local') {
       if (changes.counts) {
-        const c = changes.counts.newValue || {};
-        const val = c.filtered !== undefined ? c.filtered : (c.total || 0);
-        totalCounter.textContent = val.toLocaleString();
+        renderStat(changes.counts.newValue);
       }
       if (changes.settings) {
         const s = changes.settings.newValue;

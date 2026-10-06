@@ -9,6 +9,9 @@
   --radius-control: 6px;
   --radius-cta: 9px;
   --pad-reset-btn: 5px 11px;
+  /* Filtered/total pair scales like the options stat row (32/24/20 there). */
+  --font-stat-sep: 16px;
+  --font-stat-total: 20px;
 }
 
 body {
@@ -101,6 +104,27 @@ body {
   -webkit-text-fill-color: transparent;
 }
 
+/* Filtered/total pair mirrors the options stat row: gradient filtered
+   count, muted separator, plain total. */
+.stat-pair {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+}
+
+.stat-daily-sep {
+  font-size: var(--font-stat-sep);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.stat-number.stat-total-num {
+  font-size: var(--font-stat-total);
+  background: none;
+  -webkit-text-fill-color: currentcolor;
+  color: var(--text-secondary);
+}
+
 .stat-title {
   font-size: var(--font-micro);
   color: var(--text-secondary);
@@ -139,7 +163,27 @@ body {
   color: var(--text-on-accent);
 }
 
-/* Direct-feed button sits under Options; same look, stacked with a gap. */
-.feed-btn {
+/* Stacked buttons keep a gap regardless of order. */
+.settings-btn + .settings-btn {
   margin-top: var(--space-row);
+}
+
+/* Direct-feed button carries a two-line label: name plus subtitle. */
+.feed-btn {
+  flex-direction: column;
+  gap: var(--space-tight);
+}
+
+.feed-btn-sub {
+  font-size: var(--font-micro);
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+/* Version footer: same small secondary style as the other footnotes. */
+.version-line {
+  margin: var(--space-row) 0 0;
+  font-size: var(--font-micro);
+  color: var(--text-secondary);
+  text-align: center;
 }

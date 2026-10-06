@@ -30,20 +30,30 @@
     <!-- Stat Counter -->
     <div class="stat-card">
       <div class="stat-info">
-        <span class="stat-number" id="totalCount">0</span>
-        <span class="stat-title" data-i18n="itemsFoldedOnDiet">Items Folded on Diet</span>
+        <div class="stat-pair">
+          <span class="stat-number" id="filteredCount">0</span>
+          <span class="stat-daily-sep">/</span>
+          <span class="stat-number stat-total-num" id="totalCount">0</span>
+        </div>
+        <span class="stat-title" data-i18n="popupOverview">Today's overview (filtered/total)</span>
       </div>
       <button class="reset-btn" id="resetBtn" title="Reset counter" data-i18n-title="resetPopupTitle" data-i18n="reset">Reset</button>
     </div>
 
+    <!-- Direct chronological feed (Facebook built-in filter, no Suggested posts) -->
+    <button class="settings-btn feed-btn" id="feedBtn" title="Built-in Facebook feature, hides Suggested posts" data-i18n-title="directFeedTitle">
+      <span data-i18n="directFeedBtn">Direct Feed ↗</span>
+      <span class="feed-btn-sub" data-i18n="directFeedSub">(no suggest post from stranger)</span>
+    </button>
+
     <!-- Settings Button -->
     <button class="settings-btn" id="settingsBtn" data-i18n="optionsBtn">⚙️ Options</button>
 
-    <!-- Direct chronological feed (Facebook built-in filter, no Suggested posts) -->
-    <button class="settings-btn feed-btn" id="feedBtn" title="Built-in Facebook feature, hides Suggested posts" data-i18n="directFeedBtn" data-i18n-title="directFeedTitle">Direct Feed</button>
-
     <!-- Runtime status: shown only when this tab cannot fold despite the switch being on -->
     <p class="status-line" id="statusLine" hidden></p>
+
+    <!-- Extension version -->
+    <footer class="version-line"><span id="extVersion"></span></footer>
   </div>
 
   <script src="../shared/defaults.js"></script>
