@@ -70,7 +70,7 @@ window.FBDietUI = (() => {
     return typeof rawText === 'string' ? rawText : '';
   }
 
-  /** Tooltip cleaning limits (10 lines, 200 chars); undefined keeps bar snippet limits. */
+  /** Tooltip cleaning limits (20 lines, 300 chars); undefined keeps bar snippet limits. */
   function titleBarTooltipLimits() {
     const domMeta = window.FBDietDOMMetadata;
     return (domMeta && (domMeta.titleBarTooltipLimits || domMeta.tooltipSnippetLimits)) || undefined;

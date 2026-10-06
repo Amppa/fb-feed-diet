@@ -33,7 +33,7 @@ Instead of abruptly wiping elements or breaking your feed, **FB Feed Diet** neat
 | :---: | :---: |
 | ![All Folded Mode](screenshots/after-all-shrink.png) | ![Minimized Mode](screenshots/after-minimize-mode.png) |  
 
-- **🔎 Detection Source**: choose where posts are classified from — **Relay Only** (default, reads Facebook data directly) or **DOM Only** (scans the rendered page independently).
+- **🔎 Detection Source**: choose where posts are classified from — **Relay** (default, reads Facebook data directly) or **DOM** (scans the rendered page independently).
 - **🌐 English / 繁體中文**: switch the Options and popup interface language.
 - **Privacy-First & Ultra-Lightweight**:
   - Zero data collection, zero telemetry. All settings and statistics stay strictly on your local device.

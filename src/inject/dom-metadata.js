@@ -178,9 +178,9 @@ window.FBDietDOMMetadata = (() => {
   const TITLE_BAR_SNIPPET_LIMITS = { maxLines: TITLE_BAR_SNIPPET_MAX_LINES, maxChars: TITLE_BAR_SNIPPET_MAX_CHARS };
 
   // TitleBar hover tooltip limits:
-  // shows a fuller preview (up to 10 lines and 200 chars).
-  const TITLE_BAR_TOOLTIP_MAX_LINES = 10;
-  const TITLE_BAR_TOOLTIP_MAX_CHARS = 200;
+  // shows a fuller preview (up to 20 lines and 300 chars).
+  const TITLE_BAR_TOOLTIP_MAX_LINES = 20;
+  const TITLE_BAR_TOOLTIP_MAX_CHARS = 300;
   const TITLE_BAR_TOOLTIP_LIMITS = { maxLines: TITLE_BAR_TOOLTIP_MAX_LINES, maxChars: TITLE_BAR_TOOLTIP_MAX_CHARS };
 
   function cleanPostSnippet(rawText, author, group, limits) {
