@@ -7,7 +7,8 @@ name: Build release packages
 # so no local `npm run package` + manual upload is needed.
 #
 # Trigger: every sync-public push to public master that touches release
-# inputs (manifest version bump counts), plus manual workflow_dispatch.
+# inputs, tests, or the workflow itself (manifest version bump counts),
+# plus manual workflow_dispatch.
 
 on:
   push:
@@ -17,7 +18,9 @@ on:
       - 'package.json'
       - 'icons/**'
       - 'src/**'
-      - 'scripts/package.js'
+      - 'scripts/**'
+      - 'tests/**'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 jobs:
