@@ -291,7 +291,7 @@
     return (fallbackTable && fallbackTable[key]) || '';
   }
 
-  const EXTENSION_VERSION = '2.10.0';
+  const EXTENSION_VERSION = '2.10.1';
 
   globalThis.FB_DIET_DEFAULTS = {
     SETTINGS: DEFAULT_SETTINGS,

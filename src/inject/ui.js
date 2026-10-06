@@ -273,13 +273,14 @@ window.FBDietUI = (() => {
       const effectiveGroup = (domData && domData.groupName) || initialGroup;
 
       const badgeText = resolveBadgeText(props.category);
-      const badge = createEl('span', { className: 'fb-diet-badge ' + meta.badgeClass }, [badgeText]);
-      const contentKids = [badge];
+      const contentKids = [];
 
       // Tooltip source text: folded shows the full post text (the visible snippet
-      // is CSS-truncated), expanded offers collapse. Computed once; each tooltip
-      // mode below decides whether and how to present it.
+      // is CSS-truncated), expanded offers collapse on the bar and the full text
+      // on the badge. Computed once; each tooltip mode below decides whether and
+      // how to present it.
       let tooltipText = null;
+      let badgeTooltipText = null;
 
       if (showTitle) {
         // Group name (with max-width: 140px in css)
@@ -325,24 +326,41 @@ window.FBDietUI = (() => {
           contentKids.push(
             createEl('span', { className: 'fb-diet-title-snippet' }, [snippetText])
           );
+          const fullText = (effectiveMsg && cleanPostSnippet(effectiveMsg, effectiveActor, effectiveGroup, titleBarTooltipLimits())) || snippetText;
           if (!isExpanded) {
-            tooltipText = (effectiveMsg && cleanPostSnippet(effectiveMsg, effectiveActor, effectiveGroup, titleBarTooltipLimits())) || snippetText;
+            tooltipText = fullText;
+          } else {
+            badgeTooltipText = fullText;
           }
         }
+      }
+
+      // Expanded badge preview ignores showTitle: with 'Only When Folded' the bar
+      // shows no snippet at all, but the full text is still previewable.
+      if (isExpanded && !badgeTooltipText) {
+        badgeTooltipText = (effectiveMsg && cleanPostSnippet(effectiveMsg, effectiveActor, effectiveGroup, titleBarTooltipLimits())) || null;
       }
 
       if (isExpanded) tooltipText = getCollapseLabel();
 
       // Tooltip mode: 'off' shows nothing, 'normal'/'large' show the portal
-      // popup at 16px/28px. Hover handlers attach only for portal + folded +
-      // text — every other combination shows nothing.
+      // popup at 16px/28px. Folded bars arm hover on the bar; expanded bars arm
+      // it on the badge (the left tag) instead — every other combination shows
+      // nothing.
       const tooltipMode = (DEFAULTS && typeof DEFAULTS.normalizeTooltipMode === 'function')
         ? DEFAULTS.normalizeTooltipMode(props.tooltipMode)
         : (props.tooltipMode === 'off' || props.tooltipMode === 'normal' || props.tooltipMode === 'large' ? props.tooltipMode : 'large');
       const useCustomTooltip = tooltipMode !== 'off' && !isExpanded && Boolean(tooltipText);
+      const useBadgeTooltip = tooltipMode !== 'off' && isExpanded && Boolean(badgeTooltipText);
       const tooltipFontPx = (DEFAULTS && typeof DEFAULTS.tooltipFontSizePx === 'function')
         ? DEFAULTS.tooltipFontSizePx(props.tooltipMode)
         : 28;
+      const badgeProps = { className: 'fb-diet-badge ' + meta.badgeClass };
+      if (useBadgeTooltip) {
+        badgeProps.onMouseEnter = handleBadgeMouseEnter;
+        badgeProps.onMouseLeave = hideBarTooltip;
+      }
+      contentKids.unshift(createEl('span', badgeProps, [badgeText]));
 
       /** Removes the portal node and its scroll listener, if any. */
       function hideBarTooltip() {
@@ -361,7 +379,7 @@ window.FBDietUI = (() => {
       }
 
       /** Builds and positions the portal tooltip under the bar, on hover. */
-      function showBarTooltip() {
+      function showBarTooltip(text) {
         hideBarTooltip();
         try {
           const barEl = barRef && barRef.current;
@@ -373,7 +391,7 @@ window.FBDietUI = (() => {
           const node = doc.createElement('div');
           node.className = 'fb-diet-tooltip';
           // textContent only, never HTML: the text is post content.
-          node.textContent = tooltipText;
+          node.textContent = text;
           const width = typeof rect.width === 'number' ? rect.width : 0;
           const maxWidth = Math.max(width - (TOOLTIP_INDENT_PX * 2), TOOLTIP_MIN_WIDTH_PX) + 'px';
           if (node.style && typeof node.style.setProperty === 'function') {
@@ -400,7 +418,15 @@ window.FBDietUI = (() => {
         try {
           const hover = hoverRef ? hoverRef.current : null;
           if (!hover || hover.node) return;
-          showBarTooltip();
+          showBarTooltip(tooltipText);
+        } catch (e) {}
+      }
+
+      function handleBadgeMouseEnter() {
+        try {
+          const hover = hoverRef ? hoverRef.current : null;
+          if (!hover || hover.node) return;
+          showBarTooltip(badgeTooltipText);
         } catch (e) {}
       }
 

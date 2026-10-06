@@ -205,7 +205,7 @@
     </div>
     <div class="features-list" id="appearanceList">
 
-      <!-- 1. Filter scope (scoped vs site-wide) -->
+      <!-- Filter scope (scoped vs site-wide) -->
       <div class="feature-item">
         <div class="feature-meta">
           <span class="feature-icon">✨</span>
@@ -222,7 +222,23 @@
         </select>
       </div>
 
-      <!-- 2. Fold Bar Title (3-state dropdown, available in both modes) -->
+      <!-- Fold bar height (18px vs 36px) -->
+      <div class="feature-item">
+        <div class="feature-meta">
+          <span class="feature-icon">📏</span>
+          <div>
+            <div class="feature-title" data-i18n="featMinimizedFoldTitle">Header Height</div>
+            <div class="feature-desc" data-i18n="featMinimizedFoldDesc">Compact 18px (default) or comfortable 36px
+            </div>
+          </div>
+        </div>
+        <select class="feature-select" id="minimizedFoldMode" aria-label="Header Height"
+          data-i18n-aria="featMinimizedFoldTitle">
+          <option value="18" data-i18n="featFoldHeight18">18px (Default)</option>
+          <option value="36" data-i18n="featFoldHeight36">36px</option>
+        </select>
+      </div>
+      <!-- Fold Bar Title (3-state dropdown, available in both modes) -->
       <div class="feature-item">
         <div class="feature-meta">
           <span class="feature-icon">📰</span>
@@ -240,7 +256,7 @@
         </select>
       </div>
 
-      <!-- 3. Fold bar hover tooltip (off / normal / large) -->
+      <!-- Fold bar hover tooltip (off / normal / large) -->
       <div class="feature-item">
         <div class="feature-meta">
           <span class="feature-icon">💬</span>
@@ -255,23 +271,6 @@
           <option value="large" data-i18n="featTooltipModeLarge">Large (28px, Default)</option>
           <option value="normal" data-i18n="featTooltipModeNormal">Normal (16px)</option>
           <option value="off" data-i18n="featTooltipModeOff">Don't show</option>
-        </select>
-      </div>
-
-      <!-- 4. Fold bar height (18px vs 36px) -->
-      <div class="feature-item">
-        <div class="feature-meta">
-          <span class="feature-icon">📏</span>
-          <div>
-            <div class="feature-title" data-i18n="featMinimizedFoldTitle">Header Height</div>
-            <div class="feature-desc" data-i18n="featMinimizedFoldDesc">Compact 18px (default) or comfortable 36px
-            </div>
-          </div>
-        </div>
-        <select class="feature-select" id="minimizedFoldMode" aria-label="Header Height"
-          data-i18n-aria="featMinimizedFoldTitle">
-          <option value="18" data-i18n="featFoldHeight18">18px (Default)</option>
-          <option value="36" data-i18n="featFoldHeight36">36px</option>
         </select>
       </div>
 

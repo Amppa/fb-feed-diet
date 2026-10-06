@@ -1004,6 +1004,11 @@ function run(c) {
     c.ok('large expanded bar carries no tooltip', !('title' in expandedBar.props));
     c.ok('large expanded bar arms no hover', !('onMouseEnter' in expandedBar.props));
 
+    // Expanded bars arm hover on the badge (the left tag) instead of the bar.
+    const expandedKids = expandedBar.props.children.props.children;
+    c.equals('expanded badge arms hover', typeof expandedKids[0].props.onMouseEnter, 'function');
+    c.equals('expanded badge arms hover-out', typeof expandedKids[0].props.onMouseLeave, 'function');
+
     // Off: nothing anywhere, even folded with text.
     t.React.resetHooks();
     const offBar = ui.TitleBar({
@@ -1015,6 +1020,37 @@ function run(c) {
     });
     c.ok('off bar carries no title', !('title' in offBar.props));
     c.ok('off bar arms no hover', !('onMouseEnter' in offBar.props));
+
+    // Off mode arms nothing on the expanded badge either.
+    t.React.resetHooks();
+    const offExpandedBar = ui.TitleBar({
+      category: 'suggested',
+      unitId: 'u-tip-fold',
+      showTitle: true,
+      isExpanded: true,
+      tooltipMode: 'off'
+    });
+    const offExpandedKids = offExpandedBar.props.children.props.children;
+    c.ok('off expanded badge arms no hover', !('onMouseEnter' in offExpandedKids[0].props));
+
+    // Expanded badge preview works even when the bar shows no title
+    // (e.g. 'Only When Folded' mode).
+    t.React.resetHooks();
+    const noTitleExpandedBar = ui.TitleBar({
+      category: 'suggested',
+      unitId: 'u-tip-no-title',
+      showTitle: false,
+      isExpanded: true,
+      tooltipMode: 'large',
+      enrichment: {
+        actor: { name: 'Hedy Lamarr' },
+        content: { message: 'Spread spectrum technology' }
+      }
+    });
+    // The harness unwraps a lone child, so normalize to an array first.
+    const noTitleBox = noTitleExpandedBar.props.children.props.children;
+    const noTitleKids = Array.isArray(noTitleBox) ? noTitleBox : [noTitleBox];
+    c.equals('expanded badge arms hover without a title', typeof noTitleKids[0].props.onMouseEnter, 'function');
 
     // Retired modes fall back to the schema default (large): no native title,
     // hover armed like large.

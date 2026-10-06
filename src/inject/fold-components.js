@@ -328,8 +328,11 @@ window.FBDietFoldComponents = (() => {
       // Relay keeps no-DOM-scan invariant; 'dom' allows title scan. // per docs/architecture.md
       const allowDomScan = mode === 'dom';
 
-      // Enrichment only with store result (record ids); 'dom' reads DOM instead.
-      const enrichment = (showTitle && store && window.FBDietRelayMetadata)
+      // Enrichment feeds the title, the tooltip preview, and the probe alike. It is a
+      // Relay store read (record ids, no DOM), so it is always collected whenever the
+      // store is available; gating it on one consumer starves the others. 'dom' mode
+      // reads DOM instead.
+      const enrichment = (store && window.FBDietRelayMetadata)
         ? window.FBDietRelayMetadata.collect(store, props)
         : null;
 
