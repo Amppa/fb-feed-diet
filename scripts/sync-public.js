@@ -28,7 +28,10 @@ const PUBLIC_REPO_URL = 'https://github.com/Amppa/fb-feed-diet.git';
 // scripts/ is included because tests/bump-version.test.js requires scripts/bump-version, so
 // without it the mirror ships a test suite that cannot run. It also lets a mirror-only clone
 // produce the installable zip, since release/ is excluded.
+// .github/ is included so the public mirror runs its own Release automation
+// (.github/workflows/release.yml only — no internal docs or history travel with it).
 const PUBLIC_INCLUDES = [
+  '.github',
   'manifest.json',
   'README.md',
   'package.json',
