@@ -92,6 +92,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     other: document.getElementById('otherCount'),
     regular: document.getElementById('regularCount')
   };
+  const filteredHead = document.getElementById('filteredCountHead');
 
   function updateHighlighting() {
     const isMasterActive = masterToggle ? masterToggle.checked : true;
@@ -103,16 +104,113 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  let lastCounts = null;
+  function refreshDonut() {
+    if (lastCounts) renderDonut(lastCounts);
+  }
+
   function renderCounts(counts) {
     if (!counts) return;
     if (counters.total) counters.total.textContent = (counts.total || 0).toLocaleString();
-    if (counters.filtered) counters.filtered.textContent = (counts.filtered || 0).toLocaleString();
+    if (counters.filtered) counters.filtered.textContent = formatFilteredPercent(counts);
+    if (filteredHead) filteredHead.textContent = (counts.filtered || 0).toLocaleString();
     if (counters.ads) counters.ads.textContent = (counts.ads || 0).toLocaleString();
     if (counters.suggested) counters.suggested.textContent = (counts.suggested || 0).toLocaleString();
     if (counters.media) counters.media.textContent = (counts.media || 0).toLocaleString();
     if (counters.other) counters.other.textContent = (counts.other || 0).toLocaleString();
     if (counters.regular) counters.regular.textContent = (counts.regular || 0).toLocaleString();
+    lastCounts = counts;
     updateHighlighting();
+    renderDonut(counts);
+  }
+
+  // Same fold source as updateHighlighting: master switch plus the group switch.
+  function isDonutGroupFolded(group) {
+    if (masterToggle && !masterToggle.checked) return false;
+    const switchId = SWITCH_BY_GROUP[group];
+    const checkbox = switchId && switches[switchId];
+    return Boolean(checkbox && checkbox.checked);
+  }
+
+  // Donut center shows the filtered share of received posts (the ring is empty at zero).
+  function formatFilteredPercent(counts) {
+    const total = countOf(counts, 'total');
+    if (total <= 0) return '0%';
+    return `${Math.round((countOf(counts, 'filtered') / total) * 100)}%`;
+  }
+
+  // Donut composition of received posts, in legend order. Nodes are built with
+  // createElementNS (never innerHTML), per the MV3 review red lines.
+  const DONUT_GROUPS = ['regular', 'suggested', 'media', 'ads', 'other'];
+
+  function countOf(counts, key) {
+    return (counts && counts[key]) || 0;
+  }
+
+  // Ring denominator matches the center percent: counts.total wins, so an
+  // unclassified share (total beyond the five groups) shows as a track-colored
+  // gap instead of silently stretching the slices. Falls back to the group sum
+  // when total is missing, and never below it, so stale rows still close the ring.
+  function donutTotal(counts) {
+    const groupSum = DONUT_GROUPS.reduce((sum, group) => sum + countOf(counts, group), 0);
+    const total = countOf(counts, 'total');
+    return Math.max(total, groupSum);
+  }
+
+  // Ring geometry is owned by options.html: arcs reuse the track circle's own
+  // center and radius, so a viewBox change never leaves the JS behind.
+  function donutGeometry(segments) {
+    const fallback = { cx: 70, cy: 70, r: 59 };
+    const track = segments && segments.parentNode
+      ? segments.parentNode.querySelector('.donut-track')
+      : null;
+    if (!track) return fallback;
+    const read = (name) => {
+      const value = Number(track.getAttribute(name));
+      return Number.isFinite(value) ? value : fallback[name];
+    };
+    const geom = { cx: read('cx'), cy: read('cy'), r: read('r') };
+    geom.circumference = 2 * Math.PI * geom.r;
+    return geom;
+  }
+
+  // One ring slice. Arcs start at 12 o'clock and run clockwise: the slice is
+  // rotated back by the already-consumed share, then the whole ring is turned
+  // -90 degrees to move the zero point from 3 o'clock to the top.
+  function buildArc(group, geom, fraction, consumed) {
+    const arc = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    arc.setAttribute('cx', String(geom.cx));
+    arc.setAttribute('cy', String(geom.cy));
+    arc.setAttribute('r', String(geom.r));
+    arc.setAttribute('class', 'donut-seg');
+    // Folded slices use the badge text color; unfolded ones sink to the
+    // badge background (--donut-<group> / --donut-<group>-dim in options.css).
+    arc.style.stroke = `var(--donut-${group}${isDonutGroupFolded(group) ? '' : '-dim'})`;
+    arc.setAttribute('stroke-dasharray', `${fraction * geom.circumference} ${geom.circumference}`);
+    arc.setAttribute('stroke-dashoffset', String(-consumed * geom.circumference));
+    arc.setAttribute('transform', `rotate(-90 ${geom.cx} ${geom.cy})`);
+    return arc;
+  }
+
+  function renderDonut(counts) {
+    const segments = document.getElementById('donutSegments');
+    const center = document.getElementById('donutCenter');
+    const emptyHint = document.getElementById('donutEmpty');
+    if (!segments) return;
+    while (segments.firstChild) segments.removeChild(segments.firstChild);
+    const total = donutTotal(counts);
+    const isEmpty = total <= 0;
+    if (center) center.hidden = isEmpty;
+    if (emptyHint) emptyHint.hidden = !isEmpty;
+    if (isEmpty) return;
+    const geom = donutGeometry(segments);
+    let consumed = 0;
+    for (const group of DONUT_GROUPS) {
+      const fraction = countOf(counts, group) / total;
+      if (fraction <= 0) continue;
+      segments.appendChild(buildArc(group, geom, fraction, consumed));
+      consumed += fraction;
+    }
   }
 
   function updateMasterUI(isEnabled) {
@@ -130,6 +228,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (classifierList) classifierList.classList.add('disabled');
     }
     updateHighlighting();
+    refreshDonut();
   }
 
   /**
@@ -280,6 +379,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       await saveAndBroadcastSettings(updated);
       updateHighlighting();
+      refreshDonut();
     });
   }
 
@@ -326,6 +426,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             setSelectValue(key, select, s[key]);
           }
           updateHighlighting();
+          refreshDonut();
           if (s.lang && i18n && s.lang !== i18n.getLang()) {
             i18n.setLang(s.lang);
             applyTranslations();

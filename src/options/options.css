@@ -23,11 +23,27 @@
   --font-stat-prefix: 18px;
   --font-stat-sep: 20px;
   --font-stat-total: 24px;
+  --font-donut-center: 28px;
   --font-feature-icon: 22px;
   --feature-icon-box: 26px;
   --font-state-emoji: 17px;
 
   /* Component geometry unique to this page */
+  --donut-size: 168px;
+  --donut-thickness: 22px;
+  --donut-dot: 10px;
+  /* Donut slice colors mirror the feed badge palette in src/content/content.css.
+     The -dim row is the badge background: unfolded groups sink to it. */
+  --donut-regular: #10b981;
+  --donut-suggested: #f59e0b;
+  --donut-media: #a855f7;
+  --donut-ads: #ef4444;
+  --donut-other: #3b82f6;
+  --donut-regular-dim: rgba(16, 185, 129, 0.12);
+  --donut-suggested-dim: rgba(245, 158, 11, 0.12);
+  --donut-media-dim: rgba(168, 85, 247, 0.12);
+  --donut-ads-dim: rgba(239, 68, 68, 0.12);
+  --donut-other-dim: rgba(59, 130, 246, 0.12);
   --pad-row: 13px 16px;
   --pad-select: 6px 26px 6px 10px;
   --select-arrow-inset: 9px;
@@ -156,20 +172,15 @@ body {
   margin-bottom: var(--space-section);
 }
 
-.stat-main {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: var(--space-stack);
-  border-bottom: var(--border-width) solid var(--divider);
-}
-
-.stat-info {
+.stat-side {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
+  gap: var(--space-stack);
+  min-width: 0;
 }
 
-.stat-daily-row {
+.stat-received-row {
   display: flex;
   align-items: baseline;
   gap: var(--space-md);
@@ -181,12 +192,6 @@ body {
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: var(--tracking-number);
-}
-
-.stat-daily-values {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-micro);
 }
 
 .stat-number {
@@ -216,41 +221,63 @@ body {
   font-weight: 700;
 }
 
-.stat-title {
-  font-size: var(--font-small);
-  color: var(--text-secondary);
-  margin-top: var(--space-xs);
-  font-weight: 500;
-}
-
 .reset-btn {
   font-size: var(--font-small);
   padding: var(--space-sm) var(--space-stack);
 }
 
-/* Stat Breakdown Grid */
-.stat-breakdown {
-  display: grid;
-  /* One column per user-facing category group; the 2-column fallback keeps the pills legible
-     on narrow windows. Counts stay literal because var() is not allowed inside repeat(). */
-  grid-template-columns: repeat(5, 1fr);
-  gap: var(--space-md);
-  margin-top: var(--space-stack);
+/* Stat body: per-group legend on the left, donut on the right */
+.stat-body {
+  display: flex;
+  align-items: center;
+  gap: var(--space-wide);
 }
 
-@media (max-width: 660px) {
-  .stat-breakdown {
-    grid-template-columns: repeat(2, 1fr);
+@media (max-width: 560px) {
+  .stat-body {
+    flex-direction: column;
   }
 }
 
-.stat-sub-item {
+.stat-legend {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
+  gap: var(--space-row);
+  min-width: 0;
+}
+
+.stat-legend-row {
+  display: flex;
   align-items: center;
-  background: var(--surface-sunken);
-  padding: var(--space-block) var(--space-row);
-  border-radius: var(--radius-small);
+  gap: var(--space-row);
+}
+
+.legend-dot {
+  width: var(--donut-dot);
+  height: var(--donut-dot);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-regular {
+  background: var(--donut-regular);
+}
+
+.legend-suggested {
+  background: var(--donut-suggested);
+}
+
+.legend-media {
+  background: var(--donut-media);
+}
+
+.legend-ads {
+  background: var(--donut-ads);
+}
+
+.legend-other {
+  background: var(--donut-other);
 }
 
 .sub-label {
@@ -262,16 +289,103 @@ body {
   text-align: center;
 }
 
+.stat-legend-row .sub-label {
+  /* Same copy style as the card footnote; numbers start at 1/3 width or
+     right of the longest label, whichever is wider. */
+  flex: 0 0 auto;
+  min-width: 33%;
+  font-size: var(--font-small);
+  color: var(--text-secondary);
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 500;
+  text-align: left;
+}
+
 .sub-value {
   font-size: var(--font-heading);
   font-weight: 700;
   color: var(--text-primary);
-  /* Push the number to the pill's bottom edge so all five pills align,
-     regardless of whether the label wraps to one or two lines. */
-  margin-top: auto;
-  padding-top: var(--space-micro);
   font-variant-numeric: tabular-nums;
   transition: color var(--motion-fast) ease, text-shadow var(--motion-fast) ease;
+}
+
+/* Card footnote: note on the left, Reset on the same row */
+.stat-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-block);
+  margin-top: var(--space-stack);
+  padding-top: var(--space-stack);
+  border-top: var(--border-width) solid var(--divider);
+}
+
+.stat-foot .feature-desc {
+  flex: 1 1 auto;
+  margin-top: 0;
+  min-width: 0;
+}
+
+/* Donut: SVG ring segments drawn by options.js, HTML overlay in the center */
+.donut-wrap {
+  position: relative;
+  width: var(--donut-size);
+  height: var(--donut-size);
+  flex-shrink: 0;
+}
+
+.donut {
+  width: 100%;
+  height: 100%;
+}
+
+.donut-track {
+  fill: none;
+  stroke: var(--surface-sunken);
+  stroke-width: var(--donut-thickness);
+}
+
+.donut-seg {
+  fill: none;
+  stroke-width: var(--donut-thickness);
+}
+
+.donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.donut-center[hidden] {
+  display: none;
+}
+
+.donut-center .stat-number {
+  font-size: var(--font-donut-center);
+}
+
+.donut-center-label {
+  font-size: var(--font-small);
+  color: var(--text-secondary);
+  margin-top: var(--space-tight);
+}
+
+.donut-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-small);
+  color: var(--text-muted);
+}
+
+.donut-empty[hidden] {
+  display: none;
 }
 
 .sub-value.active-folded {

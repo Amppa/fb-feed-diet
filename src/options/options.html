@@ -35,46 +35,63 @@
       </div>
     </header>
 
-    <!-- Stat Counter Dashboard -->
+    <!-- Stat Counter Dashboard: received + legend on the left, donut on the right -->
     <div class="stat-card">
-      <div class="stat-main">
-        <div class="stat-info">
-          <div class="stat-daily-row">
-            <span class="stat-daily-prefix" data-i18n="todayFilteredPrefix">今日已過濾:</span>
-            <span class="stat-daily-values">
-              <span class="stat-number stat-filtered-num" id="filteredCount">0</span>
-              <span class="stat-daily-sep">/</span>
-              <span class="stat-number stat-total-num" id="totalCount">0</span>
-            </span>
+      <div class="stat-body">
+        <div class="stat-side">
+          <div class="stat-received-row">
+            <span class="stat-daily-prefix" data-i18n="statReceivedPrefix">今日收到：</span>
+            <span class="stat-number stat-filtered-num" id="filteredCountHead">0</span>
+            <span class="stat-daily-sep">/</span>
+            <span class="stat-number stat-total-num" id="totalCount">0</span>
           </div>
-          <span class="stat-title" data-i18n="dailyPostStatsDesc">每日貼文瀏覽與過濾統計</span>
+          <!-- Per-group legend (user-facing groups, per docs/architecture.md) -->
+          <div class="stat-legend">
+          <div class="stat-legend-row">
+            <span class="legend-dot legend-regular" aria-hidden="true"></span>
+            <span class="sub-label" data-i18n="groupRegularTitle">Regular posts</span>
+            <span class="sub-value" id="regularCount">0</span>
+          </div>
+          <div class="stat-legend-row">
+            <span class="legend-dot legend-suggested" aria-hidden="true"></span>
+            <span class="sub-label" data-i18n="groupSuggestedTitle">Suggested by Facebook</span>
+            <span class="sub-value" id="suggestedCount">0</span>
+          </div>
+          <div class="stat-legend-row">
+            <span class="legend-dot legend-media" aria-hidden="true"></span>
+            <span class="sub-label" data-i18n="groupMediaTitle">Reels &amp; Stories</span>
+            <span class="sub-value" id="mediaCount">0</span>
+          </div>
+          <div class="stat-legend-row">
+            <span class="legend-dot legend-ads" aria-hidden="true"></span>
+            <span class="sub-label" data-i18n="groupAdsTitle">Ads</span>
+            <span class="sub-value" id="adsCount">0</span>
+          </div>
+          <div class="stat-legend-row">
+            <span class="legend-dot legend-other" aria-hidden="true"></span>
+            <span class="sub-label" data-i18n="groupOtherTitle">Other</span>
+            <span class="sub-value" id="otherCount">0</span>
+          </div>
         </div>
-        <button class="reset-btn" id="resetBtn" title="Reset all counter stats" data-i18n-title="resetOptionsTitle"
-          data-i18n="reset">Reset</button>
+        </div>
+
+        <div class="donut-wrap">
+          <svg class="donut" viewBox="0 0 140 140" aria-hidden="true">
+            <circle class="donut-track" cx="70" cy="70" r="59"></circle>
+            <g id="donutSegments"></g>
+          </svg>
+          <div class="donut-center" id="donutCenter">
+            <span class="stat-number stat-filtered-num" id="filteredCount">0</span>
+            <span class="donut-center-label" data-i18n="statFilteredShort">已過濾</span>
+          </div>
+          <div class="donut-empty" id="donutEmpty" data-i18n="statEmpty" hidden>尚無資料</div>
+        </div>
       </div>
 
-      <!-- Sub-counters breakdown (user-facing groups, per docs/architecture.md) -->
-      <div class="stat-breakdown">
-        <div class="stat-sub-item">
-          <span class="sub-label" data-i18n="groupRegularTitle">Regular posts</span>
-          <span class="sub-value" id="regularCount">0</span>
-        </div>
-        <div class="stat-sub-item">
-          <span class="sub-label" data-i18n="groupSuggestedTitle">Suggested by Facebook</span>
-          <span class="sub-value" id="suggestedCount">0</span>
-        </div>
-        <div class="stat-sub-item">
-          <span class="sub-label" data-i18n="groupMediaTitle">Reels &amp; Stories</span>
-          <span class="sub-value" id="mediaCount">0</span>
-        </div>
-        <div class="stat-sub-item">
-          <span class="sub-label" data-i18n="groupAdsTitle">Ads</span>
-          <span class="sub-value" id="adsCount">0</span>
-        </div>
-        <div class="stat-sub-item">
-          <span class="sub-label" data-i18n="groupOtherTitle">Other</span>
-          <span class="sub-value" id="otherCount">0</span>
-        </div>
+      <div class="stat-foot">
+        <span class="feature-desc" data-i18n="dailyPostStatsDesc">每日貼文瀏覽與過濾統計</span>
+        <button class="reset-btn" id="resetBtn" title="Reset all counter stats" data-i18n-title="resetOptionsTitle"
+          data-i18n="reset">Reset</button>
       </div>
     </div>
 
