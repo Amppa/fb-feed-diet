@@ -333,13 +333,16 @@ window.FBDietUI = (() => {
 
       if (isExpanded) tooltipText = getCollapseLabel();
 
-      // Tooltip mode: 'off' shows nothing, 'native' keeps the browser title
-      // tooltip, 'custom' shows the large portal popup. Hover handlers attach
-      // only for custom + folded + text — every other combination shows nothing.
+      // Tooltip mode: 'off' shows nothing, 'normal'/'large' show the portal
+      // popup at 16px/28px. Hover handlers attach only for portal + folded +
+      // text — every other combination shows nothing.
       const tooltipMode = (DEFAULTS && typeof DEFAULTS.normalizeTooltipMode === 'function')
         ? DEFAULTS.normalizeTooltipMode(props.tooltipMode)
-        : (props.tooltipMode === 'off' || props.tooltipMode === 'native' || props.tooltipMode === 'custom' ? props.tooltipMode : 'custom');
-      const useCustomTooltip = tooltipMode === 'custom' && !isExpanded && Boolean(tooltipText);
+        : (props.tooltipMode === 'off' || props.tooltipMode === 'normal' || props.tooltipMode === 'large' ? props.tooltipMode : 'large');
+      const useCustomTooltip = tooltipMode !== 'off' && !isExpanded && Boolean(tooltipText);
+      const tooltipFontPx = (DEFAULTS && typeof DEFAULTS.tooltipFontSizePx === 'function')
+        ? DEFAULTS.tooltipFontSizePx(props.tooltipMode)
+        : 28;
 
       /** Removes the portal node and its scroll listener, if any. */
       function hideBarTooltip() {
@@ -375,8 +378,10 @@ window.FBDietUI = (() => {
           const maxWidth = Math.max(width - (TOOLTIP_INDENT_PX * 2), TOOLTIP_MIN_WIDTH_PX) + 'px';
           if (node.style && typeof node.style.setProperty === 'function') {
             node.style.setProperty('max-width', maxWidth, 'important');
+            node.style.setProperty('font-size', tooltipFontPx + 'px', 'important');
           } else {
             node.style.maxWidth = maxWidth;
+            node.style.fontSize = tooltipFontPx + 'px';
           }
           node.style.left = Math.max(rect.left + TOOLTIP_INDENT_PX, 8) + 'px';
           node.style.top = (rect.bottom + TOOLTIP_GAP_PX) + 'px';
@@ -417,7 +422,6 @@ window.FBDietUI = (() => {
         className: className,
         onClick: props.onToggle
       };
-      if (tooltipMode === 'native' && tooltipText) barProps.title = tooltipText;
       if (useCustomTooltip) {
         barProps.onMouseEnter = handleBarMouseEnter;
         barProps.onMouseLeave = hideBarTooltip;

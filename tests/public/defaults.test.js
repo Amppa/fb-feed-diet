@@ -101,7 +101,7 @@ function run(checker) {
   checker.equals('settings.minimizedFoldMode is true', settings && settings.minimizedFoldMode, true);
   checker.equals('settings.alwaysShowFoldBar is true', settings && settings.alwaysShowFoldBar, true);
   checker.equals('settings.showTitleMode is whenFolded', settings && settings.showTitleMode, 'whenFolded');
-  checker.equals('settings.tooltipMode is custom', settings && settings.tooltipMode, 'custom');
+  checker.equals('settings.tooltipMode is large', settings && settings.tooltipMode, 'large');
   checker.equals('settings.debugProbe is false', settings && settings.debugProbe, false);
   checker.equals('settings.restrictFoldScope is true', settings && settings.restrictFoldScope, true);
 
@@ -230,11 +230,17 @@ function run(checker) {
   /* --- fold bar hover tooltip modes --- */
   checker.ok('normalizeTooltipMode exists', typeof defaults.normalizeTooltipMode === 'function');
   checker.equals('tooltip mode off passes through', defaults.normalizeTooltipMode('off'), 'off');
-  checker.equals('tooltip mode native passes through', defaults.normalizeTooltipMode('native'), 'native');
-  checker.equals('tooltip mode custom passes through', defaults.normalizeTooltipMode('custom'), 'custom');
-  checker.equals('unknown tooltip value falls back to custom', defaults.normalizeTooltipMode('wat'), 'custom');
-  checker.equals('missing tooltip value falls back to custom', defaults.normalizeTooltipMode(undefined), 'custom');
-  checker.equals('custom tooltip fallback honoured', defaults.normalizeTooltipMode('wat', 'off'), 'off');
+  checker.equals('tooltip mode normal passes through', defaults.normalizeTooltipMode('normal'), 'normal');
+  checker.equals('tooltip mode large passes through', defaults.normalizeTooltipMode('large'), 'large');
+  checker.equals('retired native falls back to large', defaults.normalizeTooltipMode('native'), 'large');
+  checker.equals('retired custom falls back to large', defaults.normalizeTooltipMode('custom'), 'large');
+  checker.equals('unknown tooltip value falls back to large', defaults.normalizeTooltipMode('wat'), 'large');
+  checker.equals('missing tooltip value falls back to large', defaults.normalizeTooltipMode(undefined), 'large');
+  checker.equals('large tooltip fallback honoured', defaults.normalizeTooltipMode('wat', 'off'), 'off');
+  checker.ok('tooltipFontSizePx exists', typeof defaults.tooltipFontSizePx === 'function');
+  checker.equals('large tooltip is 28px', defaults.tooltipFontSizePx('large'), 28);
+  checker.equals('normal tooltip is 16px', defaults.tooltipFontSizePx('normal'), 16);
+  checker.equals('unknown tooltip size falls back to 28px', defaults.tooltipFontSizePx('wat'), 28);
 
   /* --- feed UI labels: one table per locale, and the locale the feed renders with --- */
   const labels = defaults && defaults.FEED_LABELS;

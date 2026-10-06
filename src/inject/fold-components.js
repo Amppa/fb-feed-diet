@@ -324,7 +324,7 @@ window.FBDietFoldComponents = (() => {
       const defaults = window.FB_DIET_DEFAULTS;
       const tooltipMode = defaults && typeof defaults.normalizeTooltipMode === 'function'
         ? defaults.normalizeTooltipMode(settings.tooltipMode)
-        : (settings.tooltipMode === 'off' || settings.tooltipMode === 'native' || settings.tooltipMode === 'custom' ? settings.tooltipMode : 'custom');
+        : (settings.tooltipMode === 'off' || settings.tooltipMode === 'normal' || settings.tooltipMode === 'large' ? settings.tooltipMode : 'large');
       // Relay keeps no-DOM-scan invariant; 'dom' allows title scan. // per docs/architecture.md
       const allowDomScan = mode === 'dom';
 

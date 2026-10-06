@@ -290,11 +290,11 @@ html.__fb-light-mode {
 /* ------------------------------------------------------------------ *
  * Custom hover tooltip (JS portal, MAIN world TitleBar)
  *
- * Large-type alternative to the native title tooltip: appended to
+ * Sized portal popup (normal 16px / large 28px): appended to
  * document.body and positioned under the bar (bar left + 20px), so the bar's
- * own overflow:hidden never clips it. Width is set inline per bar
- * (bar width minus 40px, 20px inset on both sides); the max-width below
- * is only the no-JS fallback.
+ * own overflow:hidden never clips it. Width and font-size are set inline
+ * per bar (bar width minus 40px, 20px inset on both sides); the values below
+ * are only the no-JS fallback.
  * ------------------------------------------------------------------ */
 .fb-diet-tooltip {
   position: fixed !important;

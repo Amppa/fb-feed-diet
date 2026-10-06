@@ -967,30 +967,42 @@ function run(c) {
       groupName: 'Vienna Group',
       adUrl: ''
     });
-    // Custom: folded bars carry no native title and arm hover instead.
+    // Large: folded bars carry no native title and arm hover instead.
     t.React.resetHooks();
     const foldedBar = ui.TitleBar({
       category: 'suggested',
       unitId: 'u-tip-fold',
       showTitle: true,
       isExpanded: false,
-      tooltipMode: 'custom'
+      tooltipMode: 'large'
     });
-    c.ok('custom folded bar carries no native title', !('title' in foldedBar.props));
-    c.equals('custom folded bar arms hover', typeof foldedBar.props.onMouseEnter, 'function');
-    c.equals('custom folded bar arms hover-out', typeof foldedBar.props.onMouseLeave, 'function');
+    c.ok('large folded bar carries no native title', !('title' in foldedBar.props));
+    c.equals('large folded bar arms hover', typeof foldedBar.props.onMouseEnter, 'function');
+    c.equals('large folded bar arms hover-out', typeof foldedBar.props.onMouseLeave, 'function');
 
-    // Custom expanded bars show nothing and arm nothing.
+    // Normal arms hover the same way, only the portal font size differs.
+    t.React.resetHooks();
+    const normalBar = ui.TitleBar({
+      category: 'suggested',
+      unitId: 'u-tip-fold',
+      showTitle: true,
+      isExpanded: false,
+      tooltipMode: 'normal'
+    });
+    c.ok('normal folded bar carries no native title', !('title' in normalBar.props));
+    c.equals('normal folded bar arms hover', typeof normalBar.props.onMouseEnter, 'function');
+
+    // Large expanded bars show nothing and arm nothing.
     t.React.resetHooks();
     const expandedBar = ui.TitleBar({
       category: 'suggested',
       unitId: 'u-tip-fold',
       showTitle: true,
       isExpanded: true,
-      tooltipMode: 'custom'
+      tooltipMode: 'large'
     });
-    c.ok('custom expanded bar carries no tooltip', !('title' in expandedBar.props));
-    c.ok('custom expanded bar arms no hover', !('onMouseEnter' in expandedBar.props));
+    c.ok('large expanded bar carries no tooltip', !('title' in expandedBar.props));
+    c.ok('large expanded bar arms no hover', !('onMouseEnter' in expandedBar.props));
 
     // Off: nothing anywhere, even folded with text.
     t.React.resetHooks();
@@ -1004,8 +1016,8 @@ function run(c) {
     c.ok('off bar carries no title', !('title' in offBar.props));
     c.ok('off bar arms no hover', !('onMouseEnter' in offBar.props));
 
-    // Native keeps the previous contract: folded shows the full snippet,
-    // expanded offers collapse in the feed locale.
+    // Retired modes fall back to the schema default (large): no native title,
+    // hover armed like large.
     t.React.resetHooks();
     const nativeBar = ui.TitleBar({
       category: 'suggested',
@@ -1014,19 +1026,20 @@ function run(c) {
       isExpanded: false,
       tooltipMode: 'native'
     });
-    c.equals('native folded bar tooltip is the full snippet', nativeBar.props.title, 'Spread spectrum technology');
-    t.bridge.setSettings({ lang: 'en' });
+    c.ok('retired native mode carries no title', !('title' in nativeBar.props));
+    c.equals('retired native mode arms hover like large', typeof nativeBar.props.onMouseEnter, 'function');
     t.React.resetHooks();
-    const nativeExpandedBar = ui.TitleBar({
+    const customBar = ui.TitleBar({
       category: 'suggested',
       unitId: 'u-tip-fold',
       showTitle: true,
-      isExpanded: true,
-      tooltipMode: 'native'
+      isExpanded: false,
+      tooltipMode: 'custom'
     });
-    c.equals('native expanded bar tooltip collapses in en', nativeExpandedBar.props.title, 'Collapse');
+    c.ok('retired custom mode carries no title', !('title' in customBar.props));
+    c.equals('retired custom mode arms hover like large', typeof customBar.props.onMouseEnter, 'function');
 
-    // Missing mode falls back to the schema default (custom).
+    // Missing mode falls back to the schema default (large).
     t.React.resetHooks();
     const defaultBar = ui.TitleBar({
       category: 'suggested',
@@ -1035,7 +1048,7 @@ function run(c) {
       isExpanded: false
     });
     c.ok('missing tooltipMode carries no native title', !('title' in defaultBar.props));
-    c.equals('missing tooltipMode falls back to custom', typeof defaultBar.props.onMouseEnter, 'function');
+    c.equals('missing tooltipMode falls back to large', typeof defaultBar.props.onMouseEnter, 'function');
 
     // No text to show means no tooltip and no hover in any mode.
     // A fresh setup: the harness keeps useState values across TitleBar calls,
@@ -1048,7 +1061,7 @@ function run(c) {
       unitId: 'u-tip-empty',
       showTitle: true,
       isExpanded: false,
-      tooltipMode: 'custom'
+      tooltipMode: 'large'
     });
     c.ok('folded bar without text carries no tooltip', !('title' in emptyBar.props));
     c.ok('folded bar without text arms no hover', !('onMouseEnter' in emptyBar.props));
@@ -1058,7 +1071,7 @@ function run(c) {
       unitId: 'u-tip-stories',
       showTitle: true,
       isExpanded: false,
-      tooltipMode: 'custom'
+      tooltipMode: 'large'
     });
     c.ok('folded media bar carries no tooltip', !('title' in storiesBar.props));
     c.ok('folded media bar arms no hover', !('onMouseEnter' in storiesBar.props));

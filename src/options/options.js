@@ -17,20 +17,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   const SETTING_KEYS_BY_GROUP = DEFAULTS_MAP.SETTING_KEYS_BY_GROUP || {};
 
   const switches = {};
-  document.querySelectorAll('#featuresList input[type="checkbox"], #appearanceList input[type="checkbox"]').forEach(input => {
+  document.querySelectorAll('#featuresList input[type="checkbox"], #appearanceList input[type="checkbox"], #classifierList input[type="checkbox"]').forEach(input => {
     if (input.id) switches[input.id] = input;
   });
 
-  // Section dropdowns (the Fold Bar Title select) live in the same appearance list.
+  // Section dropdowns live in the appearance and classifier lists.
   const selects = {};
-  document.querySelectorAll('#appearanceList select').forEach(el => {
+  document.querySelectorAll('#appearanceList select, #classifierList select').forEach(el => {
     if (el.id) selects[el.id] = el;
   });
 
-  // Settings keys owned by the Appearance Settings section; the Defaults button
-  // restores exactly these from FB_DIET_DEFAULTS.SETTINGS. // per docs/architecture.md
-  // The Detection Source select now lives in this section, so "Defaults" covers it too.
-  const APPEARANCE_KEYS = ['restrictFoldScope', 'alwaysShowFoldBar', 'showTitleMode', 'tooltipMode', 'minimizedFoldMode', 'dietMode', 'debugProbe'];
+  // Settings keys restored by the Appearance section's Defaults button
+  // from FB_DIET_DEFAULTS.SETTINGS. // per docs/architecture.md
+  // The Detection Source select and Feed Probe now live in the Classifier Settings
+  // section, but "Defaults" still covers them so no visible control is skipped.
+  // `alwaysShowFoldBar` has no visible control anymore, so "Defaults" leaves the
+  // stored value alone; the inject code still honours it.
+  const APPEARANCE_KEYS = ['restrictFoldScope', 'showTitleMode', 'tooltipMode', 'minimizedFoldMode', 'dietMode', 'debugProbe'];
 
   // Shared normaliser: the options page shows the current mode name for a profile that may
   // still hold a retired value ('lite' / 'full' / 'relay+dom') in storage.
@@ -39,6 +42,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       ? DEFAULTS_MAP.normalizeDetectionMode(value)
       : 'relay'
   );
+
+  // Two selects keep a boolean in storage (compatibility contract) while showing
+  // descriptive option values: "18"/"36" for the bar height, "scoped"/"all" for the scope.
+  const BOOLEAN_SELECTS = {
+    minimizedFoldMode: { trueValue: '18', falseValue: '36' },
+    restrictFoldScope: { trueValue: 'scoped', falseValue: 'all' }
+  };
+  function booleanToSelectValue(key, value) {
+    const mapping = BOOLEAN_SELECTS[key];
+    return (value === false || value === mapping.falseValue || value === 'false' ? mapping.falseValue : mapping.trueValue);
+  }
+  function selectValueToBoolean(key, value) {
+    return value !== BOOLEAN_SELECTS[key].falseValue;
+  }
+  function setSelectValue(key, select, stored) {
+    select.value = BOOLEAN_SELECTS[key] ? booleanToSelectValue(key, stored) : String(stored);
+    if (select.selectedIndex === -1) select.selectedIndex = 0;
+  }
 
   const GROUP_BY_SWITCH = {
     groupRegular: 'regular',
@@ -98,18 +119,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (masterToggle) masterToggle.checked = isEnabled;
     if (masterStatus) masterStatus.textContent = i18n ? i18n.t(isEnabled ? 'masterStatusActive' : 'masterStatusDisabled') : (isEnabled ? 'Active' : 'Disabled');
     const appearanceList = document.getElementById('appearanceList');
+    const classifierList = document.getElementById('classifierList');
     if (isEnabled) {
       featuresList.classList.remove('disabled');
       if (appearanceList) appearanceList.classList.remove('disabled');
+      if (classifierList) classifierList.classList.remove('disabled');
     } else {
       featuresList.classList.add('disabled');
       if (appearanceList) appearanceList.classList.add('disabled');
+      if (classifierList) classifierList.classList.add('disabled');
     }
     updateHighlighting();
   }
 
   /**
-   * Repaints the Detection Source select. `dietMode` lives in the appearance list, so the
+   * Repaints the Detection Source select. `dietMode` lives in the classifier list, so the
    * generic select loop already persists it; this only has to show the *normalised* value, so
    * a profile still holding the pre-rename 'lite' / 'full' displays its current name instead of
    * silently falling back to the first option.
@@ -165,8 +189,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   for (const [key, select] of Object.entries(selects)) {
     if (currentSettings[key] === undefined) continue;
-    select.value = String(currentSettings[key]);
-    if (select.selectedIndex === -1) select.selectedIndex = 0;
+    setSelectValue(key, select, currentSettings[key]);
   }
 
   // Initialize counts
@@ -213,8 +236,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (checkbox && settings[key] !== undefined) checkbox.checked = Boolean(settings[key]);
       const select = selects[key];
       if (select && settings[key] !== undefined) {
-        select.value = String(settings[key]);
-        if (select.selectedIndex === -1) select.selectedIndex = 0;
+        setSelectValue(key, select, settings[key]);
       }
     }
   }
@@ -261,11 +283,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Handle appearance dropdowns (e.g. showTitleMode); the value is the raw option string
+  // Handle appearance dropdowns (e.g. showTitleMode); the value is the raw option string,
+  // except boolean-backed selects which map back to the stored boolean.
   for (const [key, select] of Object.entries(selects)) {
     select.addEventListener('change', async () => {
       const { settings: current } = await chrome.storage.local.get('settings');
-      await saveAndBroadcastSettings({ ...current, [key]: select.value });
+      const value = BOOLEAN_SELECTS[key] ? selectValueToBoolean(key, select.value) : select.value;
+      await saveAndBroadcastSettings({ ...current, [key]: value });
     });
   }
 
@@ -299,8 +323,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
           for (const [key, select] of Object.entries(selects)) {
             if (s[key] === undefined) continue;
-            select.value = String(s[key]);
-            if (select.selectedIndex === -1) select.selectedIndex = 0;
+            setSelectValue(key, select, s[key]);
           }
           updateHighlighting();
           if (s.lang && i18n && s.lang !== i18n.getLang()) {

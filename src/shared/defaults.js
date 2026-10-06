@@ -15,7 +15,7 @@
     minimizedFoldMode: true,
     alwaysShowFoldBar: true,
     showTitleMode: 'whenFolded',
-    tooltipMode: 'custom',
+    tooltipMode: 'large',
     restrictFoldScope: true,
     debugProbe: false
   };
@@ -188,11 +188,21 @@
     return VALID_TITLE_MODES.has(value) ? value : fallback;
   }
 
-  // Fold bar tooltip: off/native/custom.
-  const VALID_TOOLTIP_MODES = new Set(['off', 'native', 'custom']);
+  // Fold bar tooltip: off/normal(16px)/large(28px). Retired values ('native',
+  // 'custom') fall through to the default per user decision, no mapping.
+  const VALID_TOOLTIP_MODES = new Set(['off', 'normal', 'large']);
 
-  function normalizeTooltipMode(value, fallback = 'custom') {
+  function normalizeTooltipMode(value, fallback = 'large') {
     return VALID_TOOLTIP_MODES.has(value) ? value : fallback;
+  }
+
+  // Custom tooltip font size (px) per mode; the options page exposes these as
+  // 加大 (28px) / 一般 (16px), and the portal node applies the value inline.
+  const TOOLTIP_FONT_SIZE_PX = { large: 28, normal: 16 };
+
+  function tooltipFontSizePx(value, fallback = TOOLTIP_FONT_SIZE_PX.large) {
+    const px = TOOLTIP_FONT_SIZE_PX[normalizeTooltipMode(value, '')];
+    return px === undefined ? fallback : px;
   }
 
   function getTodayDateString(d) {
@@ -281,7 +291,7 @@
     return (fallbackTable && fallbackTable[key]) || '';
   }
 
-  const EXTENSION_VERSION = '2.9.8';
+  const EXTENSION_VERSION = '2.9.9';
 
   globalThis.FB_DIET_DEFAULTS = {
     SETTINGS: DEFAULT_SETTINGS,
@@ -303,6 +313,8 @@
     normalizeFoldMode,
     normalizeTitleMode,
     normalizeTooltipMode,
+    TOOLTIP_FONT_SIZE_PX,
+    tooltipFontSizePx,
     normalizeDetectionMode,
     normalizeLocale,
     resolveFeedLocale,

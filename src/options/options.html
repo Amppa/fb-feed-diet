@@ -188,41 +188,24 @@
     </div>
     <div class="features-list" id="appearanceList">
 
-      <!-- 1. Whitelist scope -->
+      <!-- 1. Filter scope (scoped vs site-wide) -->
       <div class="feature-item">
         <div class="feature-meta">
           <span class="feature-icon">✨</span>
           <div>
-            <div class="feature-title" data-i18n="featFoldScopeTitle">Only Filter on Home, Search & Marketplace</div>
-            <div class="feature-desc" data-i18n="featFoldScopeDesc">Other pages like personal profiles and groups remain
-              untouched</div>
+            <div class="feature-title" data-i18n="featFoldScopeTitle">Filter Scope</div>
+            <div class="feature-desc" data-i18n="featFoldScopeDesc">Choose which Facebook pages the filters apply to
+            </div>
           </div>
         </div>
-        <label class="switch">
-          <input type="checkbox" id="restrictFoldScope" aria-label="Only Filter on Home, Search & Marketplace"
-            data-i18n-aria="featFoldScopeTitle">
-          <span class="slider round"></span>
-        </label>
+        <select class="feature-select" id="restrictFoldScope" aria-label="Filter Scope"
+          data-i18n-aria="featFoldScopeTitle">
+          <option value="scoped" data-i18n="featFoldScopeScoped">Home, Search & Marketplace only (Default)</option>
+          <option value="all" data-i18n="featFoldScopeAll">All Facebook pages</option>
+        </select>
       </div>
 
-      <!-- 2. Keep the fold bar when expanded -->
-      <div class="feature-item">
-        <div class="feature-meta">
-          <span class="feature-icon">📌</span>
-          <div>
-            <div class="feature-title" data-i18n="featAlwaysShowBarTitle">Show Header on Expanded Posts</div>
-            <div class="feature-desc" data-i18n="featAlwaysShowBarDesc">Shows a Header when posts are expanded or
-              unfiltered so you can fold a single post; when off, posts have no Header and cannot be folded</div>
-          </div>
-        </div>
-        <label class="switch">
-          <input type="checkbox" id="alwaysShowFoldBar" aria-label="Show Header on Expanded Posts"
-            data-i18n-aria="featAlwaysShowBarTitle">
-          <span class="slider round"></span>
-        </label>
-      </div>
-
-      <!-- 3. Fold Bar Title (3-state dropdown, available in both modes) -->
+      <!-- 2. Fold Bar Title (3-state dropdown, available in both modes) -->
       <div class="feature-item">
         <div class="feature-meta">
           <span class="feature-icon">📰</span>
@@ -240,7 +223,7 @@
         </select>
       </div>
 
-      <!-- 4. Fold bar hover tooltip (off / native / custom) -->
+      <!-- 3. Fold bar hover tooltip (off / normal / large) -->
       <div class="feature-item">
         <div class="feature-meta">
           <span class="feature-icon">💬</span>
@@ -252,30 +235,36 @@
         </div>
         <select class="feature-select" id="tooltipMode" aria-label="Show content on hover"
           data-i18n-aria="featTooltipModeTitle">
+          <option value="large" data-i18n="featTooltipModeLarge">Large (28px, Default)</option>
+          <option value="normal" data-i18n="featTooltipModeNormal">Normal (16px)</option>
           <option value="off" data-i18n="featTooltipModeOff">Don't show</option>
-          <option value="native" data-i18n="featTooltipModeNative">Native</option>
-          <option value="custom" data-i18n="featTooltipModeCustom">Large (Default)</option>
         </select>
       </div>
 
-      <!-- 5. Minimized fold bar (18px vs 36px) -->
+      <!-- 4. Fold bar height (18px vs 36px) -->
       <div class="feature-item">
         <div class="feature-meta">
           <span class="feature-icon">📏</span>
           <div>
-            <div class="feature-title" data-i18n="featMinimizedFoldTitle">Minimized Header (18px)</div>
-            <div class="feature-desc" data-i18n="featMinimizedFoldDesc">Switch to 18px ultra-slim height (default is
-              36px)</div>
+            <div class="feature-title" data-i18n="featMinimizedFoldTitle">Header Height</div>
+            <div class="feature-desc" data-i18n="featMinimizedFoldDesc">Compact 18px (default) or comfortable 36px
+            </div>
           </div>
         </div>
-        <label class="switch">
-          <input type="checkbox" id="minimizedFoldMode" aria-label="Minimized Header (18px)"
-            data-i18n-aria="featMinimizedFoldTitle">
-          <span class="slider round"></span>
-        </label>
+        <select class="feature-select" id="minimizedFoldMode" aria-label="Header Height"
+          data-i18n-aria="featMinimizedFoldTitle">
+          <option value="18" data-i18n="featFoldHeight18">18px (Default)</option>
+          <option value="36" data-i18n="featFoldHeight36">36px</option>
+        </select>
       </div>
 
-      <!-- 6. Detection source (relay vs dom) -->
+    </div>
+
+    <!-- Classifier Settings -->
+    <div class="section-label section-gap" data-i18n="sectionClassifierSettings">Classifier Settings</div>
+    <div class="features-list" id="classifierList">
+
+      <!-- 1. Detection source (relay vs dom) -->
       <div class="feature-item">
         <div class="feature-meta">
           <span class="feature-icon">🎯</span>
@@ -292,7 +281,7 @@
         </select>
       </div>
 
-      <!-- 7. Feed probe (debug) -->
+      <!-- 2. Feed probe (debug) -->
       <div class="feature-item">
         <div class="feature-meta">
           <span class="feature-icon">🔍</span>
