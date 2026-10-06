@@ -224,6 +224,8 @@ html.__fb-light-mode {
   position: relative !important;
   height: 0 !important;
   overflow: hidden !important;
+  contain: strict !important;
+  content-visibility: hidden !important;
 }
 
 .fb-diet-foldsquash>* {
@@ -246,7 +248,6 @@ html.__fb-light-mode {
   a[target^="rhcad"],
   a[href*="fbclid="],
   a[href*="/l.php"]),
-a[target^="rhcad"],
 :is(div[role="complementary"], aside, [data-pagelet*="RightRail"]) :is(div, li):has(> :is(a[attributionsrc],
     a[target^="rhcad"],
     a[href*="fbclid="],

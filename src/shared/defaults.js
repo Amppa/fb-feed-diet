@@ -10,12 +10,12 @@
     foldAds: true,
     foldRegular: false,
     foldSuggested: false,
-    foldMedia: true,
+    foldMedia: false,
     foldOther: true,
-    minimizedFoldMode: false,
+    minimizedFoldMode: true,
     alwaysShowFoldBar: true,
     showTitleMode: 'whenFolded',
-    tooltipMode: 'native',
+    tooltipMode: 'custom',
     restrictFoldScope: true,
     debugProbe: false
   };
@@ -191,7 +191,7 @@
   // Fold bar tooltip: off/native/custom.
   const VALID_TOOLTIP_MODES = new Set(['off', 'native', 'custom']);
 
-  function normalizeTooltipMode(value, fallback = 'native') {
+  function normalizeTooltipMode(value, fallback = 'custom') {
     return VALID_TOOLTIP_MODES.has(value) ? value : fallback;
   }
 
@@ -281,7 +281,7 @@
     return (fallbackTable && fallbackTable[key]) || '';
   }
 
-  const EXTENSION_VERSION = '2.9.7';
+  const EXTENSION_VERSION = '2.9.8';
 
   globalThis.FB_DIET_DEFAULTS = {
     SETTINGS: DEFAULT_SETTINGS,

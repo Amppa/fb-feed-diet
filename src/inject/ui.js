@@ -338,7 +338,7 @@ window.FBDietUI = (() => {
       // only for custom + folded + text — every other combination shows nothing.
       const tooltipMode = (DEFAULTS && typeof DEFAULTS.normalizeTooltipMode === 'function')
         ? DEFAULTS.normalizeTooltipMode(props.tooltipMode)
-        : (props.tooltipMode === 'off' || props.tooltipMode === 'custom' ? props.tooltipMode : 'native');
+        : (props.tooltipMode === 'off' || props.tooltipMode === 'native' || props.tooltipMode === 'custom' ? props.tooltipMode : 'custom');
       const useCustomTooltip = tooltipMode === 'custom' && !isExpanded && Boolean(tooltipText);
 
       /** Removes the portal node and its scroll listener, if any. */

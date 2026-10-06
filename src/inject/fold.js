@@ -148,7 +148,6 @@ window.FBDietFold = (() => {
       a[href*="fbclid="],
       a[href*="/l.php"]
     ),
-    a[target^="rhcad"],
     :is(div[role="complementary"], aside, [data-pagelet*="RightRail"]) :is(div, li):has(> :is(
       a[attributionsrc],
       a[target^="rhcad"],

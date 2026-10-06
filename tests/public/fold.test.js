@@ -177,13 +177,14 @@ function run(c) {
     c.equals('folded regular has isMini true', foldedRegular.props.children[0].props.isMini, true);
   }
 
-  /* --- regular payload with default settings: 36px title bar when unfolded --- */
+  /* --- regular payload with default settings: 18px mini bar when unfolded --- */
   {
     const t = setup({});
-    // minimizedFoldMode is false by default, alwaysShowFoldBar is true by default
+    // minimizedFoldMode is true by default, alwaysShowFoldBar is true by default
     const result = t.render(payloadOf('u-regular-default'));
-    c.ok('regular default renders TitleBar (36px)', result.type === t.React.Fragment && result.props.children[0].type === t.win.FBDietUI.TitleBar);
+    c.ok('regular default renders TitleBar (18px)', result.type === t.React.Fragment && result.props.children[0].type === t.win.FBDietUI.TitleBar);
     c.equals('title bar isExpanded is true', result.props.children[0].props.isExpanded, true);
+    c.equals('title bar isMini is true by default', result.props.children[0].props.isMini, true);
   }
 
   /* --- category disabled renders unfolded with header bar + reports allowed --- */
@@ -669,7 +670,7 @@ function run(c) {
     c.ok('env.probed present', Boolean(reportWithoutEntry.env.probed));
     c.ok('relay.renderedAt present', Boolean(reportWithoutEntry.relay.renderedAt));
     c.ok('unit block carries unitId and postId', reportWithoutEntry.unit.unitId === 'u1' && reportWithoutEntry.unit.postId === 'p123');
-    c.ok('verdict block carries category and default-on ads fold', reportWithoutEntry.verdict.category === 'sponsored' && reportWithoutEntry.verdict.foldMode === 'title' && reportWithoutEntry.verdict.settingKey === 'foldAds');
+    c.ok('verdict block carries category and default-on ads fold', reportWithoutEntry.verdict.category === 'sponsored' && reportWithoutEntry.verdict.foldMode === 'mini' && reportWithoutEntry.verdict.settingKey === 'foldAds');
     c.equals('redundant mode alias key removed', reportWithoutEntry.mode, undefined);
     c.equals('verdict carries no redundant enabled boolean', reportWithoutEntry.verdict.enabled, undefined);
     c.ok('dom phase object present', Boolean(reportWithoutEntry.dom));
@@ -1025,7 +1026,7 @@ function run(c) {
     });
     c.equals('native expanded bar tooltip collapses in en', nativeExpandedBar.props.title, 'Collapse');
 
-    // Missing mode falls back to the schema default (native).
+    // Missing mode falls back to the schema default (custom).
     t.React.resetHooks();
     const defaultBar = ui.TitleBar({
       category: 'suggested',
@@ -1033,7 +1034,8 @@ function run(c) {
       showTitle: true,
       isExpanded: false
     });
-    c.equals('missing tooltipMode falls back to native', defaultBar.props.title, 'Spread spectrum technology');
+    c.ok('missing tooltipMode carries no native title', !('title' in defaultBar.props));
+    c.equals('missing tooltipMode falls back to custom', typeof defaultBar.props.onMouseEnter, 'function');
 
     // No text to show means no tooltip and no hover in any mode.
     // A fresh setup: the harness keeps useState values across TitleBar calls,
@@ -1376,6 +1378,11 @@ function run(c) {
     c.ok('injected style suppresses ads with target^=rhcad', appendedStyle.textContent.includes('a[target^="rhcad"]'));
     c.ok('injected style suppresses ads with fbclid', appendedStyle.textContent.includes('a[href*="fbclid="]'));
     c.ok('injected style retains .adhidden and .fb-diet-side-ad-hidden', appendedStyle.textContent.includes('.CometHomeRightRailUnit:has(') && appendedStyle.textContent.includes('.fb-diet-side-ad-hidden'));
+    // Perf: rhcad hiding must stay sidebar-scoped. The selector legitimately appears
+    // twice — once in the scoped link list, once in the scoped :has() list. A third,
+    // document-wide occurrence would force per-link matching across the whole feed.
+    c.equals('injected style hides rhcad links only in the two scoped sites',
+      appendedStyle.textContent.split('a[target^="rhcad"]').length - 1, 2);
 
     // Dynamic sync: when foldAds is disabled, style is removed
     t.bridge.setSettings({ foldAds: false });
@@ -1386,6 +1393,16 @@ function run(c) {
     t.bridge.setSettings({ foldAds: true });
     t.fold.syncRightRailStyle(fakeDoc);
     c.ok('syncRightRailStyle restores stylesheet when foldAds is re-enabled', Boolean(appendedStyle));
+  }
+
+  /* --- right-rail pre-hide stays sidebar-scoped (content.css, perf) --- */
+  //
+  // content.css carries the same pre-hydration suppression as the injected style,
+  // so it carries the same two-scoped-sites budget for the rhcad selector.
+  {
+    const css = fs.readFileSync(path.join(ROOT, 'src', 'content', 'content.css'), 'utf8');
+    c.equals('content.css hides rhcad links only in the two scoped sites',
+      css.split('a[target^="rhcad"]').length - 1, 2);
   }
 
   /* --- the fold bar's hover contract (content.css) --- */
@@ -1407,6 +1424,24 @@ function run(c) {
       !hoverBody.includes('--hover-overlay') && !hoverBody.includes('background-image'));
     c.ok('the expanded bar has no hover rule of its own', css.indexOf('.fb-diet-state-expanded:hover') === -1);
     c.ok('fold bar has no press state', css.indexOf('.fb-diet-titlebar:active') === -1);
+  }
+
+  /* --- the folded squash rendering isolation contract (content.css) --- */
+  //
+  // Folded units stay mounted (React/Relay state + IntersectionObserver bookkeeping),
+  // so Blink would otherwise keep Style/Layout/Paint subtrees for every hidden post.
+  // `contain: strict` + `content-visibility: hidden` tells the engine to skip the
+  // squash subtree while the DOM stays in memory. The expanded body never carries
+  // the squash class, so unfolding is unaffected.
+  {
+    const css = fs.readFileSync(path.join(ROOT, 'src', 'content', 'content.css'), 'utf8');
+    const squashIdx = css.indexOf('.fb-diet-foldsquash {');
+    c.ok('content.css defines .fb-diet-foldsquash rule', squashIdx !== -1);
+    const squashBody = squashIdx === -1 ? '' : css.slice(squashIdx, css.indexOf('}', squashIdx));
+    c.ok('.fb-diet-foldsquash enforces contain: strict',
+      squashBody.includes('contain: strict !important;'));
+    c.ok('.fb-diet-foldsquash enforces content-visibility: hidden',
+      squashBody.includes('content-visibility: hidden !important;'));
   }
 }
 

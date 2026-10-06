@@ -96,12 +96,12 @@ function run(checker) {
   checker.equals('settings.foldAds is true', settings && settings.foldAds, true);
   checker.equals('settings.foldRegular is false', settings && settings.foldRegular, false);
   checker.equals('settings.foldSuggested is false', settings && settings.foldSuggested, false);
-  checker.equals('settings.foldMedia is true', settings && settings.foldMedia, true);
+  checker.equals('settings.foldMedia is false', settings && settings.foldMedia, false);
   checker.equals('settings.foldOther is true', settings && settings.foldOther, true);
-  checker.equals('settings.minimizedFoldMode is false', settings && settings.minimizedFoldMode, false);
+  checker.equals('settings.minimizedFoldMode is true', settings && settings.minimizedFoldMode, true);
   checker.equals('settings.alwaysShowFoldBar is true', settings && settings.alwaysShowFoldBar, true);
   checker.equals('settings.showTitleMode is whenFolded', settings && settings.showTitleMode, 'whenFolded');
-  checker.equals('settings.tooltipMode is native', settings && settings.tooltipMode, 'native');
+  checker.equals('settings.tooltipMode is custom', settings && settings.tooltipMode, 'custom');
   checker.equals('settings.debugProbe is false', settings && settings.debugProbe, false);
   checker.equals('settings.restrictFoldScope is true', settings && settings.restrictFoldScope, true);
 
@@ -232,8 +232,8 @@ function run(checker) {
   checker.equals('tooltip mode off passes through', defaults.normalizeTooltipMode('off'), 'off');
   checker.equals('tooltip mode native passes through', defaults.normalizeTooltipMode('native'), 'native');
   checker.equals('tooltip mode custom passes through', defaults.normalizeTooltipMode('custom'), 'custom');
-  checker.equals('unknown tooltip value falls back to native', defaults.normalizeTooltipMode('wat'), 'native');
-  checker.equals('missing tooltip value falls back to native', defaults.normalizeTooltipMode(undefined), 'native');
+  checker.equals('unknown tooltip value falls back to custom', defaults.normalizeTooltipMode('wat'), 'custom');
+  checker.equals('missing tooltip value falls back to custom', defaults.normalizeTooltipMode(undefined), 'custom');
   checker.equals('custom tooltip fallback honoured', defaults.normalizeTooltipMode('wat', 'off'), 'off');
 
   /* --- feed UI labels: one table per locale, and the locale the feed renders with --- */
