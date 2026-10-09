@@ -35,6 +35,7 @@ const PUBLIC_INCLUDES = [
   'manifest.json',
   'README.md',
   'README.zh-TW.md',
+  'README.es.md',
   'LICENSE',
   'PRIVACY.md',
   'package.json',

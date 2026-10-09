@@ -115,15 +115,22 @@ function archiveDirectory(sourceDir, items, destZip) {
 
 /**
  * Validates version parity between manifest.json and defaults.js.
+ *
+ * The read pattern must stay identical to the one bump-version.js writes with: a reader that looks
+ * for something else finds nothing and passes. Per decisions-history.md #58.
+ *
+ * @param {string} version manifest.json's version
+ * @param {string} [rootDir] tree being packaged; defaults to the repository this script sits in
  */
-function verifyVersionParity(version) {
-  const defaultsPath = path.join(ROOT_DIR, 'src', 'shared', 'defaults.js');
-  if (fs.existsSync(defaultsPath)) {
-    const defaultsContent = fs.readFileSync(defaultsPath, 'utf8');
-    const match = defaultsContent.match(/VERSION:\s*['"]([^'"]+)['"]/);
-    if (match && match[1] !== version) {
-      throw new Error(`Version mismatch! manifest.json (${version}) does not match defaults.js (${match[1]}).`);
-    }
+function verifyVersionParity(version, rootDir) {
+  const defaultsPath = path.join(rootDir || ROOT_DIR, 'src', 'shared', 'defaults.js');
+  if (!fs.existsSync(defaultsPath)) return;
+  const match = fs.readFileSync(defaultsPath, 'utf8').match(/const\s+EXTENSION_VERSION\s*=\s*['"]([^'"]+)['"]/);
+  if (!match) {
+    throw new Error(`Version parity check could not read EXTENSION_VERSION from ${defaultsPath}`);
+  }
+  if (match[1] !== version) {
+    throw new Error(`Version mismatch! manifest.json (${version}) does not match defaults.js (${match[1]}).`);
   }
 }
 
@@ -151,7 +158,7 @@ function packageExtension(target, options = {}) {
   const version = baseManifest.version || '1.0.0';
 
   if (!options.skipVersionCheck) {
-    verifyVersionParity(version);
+    verifyVersionParity(version, rootDir);
   }
 
   if (!fs.existsSync(releaseDir)) {
@@ -242,5 +249,6 @@ module.exports = {
   TARGETS,
   generateManifest,
   archiveDirectory,
+  verifyVersionParity,
   packageExtension,
 };

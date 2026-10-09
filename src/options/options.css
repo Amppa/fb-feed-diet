@@ -92,49 +92,6 @@ body {
   gap: var(--space-block);
 }
 
-/* Language Toggle (EN / 繁中): the whole block is one click target that toggles */
-.lang-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-micro);
-  background: var(--surface-raised);
-  border: var(--border-width) solid var(--divider);
-  border-radius: var(--radius-small);
-  padding: var(--space-tight);
-  cursor: pointer;
-  user-select: none;
-}
-
-.lang-switch:focus-visible {
-  outline: var(--focus-ring-width) solid var(--active-color);
-  outline-offset: var(--focus-ring-offset);
-}
-
-.lang-segment {
-  appearance: none;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--font-small);
-  font-weight: 700;
-  letter-spacing: var(--tracking-micro);
-  padding: var(--space-xs) var(--space-row);
-  border-radius: var(--radius-field);
-  cursor: pointer;
-  transition: all var(--motion-fast) ease;
-  outline: none;
-}
-
-.lang-segment:hover {
-  color: var(--text-primary);
-}
-
-.lang-segment.is-active {
-  background: var(--surface-hover);
-  color: var(--text-primary);
-  box-shadow: inset 0 0 0 var(--border-width) var(--divider);
-}
-
 .master-status-label {
   font-size: var(--font-default);
   font-weight: 600;
@@ -537,8 +494,7 @@ body {
 /* Keep interactive controls unselectable so drag-to-select never hijacks clicks */
 .switch,
 .reset-btn,
-.feature-select,
-.lang-segment {
+.feature-select {
   user-select: none;
 }
 

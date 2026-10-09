@@ -25,6 +25,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     return isDark ? 'dark' : 'light';
   }
 
+  function resolveEffectiveLang(mode) {
+    if (mode && mode !== 'auto') {
+      return i18n ? i18n.normalize(mode) : mode;
+    }
+    return i18n ? i18n.detect() : 'en';
+  }
+
   function applyTheme(theme) {
     if (typeof document !== 'undefined' && document.documentElement && typeof document.documentElement.setAttribute === 'function') {
       document.documentElement.setAttribute('data-theme', theme);
@@ -47,7 +54,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   applyTheme(resolveEffectiveTheme(settings.themeMode, detectedFbTheme));
 
-  if (i18n) i18n.setLang(settings.lang || i18n.detect());
+  if (i18n) i18n.setLang(resolveEffectiveLang(settings.lang));
   applyTranslations();
 
   // Version footer reads the single source of truth (bump-version keeps it
@@ -194,9 +201,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             masterToggle.checked = s.enabled;
             renderHookStatus();
           }
-          if (s.lang && i18n && s.lang !== i18n.getLang()) {
-            i18n.setLang(s.lang);
-            applyTranslations();
+          if (s.lang !== undefined && i18n) {
+            settings.lang = s.lang;
+            const effective = resolveEffectiveLang(s.lang);
+            if (effective !== i18n.getLang()) {
+              i18n.setLang(effective);
+              applyTranslations();
+            }
           }
         }
       }

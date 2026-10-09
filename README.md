@@ -1,9 +1,12 @@
 # FB Feed Diet - Clean Feed & Ads Declutter for Facebook
 
-[繁體中文](README.zh-TW.md) | [English](README.md)
 
 [![GitHub release](https://img.shields.io/github/v/release/Amppa/fb-feed-diet)](https://github.com/Amppa/fb-feed-diet/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+[中文說明](README.zh-TW.md) | [Español](README.es.md) | [English](README.md)
+
+## 👉 Driectly [download](https://github.com/Amppa/fb-feed-diet/releases).
 
 FB Feed Diet is a browser extension for Facebook designed to hide sponsored posts, recommended content, Reels, and ads from your news feed, decluttering your reading experience.
 
@@ -57,7 +60,7 @@ Folded posts are replaced with a sleek **title bar** that can be expanded anytim
 ### Forum / Index Mode
 
 * **Custom Folding Rules**: Ideal if you prefer skimming headlines and clicking to expand only what interests you.
-* **Appearance Customization**: Customize title bar height (18px or 26px, default 18px).
+* **Appearance Customization**: Customize title bar height (18px or 36px, default 18px).
 
 <img src="screenshots/after-minimize-mode2.png" height="400" alt="Minimized Mode">
 
@@ -108,7 +111,7 @@ Open **"Options"** in the extension popup:
 
 * Folding rules for the five main post categories.
 * Title bar height, title snippet display, hover text preview, and more.
-* Interface language (English / Traditional Chinese) and Light / Dark theme mode.
+* Interface language (English / Traditional Chinese / Spanish) and Light / Dark theme mode.
 * Detection engine (**Relay** or **DOM**).
 
 | Live Stats & Categories | Appearance & Detection Mode |

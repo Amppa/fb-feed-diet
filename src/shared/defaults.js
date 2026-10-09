@@ -18,7 +18,8 @@
     tooltipMode: 'large',
     themeMode: 'auto',
     restrictFoldScope: true,
-    debugProbe: false
+    debugProbe: false,
+    lang: 'auto'
   };
 
   // Counts row: base metadata plus one counter per group.
@@ -253,6 +254,12 @@
       reels: '連續短片',
       suggestedGroup: '推薦社團列表',
       collapseBar: '收合'
+    },
+    es: {
+      stories: 'Historias',
+      reels: 'Reels',
+      suggestedGroup: 'Grupos sugeridos',
+      collapseBar: 'Plegar'
     }
   };
 
@@ -264,13 +271,15 @@
     const c = code.toLowerCase().replace('_', '-');
     if (FEED_LABELS[c]) return c;
     if (c.indexOf('zh') === 0) return 'zh-TW';
+    // One language, several region tags: es-ES, es-MX and es-419 are all "es", not a fallback.
+    if (c === 'es' || c.indexOf('es-') === 0) return 'es';
     return FEED_LOCALE_FALLBACK;
   }
 
-  /** Locale priority: settings.lang, then page lang, then browser lang. */
+  /** Locale priority: settings.lang (unless 'auto'), then page lang, then browser lang. */
   function resolveFeedLocale(settings, doc, nav) {
     const chosen = settings && settings.lang;
-    if (chosen) return normalizeLocale(chosen);
+    if (chosen && chosen !== 'auto') return normalizeLocale(chosen);
 
     const codes = [
       (doc && doc.documentElement && doc.documentElement.lang) || '',
@@ -292,7 +301,7 @@
     return (fallbackTable && fallbackTable[key]) || '';
   }
 
-  const EXTENSION_VERSION = '2.10.4';
+  const EXTENSION_VERSION = '2.10.5';
 
   globalThis.FB_DIET_DEFAULTS = {
     SETTINGS: DEFAULT_SETTINGS,

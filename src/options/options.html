@@ -22,11 +22,6 @@
         </div>
       </div>
       <div class="header-action">
-        <div class="lang-switch" id="langSwitch" title="Switch language" data-i18n-title="langToggleTitle" role="button"
-          tabindex="0" aria-label="Switch language" data-i18n-aria="langToggleTitle">
-          <span class="lang-segment" data-lang="en">EN</span>
-          <span class="lang-segment" data-lang="zh-TW">繁中</span>
-        </div>
         <span class="master-status-label" id="masterStatus" data-i18n="masterStatusActive">Active</span>
         <label class="switch main-toggle" title="Master Toggle" data-i18n-title="masterToggleTitle">
           <input type="checkbox" id="enabled" aria-label="Master Toggle" data-i18n-aria="masterToggleTitle">
@@ -204,6 +199,24 @@
         data-i18n-title="resetAppearanceDesc" data-i18n="resetAppearanceBtn">Defaults</button>
     </div>
     <div class="features-list" id="appearanceList">
+
+      <!-- Interface Language (en / zh-TW / es) -->
+      <div class="feature-item">
+        <div class="feature-meta">
+          <span class="feature-icon">🌐</span>
+          <div>
+            <div class="feature-title" data-i18n="featLangTitle">Language</div>
+            <div class="feature-desc" data-i18n="featLangDesc">Choose the display language for options and menus</div>
+          </div>
+        </div>
+        <select class="feature-select" id="lang" aria-label="Language"
+          data-i18n-aria="featLangTitle" title="Switch language" data-i18n-title="langToggleTitle">
+          <option value="auto" data-i18n="featLangAuto">Auto (Default)</option>
+          <option value="en" data-i18n="featLangEn">English</option>
+          <option value="zh-TW" data-i18n="featLangZhTw">繁體中文</option>
+          <option value="es" data-i18n="featLangEs">Español</option>
+        </select>
+      </div>
 
       <!-- Filter scope (scoped vs site-wide) -->
       <div class="feature-item">

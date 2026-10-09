@@ -246,29 +246,38 @@ function run(checker) {
   /* --- feed UI labels: one table per locale, and the locale the feed renders with --- */
   const labels = defaults && defaults.FEED_LABELS;
   const enLabels = (labels && labels.en) || {};
-  const zhLabels = (labels && labels['zh-TW']) || {};
   checker.ok('FEED_LABELS is exposed', Boolean(labels));
-  checker.equals('both feed label locales define the same keys',
-    Object.keys(zhLabels).sort().join(','), Object.keys(enLabels).sort().join(','));
+  // Every locale table answers the same keys: one missing entry reads as an empty label in the feed.
+  const labelKeyMismatch = Object.keys(labels || {})
+    .filter((locale) => Object.keys(labels[locale]).sort().join(',') !== Object.keys(enLabels).sort().join(','))
+    .join(', ');
+  checker.equals('every feed label locale defines the same keys', labelKeyMismatch, '');
 
   // Pinned per locale rather than "en must differ from zh-TW": a label that happens to be the
-  // same word in both is a legitimate outcome, which is the argument tests/i18n.test.js settled
-  // when it replaced that rule with key-set parity.
+  // same word in two of them is a legitimate outcome, which is the argument tests/i18n.test.js
+  // settled when it replaced that rule with key-set parity.
   checker.equals('stories label in en', defaults.getFeedLabel('stories', 'en'), 'Stories');
   checker.equals('stories label in zh-TW', defaults.getFeedLabel('stories', 'zh-TW'), '限時動態（朋友）');
+  checker.equals('stories label in es', defaults.getFeedLabel('stories', 'es'), 'Historias');
   checker.equals('reels label in en', defaults.getFeedLabel('reels', 'en'), 'Reels');
   checker.equals('reels label in zh-TW', defaults.getFeedLabel('reels', 'zh-TW'), '連續短片');
+  checker.equals('reels label in es', defaults.getFeedLabel('reels', 'es'), 'Reels');
   checker.equals('suggestedGroup label in en', defaults.getFeedLabel('suggestedGroup', 'en'), 'Suggested Groups');
   checker.equals('suggestedGroup label in zh-TW', defaults.getFeedLabel('suggestedGroup', 'zh-TW'), '推薦社團列表');
+  checker.equals('suggestedGroup label in es', defaults.getFeedLabel('suggestedGroup', 'es'), 'Grupos sugeridos');
   checker.equals('collapse tooltip in en', defaults.getFeedLabel('collapseBar', 'en'), 'Collapse');
   checker.equals('collapse tooltip in zh-TW', defaults.getFeedLabel('collapseBar', 'zh-TW'), '收合');
+  checker.equals('collapse tooltip in es', defaults.getFeedLabel('collapseBar', 'es'), 'Plegar');
   checker.equals('a key the table does not name is empty', defaults.getFeedLabel('nope', 'en'), '');
   checker.equals('an unsupported locale falls back to en', defaults.getFeedLabel('reels', 'fr-FR'), 'Reels');
+  checker.equals('a regional Spanish tag reads the Spanish table', defaults.getFeedLabel('reels', 'es-MX'), 'Reels');
 
   checker.ok('normalizeLocale is exposed', typeof defaults.normalizeLocale === 'function');
   checker.equals('zh-TW is kept', defaults.normalizeLocale('zh-TW'), 'zh-TW');
   checker.equals('zh-CN collapses onto the shipped Chinese locale', defaults.normalizeLocale('zh-CN'), 'zh-TW');
   checker.equals('en-US normalises to en', defaults.normalizeLocale('en-US'), 'en');
+  checker.equals('es is kept', defaults.normalizeLocale('es'), 'es');
+  checker.equals('every Spanish region tag collapses onto es', defaults.normalizeLocale('es-419'), 'es');
   checker.equals('an unsupported locale is en', defaults.normalizeLocale('fr-FR'), 'en');
   checker.equals('a missing code is en', defaults.normalizeLocale(null), 'en');
 
@@ -284,12 +293,16 @@ function run(checker) {
     defaults.resolveFeedLocale(settingsOf('en'), docOf('zh-TW'), navOf('zh-TW')), 'en');
   checker.equals('no stored choice leaves the page language deciding',
     defaults.resolveFeedLocale(settingsOf(undefined), docOf('zh-TW'), navOf('en-US')), 'zh-TW');
+  checker.equals('auto language leaves the page language deciding',
+    defaults.resolveFeedLocale(settingsOf('auto'), docOf('zh-TW'), navOf('en-US')), 'zh-TW');
   checker.equals('a page in another language does not out-vote a Chinese browser',
     defaults.resolveFeedLocale(null, docOf('en-US'), navOf('zh-TW')), 'zh-TW');
   checker.equals('a page with no lang falls back to the browser language',
     defaults.resolveFeedLocale(null, {}, navOf('zh-TW')), 'zh-TW');
   checker.equals('two English sources are en',
     defaults.resolveFeedLocale(null, docOf('en-US'), navOf('en-US')), 'en');
+  checker.equals('a Spanish page outranks an English browser',
+    defaults.resolveFeedLocale(null, docOf('es-MX'), navOf('en-US')), 'es');
   checker.equals('no source at all is en', defaults.resolveFeedLocale(null, null, null), 'en');
 
   /* --- shared path reader and reserved-route table (SSOT) --- */

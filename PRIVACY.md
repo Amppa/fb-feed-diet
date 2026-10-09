@@ -2,7 +2,7 @@
 
 *Last updated: October 9, 2026*
 
-[English](#english) | [繁體中文](#繁體中文)
+[English](#english) | [Español](#español) | [繁體中文](#繁體中文)
 
 ---
 
@@ -41,6 +41,45 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
 
 ### 7. Contact & Support
 If you have any questions or feedback regarding this Privacy Policy, please open an issue on our GitHub repository:
+https://github.com/Amppa/fb-feed-diet/issues
+
+---
+
+<a name="español"></a>
+## Español
+
+### 1. Descripción general
+**FB Feed Diet** (en adelante, «la extensión») es una extensión de navegador de código abierto diseñada para ofrecer una experiencia de lectura más limpia y sin distracciones en Facebook, plegando publicaciones patrocinadas, recomendaciones y reels en elegantes barras de título.
+
+Valoramos mucho tu privacidad. FB Feed Diet se basa en una filosofía **local primero, sin recogida de datos**. La extensión funciona íntegramente dentro de tu navegador, en tu propio dispositivo.
+
+### 2. Recogida y uso de información
+* **No se recoge ningún dato personal**: la extensión NO recoge, almacena, transmite ni vende información personal, incluido, sin limitarse a ello, tu nombre, dirección de correo electrónico, dirección IP, credenciales de Facebook o datos de la cuenta.
+* **No se recoge el historial de navegación**: la extensión NO registra, monitoriza ni transmite tu historial de navegación, tus clics, tus búsquedas ni el contenido de las publicaciones que ves.
+* **Sin analíticas ni telemetría**: la extensión no incluye servicios de analítica, bibliotecas de publicidad, píxeles de seguimiento ni scripts de telemetría (como Google Analytics o Mixpanel).
+
+### 3. Justificación de los permisos
+FB Feed Diet declara únicamente los permisos mínimos necesarios para su funcionamiento:
+
+* **Permiso de host (`*://*.facebook.com/*`)**:
+  * *Finalidad*: se usa exclusivamente para ejecutar los scripts de contenido en las páginas de Facebook, con el fin de detectar, clasificar y plegar visualmente publicaciones patrocinadas, recomendaciones y reels en barras de título. Todo el análisis del DOM y el procesamiento de datos ocurren 100% de forma local en la memoria de tu navegador y nunca salen de tu equipo.
+* **`storage`**:
+  * *Finalidad*: se usa para guardar tus preferencias (por ejemplo, qué categorías plegar, la altura de la barra de título o el modo de tema) y las estadísticas locales diarias de filtrado, mediante la API de almacenamiento local del navegador (`chrome.storage.local`). Estos datos se guardan estrictamente en tu dispositivo.
+* **`scripting`**:
+  * *Finalidad*: se usa para aplicar dinámicamente la configuración y las hojas de estilo actualizadas a las pestañas de Facebook que ya están abiertas, sin necesidad de recargar la página manualmente.
+
+### 4. Servidores de terceros
+La extensión no ejecuta ningún servidor propio, base de datos ni punto de acceso en la nube. No realiza ninguna petición de red saliente a servicios de terceros ni a servidores remotos.
+
+### 5. Seguridad y transparencia
+Todo el código fuente de FB Feed Diet es público y está bajo la Licencia MIT. Cualquiera puede auditarlo y verificarlo en nuestro repositorio de GitHub:
+https://github.com/Amppa/fb-feed-diet
+
+### 6. Cambios en esta política de privacidad
+Podemos actualizar esta política de privacidad de vez en cuando. Cualquier cambio se publicará en este documento y quedará registrado en el historial público de Git.
+
+### 7. Contacto y soporte
+Si tienes alguna duda o comentario sobre esta política de privacidad, abre un issue en nuestro repositorio de GitHub:
 https://github.com/Amppa/fb-feed-diet/issues
 
 ---

@@ -1,7 +1,7 @@
 /**
- * FB Diet - i18n core (en + zh-TW)
+ * FB Diet - i18n core (en + zh-TW + es)
  *
- * Dependency-free module holding the two dictionaries plus the one walk that writes them into a
+ * Dependency-free module holding the dictionaries plus the one walk that writes them into a
  * page. It is loaded only by the extension's own pages — `options.html` and `popup.html` include
  * it with a <script> tag — because it is a classic script, not a module, and the MAIN world is
  * loaded through the manifest's flat script list instead. The feed pages have no UI of their own
@@ -29,6 +29,11 @@ window.FBDietI18N = (() => {
   const ZH_COMMON = {
     masterToggleTitle: '總開關',
     reset: '重設'
+  };
+
+  const ES_COMMON = {
+    masterToggleTitle: 'Interruptor principal',
+    reset: 'Restablecer'
   };
 
   // popup.html only. The four status* strings are read through i18n.t() rather than a
@@ -59,6 +64,20 @@ window.FBDietI18N = (() => {
     statusHookBlocked: '過濾器 hook 掛載失敗，可能 facebook 改版，或是有其他外掛搶占，請打開 F12 檢查錯誤訊息。',
     statusVersionMismatch: '此分頁正在執行另一個版本的外掛，請完全重啟瀏覽器以完成更新。',
     statusNotInjected: '此分頁從未掛上過濾器，請完全重啟瀏覽器後再重新開啟此分頁。'
+  };
+
+  const ES_POPUP = {
+    popupOverview: 'Resumen de hoy (filtradas/total)',
+    popupSubtitle: 'Limpia y pliega los feeds de Facebook',
+    optionsBtn: '⚙️ Opciones',
+    resetPopupTitle: 'Restablecer contador',
+    directFeedBtn: 'Feed cronológico ↗',
+    directFeedSub: '(sin publicaciones sugeridas de desconocidos)',
+    directFeedTitle: 'Función integrada de Facebook: solo muestra las publicaciones de tus páginas y grupos, pero con anuncios',
+    statusNeedsReload: 'El plegado todavía no está activo en esta pestaña: recárgala.',
+    statusHookBlocked: 'Facebook bloqueó el enganche del módulo; revisa la consola con F12.',
+    statusVersionMismatch: 'Esta pestaña está ejecutando otra versión de la extensión. Reinicia el navegador por completo para terminar la actualización.',
+    statusNotInjected: 'Esta pestaña nunca fue enganchada. Reinicia el navegador por completo y vuelve a abrirla.'
   };
 
   // options.html only, in the order the page lays them out.
@@ -112,6 +131,12 @@ window.FBDietI18N = (() => {
     themeModeAuto: 'Auto (Default)',
     themeModeLight: 'Light',
     themeModeDark: 'Dark',
+    featLangTitle: 'Language',
+    featLangDesc: 'Choose the display language for options and menus',
+    featLangAuto: 'Auto (Default)',
+    featLangEn: 'English',
+    featLangZhTw: '繁體中文',
+    featLangEs: 'Español',
     featProbeTitle: 'Enable Feed Probe (Debug)',
     featProbeDesc: 'Show a diagnostic button on the left of each post header bar',
     resetAppearanceBtn: 'Defaults',
@@ -170,6 +195,12 @@ window.FBDietI18N = (() => {
     themeModeAuto: '自動（預設）',
     themeModeLight: '淺色',
     themeModeDark: '深色',
+    featLangTitle: '介面語言',
+    featLangDesc: '選擇選項與選單的顯示語言',
+    featLangAuto: '自動（預設）',
+    featLangEn: 'English',
+    featLangZhTw: '繁體中文',
+    featLangEs: 'Español',
     featProbeTitle: '啟用 Feed 診斷（除錯）',
     featProbeDesc: '在每則貼文標題列左側，顯示診斷按鈕',
     resetAppearanceBtn: '回復預設',
@@ -178,12 +209,77 @@ window.FBDietI18N = (() => {
     langToggleTitle: '切換語言'
   };
 
+  const ES_OPTIONS = {
+    optionsTitle: 'Feed Diet Opciones',
+    optionsSubtitle: 'Ponte a dieta con los feeds de Facebook: deshazte de anuncios y reels.',
+    masterStatusActive: 'Activo',
+    masterStatusDisabled: 'Desactivado',
+    statReceivedPrefix: 'Resumen de hoy:',
+    statFilteredShort: 'Filtradas',
+    statEmpty: 'Todavía no hay datos',
+    dailyPostStatsDesc: 'Los contadores no se recalculan al cambiar los ajustes; conviene restablecerlos a mano',
+    resetOptionsTitle: 'Restablecer todas las estadísticas',
+    featDetectionTitle: 'Fuente de detección',
+    featDetectionDesc: 'Relay: lee la entrada de Facebook (ahorra CPU); DOM: escanea los elementos ya renderizados.',
+    featDetectionRelay: 'Relay (predeterminado)',
+    featDetectionDomOnly: 'DOM',
+    sectionDietOptions: 'Clasificación del feed',
+    groupAdsTitle: 'Anuncios',
+    groupAdsDesc: 'Plegar publicaciones patrocinadas, anuncios de Marketplace y anuncios de búsqueda',
+    groupRegularTitle: 'Publicaciones normales',
+    groupRegularDesc: 'Publicaciones de cuentas que sigues, de amigos, páginas o grupos a los que te uniste',
+    groupSuggestedTitle: 'Sugeridas por Facebook',
+    groupSuggestedDesc: 'Plegar publicaciones de desconocidos, normalmente recomendadas por los algoritmos de Facebook (usuarios, páginas, grupos)',
+    groupMediaTitle: 'Reels e Historias',
+    groupMediaDesc: 'Plegar los carruseles (listas) de Reels e Historias',
+    groupOtherTitle: 'Otros',
+    groupOtherDesc: 'p. ej., carruseles (listas) de grupos que podrían interesarte',
+    sectionFoldAppearance: 'Ajustes de apariencia',
+    sectionClassifierSettings: 'Ajustes del clasificador',
+    featTitleModeTitle: 'Contenido de la barra de título',
+    featTitleModeDesc: 'Como el "título de publicación" de un foro',
+    featTitleModeAlways: 'Mostrar siempre',
+    featTitleModeWhenFolded: 'Solo cuando está plegado (predeterminado)',
+    featTitleModeNever: 'Ocultar siempre',
+    featTooltipModeTitle: 'Mostrar el contenido completo al pasar el cursor',
+    featTooltipModeDesc: 'Al pasar el cursor por la barra de título aparece una vista previa con todo el texto',
+    featTooltipModeOff: 'No mostrar',
+    featTooltipModeLarge: 'Grande (28px) (predeterminado)',
+    featTooltipModeNormal: 'Normal (16px)',
+    featMinimizedFoldTitle: 'Altura de la barra',
+    featMinimizedFoldDesc: '',
+    featFoldHeight18: 'Compacta (18px) (predeterminado)',
+    featFoldHeight36: 'Cómoda (36px)',
+    featFoldScopeTitle: 'Ámbito del filtro',
+    featFoldScopeDesc: 'Elige en qué páginas de Facebook se aplican los filtros',
+    featFoldScopeScoped: 'Solo Inicio, Búsqueda y Marketplace (predeterminado)',
+    featFoldScopeAll: 'Todas las páginas de Facebook',
+    featThemeModeTitle: 'Tema',
+    featThemeModeDesc: 'Elige el tema claro, oscuro o automático',
+    themeModeAuto: 'Automático (predeterminado)',
+    themeModeLight: 'Claro',
+    themeModeDark: 'Oscuro',
+    featLangTitle: 'Idioma',
+    featLangDesc: 'Elige el idioma de la interfaz de opciones y menús',
+    featLangAuto: 'Automático (predeterminado)',
+    featLangEn: 'English',
+    featLangZhTw: '繁體中文',
+    featLangEs: 'Español',
+    featProbeTitle: 'Activar Feed Probe (depuración)',
+    featProbeDesc: 'Mostrar un botón de diagnóstico a la izquierda de la barra de título de cada publicación',
+    resetAppearanceBtn: 'Predeterminados',
+    resetAppearanceDesc: 'Restablecer los ajustes de apariencia a los valores predeterminados',
+    projectUrlLabel: 'URL del proyecto:',
+    langToggleTitle: 'Cambiar idioma'
+  };
+
   // The groups must stay disjoint: a key listed in two of them is silently overwritten by the
   // last spread, which is the one mistake this shape cannot report on itself. `tests/i18n.test.js`
   // pins the resulting key count for exactly that reason.
   const LOCALES = {
     en: { ...EN_COMMON, ...EN_POPUP, ...EN_OPTIONS },
-    'zh-TW': { ...ZH_COMMON, ...ZH_POPUP, ...ZH_OPTIONS }
+    'zh-TW': { ...ZH_COMMON, ...ZH_POPUP, ...ZH_OPTIONS },
+    es: { ...ES_COMMON, ...ES_POPUP, ...ES_OPTIONS }
   };
 
   let current = detect();
@@ -193,6 +289,8 @@ window.FBDietI18N = (() => {
     const c = code.toLowerCase().replace('_', '-');
     if (LOCALES[c]) return c;
     if (c.indexOf('zh') === 0) return 'zh-TW';
+    // One language, several region tags: es-ES, es-MX and es-419 are all "es", not a fallback.
+    if (c === 'es' || c.indexOf('es-') === 0) return 'es';
     return FALLBACK;
   }
 

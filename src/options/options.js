@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const masterStatus = document.getElementById('masterStatus');
 
   const i18n = window.FBDietI18N;
-  const langSegments = document.querySelectorAll('.lang-segment');
 
   const SHARED_DEFAULTS = globalThis.FB_DIET_DEFAULTS?.SETTINGS || {};
   const DEFAULTS_MAP = globalThis.FB_DIET_DEFAULTS || {};
@@ -33,7 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // section, but "Defaults" still covers them so no visible control is skipped.
   // `alwaysShowFoldBar` has no visible control anymore, so "Defaults" leaves the
   // stored value alone; the inject code still honours it.
-  const APPEARANCE_KEYS = ['restrictFoldScope', 'showTitleMode', 'tooltipMode', 'minimizedFoldMode', 'dietMode', 'debugProbe', 'themeMode'];
+  const APPEARANCE_KEYS = ['lang', 'restrictFoldScope', 'showTitleMode', 'tooltipMode', 'minimizedFoldMode', 'dietMode', 'debugProbe', 'themeMode'];
 
   function resolveEffectiveTheme(mode, detectedFb) {
     if (mode === 'light') return 'light';
@@ -41,6 +40,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (detectedFb === 'light' || detectedFb === 'dark') return detectedFb;
     const isDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     return isDark ? 'dark' : 'light';
+  }
+
+  function resolveEffectiveLang(mode) {
+    if (mode && mode !== 'auto') {
+      return i18n ? i18n.normalize(mode) : mode;
+    }
+    return i18n ? i18n.detect() : 'en';
   }
 
   function applyTheme(theme) {
@@ -259,17 +265,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // The dictionary module owns the attribute contract. What stays here is this page's own work:
-  // its document title, the language switch's active state, and the dynamic status labels.
+  // its document title, the language select's active state, and the dynamic status labels.
   function applyTranslations() {
     if (!i18n) return;
-    const lang = i18n.getLang();
     i18n.applyTo(document);
     document.title = i18n.t('optionsTitle');
-    langSegments.forEach((btn) => {
-      btn.classList.toggle('is-active', btn.dataset.lang === lang);
-    });
+    // Guarded writer, not a raw assignment: a stored value with no matching option must fall back
+    // instead of showing the first option while storage says otherwise.
+    if (selects.lang) setSelectValue('lang', selects.lang, currentSettings.lang || SHARED_DEFAULTS.lang);
     // Dynamic statuses depend on the language too.
     updateMasterUI(masterToggle ? masterToggle.checked : true);
+  }
+
+  // The one place a `lang` value becomes the language this page renders in. The mode is recorded
+  // before the repaint, so the storage write that follows cannot be undone by it.
+  function applyLangSetting(mode) {
+    currentSettings.lang = mode;
+    if (!i18n) return;
+    i18n.setLang(resolveEffectiveLang(mode));
+    applyTranslations();
   }
 
   // Load initial settings and counts
@@ -285,11 +299,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.storage.local.set({ detectedFbTheme }).catch(() => {});
   }
 
-  // Resolve language: stored setting wins, otherwise detect from the browser UI.
-  const lang = settings.lang || (i18n ? i18n.detect() : 'en');
-  if (i18n) i18n.setLang(lang);
+  // Resolve language: stored setting wins, default is 'auto'.
+  const langSetting = settings.lang || (SHARED_DEFAULTS.lang || 'auto');
+  if (i18n) i18n.setLang(resolveEffectiveLang(langSetting));
   if (!settings.lang && i18n) {
-    chrome.storage.local.set({ settings: { ...settings, lang } });
+    chrome.storage.local.set({ settings: { ...settings, lang: langSetting } });
   }
 
   currentSettings = { ...SHARED_DEFAULTS, ...settings };
@@ -319,26 +333,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Apply the resolved language to the whole page
   applyTranslations();
-
-  // Language switch: the whole block is one click target that toggles en <-> zh-TW.
-  const langSwitch = document.getElementById('langSwitch');
-  async function toggleLanguage() {
-    if (!i18n) return;
-    const next = i18n.getLang() === 'en' ? 'zh-TW' : 'en';
-    i18n.setLang(next);
-    const { settings: current } = await chrome.storage.local.get('settings');
-    await chrome.storage.local.set({ settings: { ...current, lang: next } });
-    applyTranslations();
-  }
-  if (langSwitch) {
-    langSwitch.addEventListener('click', toggleLanguage);
-    langSwitch.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        toggleLanguage();
-      }
-    });
-  }
 
   // Writing settings is the whole broadcast: chrome.storage.onChanged in the background
   // service worker pushes the new value to every open Facebook tab.
@@ -374,6 +368,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       await saveAndBroadcastSettings(updated);
       applyAppearanceControls(updated);
       applyTheme(resolveEffectiveTheme(updated.themeMode, detectedFbTheme));
+      if (updated.lang !== undefined) applyLangSetting(updated.lang);
     });
   }
 
@@ -415,6 +410,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const value = BOOLEAN_SELECTS[key] ? selectValueToBoolean(key, select.value) : select.value;
       if (key === 'themeMode') {
         applyTheme(resolveEffectiveTheme(value, detectedFbTheme));
+      }
+      if (key === 'lang') {
+        applyLangSetting(value);
       }
       await saveAndBroadcastSettings({ ...current, [key]: value });
     });
@@ -461,10 +459,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
           updateHighlighting();
           refreshDonut();
-          if (s.lang && i18n && s.lang !== i18n.getLang()) {
-            i18n.setLang(s.lang);
-            applyTranslations();
-          }
+          if (s.lang !== undefined) applyLangSetting(s.lang);
         }
       }
     }

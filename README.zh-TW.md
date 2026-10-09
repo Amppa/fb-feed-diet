@@ -1,9 +1,11 @@
 # FB Feed Diet － 臉書動態消息減肥器
 
-[繁體中文](README.zh-TW.md) | [English](README.md)
+[繁體中文](README.zh-TW.md) | [Español](README.es.md) | [English](README.md)
 
 [![GitHub release](https://img.shields.io/github/v/release/Amppa/fb-feed-diet)](https://github.com/Amppa/fb-feed-diet/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+## 👉 直接下載 [release](https://github.com/Amppa/fb-feed-diet/releases)
 
 FB Feed Diet 是一款用於 Facebook 的瀏覽器擴充功能，可隱藏動態消息中的贊助貼文、推薦內容、Reels 等項目，減少不需要的內容對閱讀的干擾。
 
@@ -56,7 +58,7 @@ FB Feed Diet 是一款用於 Facebook 的瀏覽器擴充功能，可隱藏動態
 
 ### 標題模式=討論區模式（Index-based）
 * **自訂折疊規則**：如果你喜歡一眼掃過所有貼文，選擇有興趣的貼文展開，可以選擇此模式。
-* **折疊外觀設定**：調整標題列高度等顯示選項，可以選擇 18px 或 26px（預設 18px）
+* **折疊外觀設定**：調整標題列高度等顯示選項，可以選擇 18px 或 36px（預設 18px）
 
 <img src="screenshots/after-minimize-mode2.png" height="400" alt="精簡折疊模式">
 
@@ -107,7 +109,7 @@ FB Feed Diet 是一款用於 Facebook 的瀏覽器擴充功能，可隱藏動態
 
 * 五大類貼文的摺疊設定。
 * 標題列高度、標題顯示內文、懸停顯示內文等設定。
-* 中英文介面切換；淺色、深色模式切換。
+* 英文、繁體中文、西班牙文介面切換；淺色、深色模式切換。
 * 偵測模式（Relay 或 DOM）。
 
 | 即時統計與分類設定 | 外觀與偵測模式 |
