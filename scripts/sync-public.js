@@ -39,6 +39,7 @@ const PUBLIC_INCLUDES = [
   'PRIVACY.md',
   'package.json',
   'icons',
+  '_locales',
   'src',
   'tests',
   'scripts',

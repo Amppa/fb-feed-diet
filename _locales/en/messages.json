@@ -1,0 +1,10 @@
+{
+  "extensionName": {
+    "message": "FB Feed Diet - Clean up Feed & Ads",
+    "description": "The title of the extension shown in the web store and extensions list."
+  },
+  "extensionDescription": {
+    "message": "Put your Facebook feed wall on a healthy diet. Automatically fold sponsored ads, reels or suggestions.",
+    "description": "Short description of the extension."
+  }
+}

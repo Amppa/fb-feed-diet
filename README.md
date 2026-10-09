@@ -11,9 +11,20 @@ Folded posts are replaced with a sleek **title bar** that can be expanded anytim
 
 ## Preview
 
-| Before Filtering | After Filtering (Ads & Suggestions) |
-| :---: | :---: |
-| <img src="screenshots/before.png" height="400" alt="Before Filtering"> | <img src="screenshots/after-default.png" height="400" alt="After Filtering"> |
+<table>
+  <thead>
+    <tr>
+      <th align="center">Before Filtering</th>
+      <th align="center">After Filtering (Ads & Suggestions)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr valign="top">
+      <td align="center" valign="top"><img src="screenshots/before.png" width="300" alt="Before Filtering"></td>
+      <td align="center" valign="top"><img src="screenshots/after-default-2.png" width="300" alt="After Filtering"></td>
+    </tr>
+  </tbody>
+</table>
 
 ## Features
 
@@ -48,7 +59,7 @@ Folded posts are replaced with a sleek **title bar** that can be expanded anytim
 * **Custom Folding Rules**: Ideal if you prefer skimming headlines and clicking to expand only what interests you.
 * **Appearance Customization**: Customize title bar height (18px or 26px, default 18px).
 
-<img src="screenshots/after-minimize-mode.png" height="400" alt="Minimized Mode">
+<img src="screenshots/after-minimize-mode2.png" height="400" alt="Minimized Mode">
 
 
 ## Installation

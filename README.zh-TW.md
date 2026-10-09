@@ -11,9 +11,20 @@ FB Feed Diet 是一款用於 Facebook 的瀏覽器擴充功能，可隱藏動態
 
 ## 預覽
 
-| 過濾前 | 過濾廣告與推薦後 |
-| :---: | :---: |
-| <img src="screenshots/before.png" height="400" alt="過濾前"> | <img src="screenshots/after-default.png" height="400" alt="過濾廣告與推薦後"> |
+<table>
+  <thead>
+    <tr>
+      <th align="center">過濾前</th>
+      <th align="center">過濾廣告與推薦後</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr valign="top">
+      <td align="center" valign="top"><img src="screenshots/before.png" width="300" alt="過濾前"></td>
+      <td align="center" valign="top"><img src="screenshots/after-default-2.png" width="300" alt="過濾廣告與推薦後"></td>
+    </tr>
+  </tbody>
+</table>
 
 ## 功能
 
@@ -47,7 +58,7 @@ FB Feed Diet 是一款用於 Facebook 的瀏覽器擴充功能，可隱藏動態
 * **自訂折疊規則**：如果你喜歡一眼掃過所有貼文，選擇有興趣的貼文展開，可以選擇此模式。
 * **折疊外觀設定**：調整標題列高度等顯示選項，可以選擇 18px 或 26px（預設 18px）
 
-<img src="screenshots/after-minimize-mode.png" height="400" alt="精簡折疊模式">
+<img src="screenshots/after-minimize-mode2.png" height="400" alt="精簡折疊模式">
 
 
 ## 安裝

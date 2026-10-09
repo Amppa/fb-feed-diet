@@ -179,6 +179,9 @@ function packageExtension(target, options = {}) {
 
     // 2. Copy extension assets
     const copyItems = ['icons', 'src'];
+    if (fs.existsSync(path.join(rootDir, '_locales'))) {
+      copyItems.push('_locales');
+    }
     for (const item of copyItems) {
       const srcItemPath = path.join(rootDir, item);
       if (!fs.existsSync(srcItemPath)) {
@@ -188,7 +191,7 @@ function packageExtension(target, options = {}) {
     }
 
     // 3. Create clean zip from staging directory
-    archiveDirectory(stagingDir, ['manifest.json', 'icons', 'src'], zipFilePath);
+    archiveDirectory(stagingDir, ['manifest.json', ...copyItems], zipFilePath);
 
     const stats = fs.statSync(zipFilePath);
     const sizeKb = (stats.size / 1024).toFixed(1);

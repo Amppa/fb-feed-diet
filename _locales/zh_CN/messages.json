@@ -1,0 +1,10 @@
+{
+  "extensionName": {
+    "message": "FB Feed Diet － 脸书动态消息减肥器",
+    "description": "扩展程序名称，显示于商店与扩展管理列表中。"
+  },
+  "extensionDescription": {
+    "message": "脸书动态消息减肥器。自动折叠赞助广告、推荐贴文或 Reels 短视频，还你清爽干净的动态消息。",
+    "description": "扩展程序简短描述。"
+  }
+}

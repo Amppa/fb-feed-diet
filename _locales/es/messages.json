@@ -1,0 +1,10 @@
+{
+  "extensionName": {
+    "message": "FB Feed Diet - Feed Limpio y Sin Anuncios",
+    "description": "Nombre de la extensión que se muestra en la tienda y en la lista de extensiones."
+  },
+  "extensionDescription": {
+    "message": "Pon tu feed de Facebook a dieta saludable. Pliega automáticamente anuncios patrocinados, reels o sugerencias.",
+    "description": "Descripción corta de la extensión."
+  }
+}

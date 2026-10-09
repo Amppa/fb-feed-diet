@@ -1,0 +1,10 @@
+{
+  "extensionName": {
+    "message": "FB Feed Diet － 臉書減肥",
+    "description": "擴充功能名稱，顯示於商店與擴充功能清單。"
+  },
+  "extensionDescription": {
+    "message": "臉書動態消息減肥器。自動折疊贊助廣告、推薦貼文或 Reels 短影音，還你清爽乾淨的動態消息。",
+    "description": "擴充功能簡短說明。"
+  }
+}
