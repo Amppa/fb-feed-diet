@@ -1,88 +1,138 @@
-# FB Feed Diet - Clean Feed & Ads Declutter for Facebook™
+# FB Feed Diet - Clean Feed & Ads Declutter for Facebook
 
-A modern, lightweight Chrome Extension designed to put your Facebook feed on a clean, healthy diet.
+[繁體中文](README.zh-TW.md) | [English](README.md)
 
-Instead of abruptly wiping elements or breaking your feed, **FB Feed Diet** neatly folds sponsored posts, suggestions, and ads into elegant inline placeholders with seamless **one-click expand and restore**.
+[![GitHub release](https://img.shields.io/github/v/release/Amppa/fb-feed-diet)](https://github.com/Amppa/fb-feed-diet/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-### 📸 Overview: Before & After
+FB Feed Diet is a browser extension for Facebook designed to hide sponsored posts, recommended content, Reels, and ads from your news feed, decluttering your reading experience.
 
-| Before (Cluttered Feed) | After (Clean Diet) |
+Folded posts are replaced with a sleek **title bar** that can be expanded anytime with a single click, without abruptly removing blocks or breaking page layout. You can also customize folding rules and display preferences to suit your reading habits.
+
+## Preview
+
+| Before Filtering | After Filtering (Ads & Suggestions) |
 | :---: | :---: |
-| ![Before](screenshots/before.png) | ![After - Default Diet](screenshots/after-default.png) |
+| <img src="screenshots/before.png" height="400" alt="Before Filtering"> | <img src="screenshots/after-default.png" height="400" alt="After Filtering"> |
 
----
+## Features
 
-## ✨ Features
+### Standard Mode (Default)
 
-- **Master Switch**: One-click global toggle to pause or resume diet filtering anytime.
-- **💸 Fold Ads**: Folds sponsored posts, Marketplace listings, and search ads.
-- **🤵 Fold Facebook Suggestions**: Folds recommended posts from people you don't follow ("Suggested for you").
-- **🎬 Fold Reels & Stories**: Keeps your feed focused by folding Reels and Stories carousels.
-- **👥 Fold Other Recommendations**: Folds group recommendations ("Groups you should join").
-- **👤 Fold Regular Posts (Optional)**: Option to fold regular posts from accounts you follow for extreme focus.
-- **One-Click Expand & Restore**:
-  - Folded items are replaced with a sleek, non-intrusive placeholder bar matching Facebook's Light and Dark themes.
-  - Hover over any placeholder bar to read the full post preview tooltip without expanding.
-  - Click anywhere on the placeholder bar to reveal the original content; expanded posts can keep a header bar to let you collapse them back anytime.
+* **Block Ads (Sponsored Content)**: Folds sponsored posts, Marketplace recommendations, and search ads.
+* **Block Suggestions (Recommended Posts)**: Folds algorithmic recommendations like "Suggested for you".
+* **Hide Short Videos (Reels & Stories)**: Optional toggles to fold Reels and Stories carousels.
+* **Live Stats**: Counts daily blocked ads, suggestions, and video items.
+* **Hover Preview**: Hover your cursor over the title bar to preview full post content without clicking "See more".
+* **Expand & Collapse Anytime**: Replaces folded content with title bars; click anywhere on the bar to reveal the post.
 
-| Single Post Header & Fold/Unfold | Hover Tooltip Preview (Large) |
-| :---: | :---: |
-| ![Single Post Header](screenshots/after-unfold-single-feed.png) | ![Hover Tooltip Preview](screenshots/after-tooltip-large.png) |
+<table>
+  <thead>
+    <tr>
+      <th align="center">Regular Post</th>
+      <th align="center">Hover Tooltip Preview</th>
+      <th align="center">Folded State</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr valign="top">
+      <td align="center" valign="top"><img src="screenshots/feed-expand.png" width="300" alt="Regular Post"></td>
+      <td align="center" valign="top"><img src="screenshots/feed-titlebar-snipet.png" width="300" alt="Hover Tooltip Preview"></td>
+      <td align="center" valign="top"><img src="screenshots/feed-fold.png" width="300" alt="Folded State"></td>
+    </tr>
+  </tbody>
+</table>
 
-| All Folded (Comfortable 36px) | Minimized Mode (Compact 18px) |
-| :---: | :---: |
-| ![All Folded Mode](screenshots/after-all-shrink.png) | ![Minimized Mode](screenshots/after-minimize-mode.png) |  
+### Forum / Index Mode
 
-- **🔎 Detection Source**: choose where posts are classified from — **Relay** (default, reads Facebook data directly) or **DOM** (scans the rendered page independently).
-- **🌐 English / 繁體中文**: switch the Options and popup interface language.
-- **Privacy-First & Ultra-Lightweight**:
-  - Zero data collection, zero telemetry. All settings and statistics stay strictly on your local device.
+* **Custom Folding Rules**: Ideal if you prefer skimming headlines and clicking to expand only what interests you.
+* **Appearance Customization**: Customize title bar height (18px or 26px, default 18px).
 
----
+<img src="screenshots/after-minimize-mode.png" height="400" alt="Minimized Mode">
 
-## 🚀 Installation Guide
 
-1. Download or clone this repository to your computer.
-2. Open Google Chrome and navigate to `chrome://extensions/`.
-3. Enable **Developer mode** in the top-right corner.
-4. Click **Load unpacked** (載入未封裝項目).
-5. Select the `fb-feed-diet` folder (or repository root).
-6. Open [Facebook](https://www.facebook.com) and enjoy a clean, distraction-free feed!
+## Installation
+
+### Google Chrome
+
+#### Method 1: Chrome Web Store
+
+Coming soon.
+
+#### Method 2: Download Release Package
+
+1. Go to the [Releases](https://github.com/Amppa/fb-feed-diet/releases) page and download the latest Chrome ZIP package.
+2. Extract the ZIP file to a local folder and keep the folder intact for your browser to load.
+3. Open Google Chrome and navigate to `chrome://extensions/`.
+4. Enable **Developer mode** in the top-right corner.
+5. Click **Load unpacked**.
+6. Select the extracted project folder.
+7. Open [Facebook](https://www.facebook.com/).
+
+Once loaded, the extension will be active on Facebook pages.
 
 ### Firefox (128 or newer)
 
-The same package also runs on Firefox — the MAIN-world content scripts require Firefox 128+ (`browser_specific_settings.gecko.strict_min_version`).
+Currently loadable via Firefox's Temporary Add-on feature:
 
-1. Build the package with `npm run package` (or use the repository folder directly).
+1. Download or clone this repository.
 2. Open Firefox and navigate to `about:debugging#/setup/runtime/this-firefox`.
-3. Unzip the package first, then click **Load Temporary Add-on…** (暫時性載入附加元件) and select the extracted `manifest.json` (or the repository's).
-4. Open [Facebook](https://www.facebook.com) and enjoy a clean feed!
+3. Click **Load Temporary Add-on…**.
+4. Select `manifest.json` in the project directory.
+5. Open [Facebook](https://www.facebook.com/).
 
-> Temporary add-ons are unloaded when Firefox restarts — repeat step 3 to reload.
+> Note: Temporary add-ons in Firefox are unloaded when the browser restarts; repeat step 3 to reload.
 
----
+## How to Use
 
-## 💡 How to Use
+### Quick Toggle
 
-- **Quick Toggle**: Click the **FB Feed Diet** icon in your Chrome toolbar to turn filtering ON or OFF instantly.
-- **Detailed Settings**: Click **"Options"** in the popup to customize which types of content to fold (e.g. keep Reels while folding Sponsored ads), adjust display preferences, and monitor diet statistics.
+Click the FB Feed Diet icon in your browser toolbar to instantly toggle filtering and view current diet statistics.
 
-| Live Stats & Header | Feed Classifications | Appearance & Detection Source |
-| :---: | :---: | :---: |
-| ![Settings - Live Stats](screenshots/setting1.png) | ![Settings - Feed Classifies](screenshots/setting2.png) | ![Settings - Appearance](screenshots/setting3.png) |
+<img src="screenshots/popup.png" height="200" alt="Popup">
 
-- **Expand a Post**: When a post is folded, click its placeholder bar to view it without reloading the page — hovering the bar previews the full post text — and click again to collapse it back.
+### Configure Settings
 
----
+Open **"Options"** in the extension popup:
 
-## 🔒 Privacy & Permissions
+* Folding rules for the five main post categories.
+* Title bar height, title snippet display, hover text preview, and more.
+* Interface language (English / Traditional Chinese) and Light / Dark theme mode.
+* Detection engine (**Relay** or **DOM**).
 
-- **Zero Data Collection**: FB Feed Diet does not collect, track, or transmit any user data, browsing history, or feed content.
-- **100% Local Storage**: All settings and statistics are stored strictly on your local device (`chrome.storage.local`) with no backend servers or external telemetry.
-- **Minimal Permissions**: Host permissions (`*://*.facebook.com/*`) cover the feed pages the extension runs on; `storage` keeps your settings and counters on this device; `scripting` pushes settings into already-open Facebook tabs and reads back whether a page's hook is active. Nothing is sent anywhere.
+| Live Stats & Categories | Appearance & Detection Mode |
+| :---: | :---: |
+| <img src="screenshots/setting1.png" height="400" alt="Live Stats & Categories"> | <img src="screenshots/setting2.png" height="400" alt="Appearance & Detection Mode"> |
 
----
+## Privacy & Permissions
 
-## 📄 License
+FB Feed Diet is designed with a local-first privacy architecture:
 
-MIT License.
+* **Zero Data Collection**: No user data, browsing history, or feed content is collected, tracked, or transmitted. Zero telemetry, no backend servers, no external network requests.
+* **100% Local Storage**: All preferences and filtering statistics are stored strictly on your local device (`chrome.storage.local`).
+* **Minimal Permissions**:
+  * Host permission (`*://*.facebook.com/*`): Only used to execute filtering logic on Facebook pages.
+  * `storage`: Stores local preferences and statistics.
+  * `scripting`: Synchronizes settings dynamically with already-open Facebook tabs.
+* **Open Source & Transparent**: All code is open source and verifiable.
+* **Privacy Policy**: For full terms, please refer to [PRIVACY.md](PRIVACY.md).
+
+## Compatibility & Limitations
+
+* Supports Firefox, Google Chrome, Microsoft Edge, and other Chromium-based browsers.
+* Facebook frequently updates its DOM structure, post formatting, and internal data structures, which may cause classifiers to break over time.
+* Provides two classification engines: **Relay** (direct inspection of Facebook's raw GraphQL data) and **DOM** (broader rendered page scanning).
+* If you encounter unclassified posts or anomalies, feel free to report them on [Issues](https://github.com/Amppa/fb-feed-diet/issues) with the feed probe log attached.
+
+## Acknowledgements
+
+This project was inspired by:
+
+* [ESUIT | ADBlocker for Facebook](https://addons.mozilla.org/zh-TW/firefox/addon/esuit-ad-blocker-for-facebook/)
+* [F.B. Sponsored/Ad Post Blocker](https://github.com/browseraddonsupport-wq/fb-sponsored-ad-post-blocker)
+
+FB Feed Diet adopts different classification pathways to ensure higher detection accuracy.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

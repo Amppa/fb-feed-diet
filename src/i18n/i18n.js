@@ -64,7 +64,7 @@ window.FBDietI18N = (() => {
   // options.html only, in the order the page lays them out.
   const EN_OPTIONS = {
     optionsTitle: 'Feed Diet Options',
-    optionsSubtitle: 'Diet on Facebook feeds: get rid of ads and recommendations.',
+    optionsSubtitle: 'Diet on Facebook feeds: get rid of ads or reels.',
     masterStatusActive: 'Active',
     masterStatusDisabled: 'Disabled',
     statReceivedPrefix: 'Today\'s overview:',
@@ -122,7 +122,7 @@ window.FBDietI18N = (() => {
 
   const ZH_OPTIONS = {
     optionsTitle: 'Feed Diet 設定',
-    optionsSubtitle: '臉書減肥: 擺脫廣告與推薦內容',
+    optionsSubtitle: '臉書減肥: 擺脫廣告與短影音',
     masterStatusActive: '已啟用',
     masterStatusDisabled: '已停用',
     statReceivedPrefix: '今日總覽：',
