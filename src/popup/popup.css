@@ -187,3 +187,12 @@ body {
   color: var(--text-secondary);
   text-align: center;
 }
+
+/* Light theme overrides */
+[data-theme="light"] .title {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .settings-btn:hover {
+  color: var(--text-primary);
+}

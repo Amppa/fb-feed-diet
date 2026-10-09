@@ -14,7 +14,7 @@ const { ROOT, loadDefaults } = require('./harness');
 const MAIN_SOURCE = 'fb-diet/main';
 
 function createHarness(options = {}) {
-  const storageData = { settings: {}, counts: options.counts || null };
+  const storageData = { settings: options.settings || {}, counts: options.counts || null };
   const timers = [];
   const listeners = new Map();
   const messages = [];
@@ -57,6 +57,9 @@ function createHarness(options = {}) {
       }
     }
   };
+  if (options.document) {
+    sandbox.document = options.document;
+  }
   sandbox.window = sandbox;
   sandbox.self = sandbox;
   vm.createContext(sandbox);
@@ -182,6 +185,27 @@ function run(checker) {
     hs.dispatchMain('ready', {});
     hs.dispatchMain('ready', {});
     checker.equals('subsequent ready messages trigger no further messages', hs.messages.length, countAfterFirstReady);
+
+    /* --- Theme detection and in-page attribute --- */
+    {
+      const attrs = {};
+      const docDouble = {
+        documentElement: {
+          classList: {
+            contains(cls) { return cls === '__fb-dark-mode'; }
+          },
+          setAttribute(k, v) { attrs[k] = v; },
+          removeAttribute(k) { delete attrs[k]; }
+        }
+      };
+      const themeHarness = createHarness({
+        document: docDouble,
+        settings: { themeMode: 'light' }
+      });
+      await settleContentScript();
+      checker.equals('detects Facebook dark mode', themeHarness.storageData.detectedFbTheme, 'dark');
+      checker.equals('applies explicit light theme to document', attrs['data-fb-diet-theme'], 'light');
+    }
   })();
 }
 

@@ -18,10 +18,12 @@
 
 /* Light mode tokens:
  * Applied when:
- * 1) Facebook explicitly forces light mode (__fb-light-mode), OR
- * 2) System is in light mode (prefers-color-scheme: light) AND Facebook has not explicitly forced dark mode (__fb-dark-mode).
+ * 1) Extension explicitly forces light mode (html[data-fb-diet-theme="light"]), OR
+ * 2) Facebook explicitly forces light mode (__fb-light-mode) AND extension has not forced dark mode, OR
+ * 3) System is in light mode (prefers-color-scheme: light) AND Facebook has not explicitly forced dark mode (__fb-dark-mode) AND extension has not forced dark mode.
  */
-html.__fb-light-mode {
+html[data-fb-diet-theme="light"],
+html.__fb-light-mode:not([data-fb-diet-theme="dark"]) {
   --fb-diet-bar-bg: #F3F3F3;
   --fb-diet-bar-border: 1px solid var(--media-inner-border, #ced0d4);
   --fb-diet-bar-hover-tint: black 4%;
@@ -29,12 +31,20 @@ html.__fb-light-mode {
 }
 
 @media (prefers-color-scheme: light) {
-  html:not(.__fb-dark-mode) {
+  html:not(.__fb-dark-mode):not([data-fb-diet-theme="dark"]) {
     --fb-diet-bar-bg: #F3F3F3;
     --fb-diet-bar-border: 1px solid var(--media-inner-border, #ced0d4);
     --fb-diet-bar-hover-tint: black 4%;
     --fb-diet-bar-text: var(--primary-text, #050505);
   }
+}
+
+/* Explicit forced dark mode override */
+html[data-fb-diet-theme="dark"] {
+  --fb-diet-bar-bg: var(--secondary-button-background, #3a3b3c);
+  --fb-diet-bar-border: none;
+  --fb-diet-bar-hover-tint: white 5%;
+  --fb-diet-bar-text: var(--primary-text, #e4e6eb);
 }
 
 /* ------------------------------------------------------------------ *
@@ -397,6 +407,24 @@ html.__fb-light-mode {
 
 .fb-diet-probe-popup-row a:hover {
   color: #93c5fd !important;
+}
+
+html[data-fb-diet-theme="light"] .fb-diet-probe-popup,
+html.__fb-light-mode:not([data-fb-diet-theme="dark"]) .fb-diet-probe-popup {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+  color: #050505;
+}
+
+html[data-fb-diet-theme="light"] .fb-diet-probe-popup-row a,
+html.__fb-light-mode:not([data-fb-diet-theme="dark"]) .fb-diet-probe-popup-row a {
+  color: #0064e0 !important;
+}
+
+html[data-fb-diet-theme="light"] .fb-diet-probe-popup-row a:hover,
+html.__fb-light-mode:not([data-fb-diet-theme="dark"]) .fb-diet-probe-popup-row a:hover {
+  color: #004bb3 !important;
 }
 
 .fb-diet-probe-popup-spacer {

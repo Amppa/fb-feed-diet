@@ -289,6 +289,57 @@
 
   window.addEventListener('message', handleMainMessage);
 
+  /**
+   * Theme detection and synchronization:
+   * Detects whether Facebook is natively in dark or light mode, and stores it in
+   * chrome.storage.local (key 'detectedFbTheme') so extension pages (Popup, Options)
+   * can adapt automatically.
+   */
+  function detectAndSyncFbTheme() {
+    if (typeof document === 'undefined' || !isExtensionValid()) return;
+    const docEl = document.documentElement;
+    const isDark = docEl?.classList?.contains('__fb-dark-mode')
+      ? true
+      : docEl?.classList?.contains('__fb-light-mode')
+        ? false
+        : Boolean(typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const detectedTheme = isDark ? 'dark' : 'light';
+    safeStorageSet({ detectedFbTheme: detectedTheme });
+  }
+
+  /**
+   * Applies the user's explicit theme preference ('light' / 'dark') to in-page folding UI.
+   * In 'auto' mode, the attribute is removed so styles blend naturally with Facebook.
+   */
+  function applyExtensionThemeOnPage(themeMode) {
+    if (typeof document === 'undefined' || !document.documentElement || typeof document.documentElement.setAttribute !== 'function') return;
+    if (themeMode === 'light') {
+      document.documentElement.setAttribute('data-fb-diet-theme', 'light');
+    } else if (themeMode === 'dark') {
+      document.documentElement.setAttribute('data-fb-diet-theme', 'dark');
+    } else {
+      document.documentElement.removeAttribute('data-fb-diet-theme');
+    }
+  }
+
+  // Observe Facebook theme changes dynamically (e.g. user toggles dark mode switch in FB menu)
+  if (typeof document !== 'undefined' && document.documentElement && typeof MutationObserver !== 'undefined') {
+    try {
+      const themeObserver = new MutationObserver(() => {
+        detectAndSyncFbTheme();
+      });
+      themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    } catch (e) {}
+  }
+
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    try {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => {
+        detectAndSyncFbTheme();
+      });
+    } catch (e) {}
+  }
+
   // Initialise settings, then start the bridge handshake
   (async () => {
     const data = await safeStorageGet('settings');
@@ -299,6 +350,8 @@
     // Context was invalidated before we could even read settings: stay dormant.
     if (isShutDown) return;
 
+    applyExtensionThemeOnPage(currentSettings.themeMode);
+    detectAndSyncFbTheme();
     announceToMain();
   })();
 
@@ -306,6 +359,7 @@
   function applyUpdatedSettings(newSettings) {
     if (!newSettings || typeof newSettings !== 'object') return;
     currentSettings = { ...currentSettings, ...newSettings };
+    applyExtensionThemeOnPage(currentSettings.themeMode);
     sendSettingsToMain();
   }
 

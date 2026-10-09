@@ -127,6 +127,57 @@
   --badge-other-edge: rgba(59, 130, 246, 0.35);
 }
 
+/* Light mode tokens (blends with native Facebook Light Theme) */
+:root[data-theme="light"] {
+  /* Base surfaces */
+  --bg-primary: #f0f2f5;
+  --bg-card: #ffffff;
+  --bg-stat: #f7f8fa;
+  --bg-hover: rgba(0, 0, 0, 0.04);
+  --text-primary: #050505;
+  --text-secondary: #65676b;
+  --text-muted: #8a8d91;
+  --divider: rgba(0, 0, 0, 0.1);
+  --accent-glow: rgba(14, 165, 233, 0.15);
+  --active-color: #0284c7;
+
+  /* Overlays layered on light surfaces */
+  --surface-inset: rgba(0, 0, 0, 0.02);
+  --surface-raised: rgba(0, 0, 0, 0.04);
+  --surface-hover: rgba(0, 0, 0, 0.08);
+  --surface-sunken: rgba(0, 0, 0, 0.06);
+  --border-hover: rgba(0, 0, 0, 0.2);
+  --shadow-knob: 0 1px 3px rgba(0, 0, 0, 0.25);
+  --shadow-logo: 0 2px 10px rgba(14, 165, 233, 0.25);
+  --shadow-text-glow: none;
+  --accent-tint: rgba(14, 165, 233, 0.08);
+  --accent-border-hover: rgba(14, 165, 233, 0.4);
+  --opacity-muted: 0.4;
+
+  /* Brand neutrals and runtime status */
+  --text-on-accent: #ffffff;
+  --switch-off-track: #ced0d4;
+  --status-warn: #d97706;
+  --status-error: #dc2626;
+
+  /* Category badge palette for light extension pages */
+  --badge-ads-fg: #b91c1c;
+  --badge-ads-bg: rgba(239, 68, 68, 0.1);
+  --badge-ads-edge: rgba(239, 68, 68, 0.25);
+  --badge-regular-fg: #047857;
+  --badge-regular-bg: rgba(16, 185, 129, 0.1);
+  --badge-regular-edge: rgba(16, 185, 129, 0.25);
+  --badge-suggested-fg: #b45309;
+  --badge-suggested-bg: rgba(245, 158, 11, 0.12);
+  --badge-suggested-edge: rgba(245, 158, 11, 0.28);
+  --badge-media-fg: #7e22ce;
+  --badge-media-bg: rgba(168, 85, 247, 0.1);
+  --badge-media-edge: rgba(168, 85, 247, 0.25);
+  --badge-other-fg: #1d4ed8;
+  --badge-other-bg: rgba(59, 130, 246, 0.1);
+  --badge-other-edge: rgba(59, 130, 246, 0.25);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;

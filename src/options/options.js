@@ -33,7 +33,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   // section, but "Defaults" still covers them so no visible control is skipped.
   // `alwaysShowFoldBar` has no visible control anymore, so "Defaults" leaves the
   // stored value alone; the inject code still honours it.
-  const APPEARANCE_KEYS = ['restrictFoldScope', 'showTitleMode', 'tooltipMode', 'minimizedFoldMode', 'dietMode', 'debugProbe'];
+  const APPEARANCE_KEYS = ['restrictFoldScope', 'showTitleMode', 'tooltipMode', 'minimizedFoldMode', 'dietMode', 'debugProbe', 'themeMode'];
+
+  function resolveEffectiveTheme(mode, detectedFb) {
+    if (mode === 'light') return 'light';
+    if (mode === 'dark') return 'dark';
+    if (detectedFb === 'light' || detectedFb === 'dark') return detectedFb;
+    const isDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return isDark ? 'dark' : 'light';
+  }
+
+  function applyTheme(theme) {
+    if (typeof document !== 'undefined' && document.documentElement && typeof document.documentElement.setAttribute === 'function') {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+  }
 
   // Shared normaliser: the options page shows the current mode name for a profile that may
   // still hold a retired value ('lite' / 'full' / 'relay+dom') in storage.
@@ -259,9 +273,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Load initial settings and counts
-  const data = await chrome.storage.local.get(['settings', 'counts']);
+  const data = await chrome.storage.local.get(['settings', 'counts', 'detectedFbTheme']);
   let settings = data.settings || {};
   const counts = data.counts || {};
+  let detectedFbTheme = data.detectedFbTheme;
+
+  // Fallback to system color scheme if Facebook theme has not been detected yet
+  if (!detectedFbTheme) {
+    const isDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    detectedFbTheme = isDark ? 'dark' : 'light';
+    chrome.storage.local.set({ detectedFbTheme }).catch(() => {});
+  }
 
   // Resolve language: stored setting wins, otherwise detect from the browser UI.
   const lang = settings.lang || (i18n ? i18n.detect() : 'en');
@@ -271,6 +293,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   currentSettings = { ...SHARED_DEFAULTS, ...settings };
+  applyTheme(resolveEffectiveTheme(currentSettings.themeMode, detectedFbTheme));
 
   // Initialize master switch, detection source & feature switches
   updateMasterUI(currentSettings.enabled !== false);
@@ -350,6 +373,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       await saveAndBroadcastSettings(updated);
       applyAppearanceControls(updated);
+      applyTheme(resolveEffectiveTheme(updated.themeMode, detectedFbTheme));
     });
   }
 
@@ -389,6 +413,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     select.addEventListener('change', async () => {
       const { settings: current } = await chrome.storage.local.get('settings');
       const value = BOOLEAN_SELECTS[key] ? selectValueToBoolean(key, select.value) : select.value;
+      if (key === 'themeMode') {
+        applyTheme(resolveEffectiveTheme(value, detectedFbTheme));
+      }
       await saveAndBroadcastSettings({ ...current, [key]: value });
     });
   }
@@ -407,12 +434,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Listen for storage changes
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local') {
+      if (changes.detectedFbTheme) {
+        detectedFbTheme = changes.detectedFbTheme.newValue;
+        applyTheme(resolveEffectiveTheme(currentSettings.themeMode, detectedFbTheme));
+      }
       if (changes.counts) {
         renderCounts(changes.counts.newValue);
       }
       if (changes.settings) {
         const s = changes.settings.newValue;
         if (s) {
+          if (s.themeMode !== undefined) {
+            applyTheme(resolveEffectiveTheme(s.themeMode, detectedFbTheme));
+          }
           if (s.enabled !== undefined) updateMasterUI(s.enabled !== false);
           if (s.dietMode !== undefined) updateDetectionUI(s);
           for (const [key, checkbox] of Object.entries(switches)) {
@@ -435,4 +469,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
   });
+
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', (e) => {
+      if (currentSettings.themeMode === 'auto') {
+        const fallback = e.matches ? 'dark' : 'light';
+        applyTheme(resolveEffectiveTheme('auto', detectedFbTheme || fallback));
+      }
+    });
+  }
 });

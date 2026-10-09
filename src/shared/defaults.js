@@ -16,6 +16,7 @@
     alwaysShowFoldBar: true,
     showTitleMode: 'whenFolded',
     tooltipMode: 'large',
+    themeMode: 'auto',
     restrictFoldScope: true,
     debugProbe: false
   };
@@ -291,7 +292,7 @@
     return (fallbackTable && fallbackTable[key]) || '';
   }
 
-  const EXTENSION_VERSION = '2.10.2';
+  const EXTENSION_VERSION = '2.10.3';
 
   globalThis.FB_DIET_DEFAULTS = {
     SETTINGS: DEFAULT_SETTINGS,

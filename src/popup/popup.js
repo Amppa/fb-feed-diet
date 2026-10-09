@@ -17,12 +17,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     i18n.applyTo(document);
   }
 
+  function resolveEffectiveTheme(mode, detectedFb) {
+    if (mode === 'light') return 'light';
+    if (mode === 'dark') return 'dark';
+    if (detectedFb === 'light' || detectedFb === 'dark') return detectedFb;
+    const isDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return isDark ? 'dark' : 'light';
+  }
+
+  function applyTheme(theme) {
+    if (typeof document !== 'undefined' && document.documentElement && typeof document.documentElement.setAttribute === 'function') {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+  }
+
   const SHARED_DEFAULTS = globalThis.FB_DIET_DEFAULTS || {};
 
   // Load initial state
-  const data = await chrome.storage.local.get(['settings', 'counts']);
+  const data = await chrome.storage.local.get(['settings', 'counts', 'detectedFbTheme']);
   const settings = { ...(SHARED_DEFAULTS.SETTINGS || {}), ...(data.settings || {}) };
   const counts = { ...(SHARED_DEFAULTS.COUNTS || {}), ...(data.counts || {}) };
+  let detectedFbTheme = data.detectedFbTheme;
+
+  // Fallback to system color scheme if Facebook theme has not been detected yet
+  if (!detectedFbTheme) {
+    const isDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    detectedFbTheme = isDark ? 'dark' : 'light';
+    chrome.storage.local.set({ detectedFbTheme }).catch(() => {});
+  }
+  applyTheme(resolveEffectiveTheme(settings.themeMode, detectedFbTheme));
 
   if (i18n) i18n.setLang(settings.lang || i18n.detect());
   applyTranslations();
@@ -150,23 +173,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Listen for live count updates
+  // Listen for live updates
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local') {
+      if (changes.detectedFbTheme) {
+        detectedFbTheme = changes.detectedFbTheme.newValue;
+        applyTheme(resolveEffectiveTheme(settings.themeMode, detectedFbTheme));
+      }
       if (changes.counts) {
         renderStat(changes.counts.newValue);
       }
       if (changes.settings) {
         const s = changes.settings.newValue;
-        if (s.enabled !== undefined && s.enabled !== masterToggle.checked) {
-          masterToggle.checked = s.enabled;
-          renderHookStatus();
-        }
-        if (s.lang && i18n && s.lang !== i18n.getLang()) {
-          i18n.setLang(s.lang);
-          applyTranslations();
+        if (s) {
+          if (s.themeMode !== undefined) {
+            settings.themeMode = s.themeMode;
+            applyTheme(resolveEffectiveTheme(s.themeMode, detectedFbTheme));
+          }
+          if (s.enabled !== undefined && s.enabled !== masterToggle.checked) {
+            masterToggle.checked = s.enabled;
+            renderHookStatus();
+          }
+          if (s.lang && i18n && s.lang !== i18n.getLang()) {
+            i18n.setLang(s.lang);
+            applyTranslations();
+          }
         }
       }
     }
   });
+
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', (e) => {
+      if (settings.themeMode === 'auto') {
+        const fallback = e.matches ? 'dark' : 'light';
+        applyTheme(resolveEffectiveTheme('auto', detectedFbTheme || fallback));
+      }
+    });
+  }
 });

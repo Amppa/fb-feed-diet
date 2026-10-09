@@ -569,3 +569,31 @@ body {
   outline-offset: var(--focus-ring-offset-wide);
   border-radius: var(--focus-ring-radius);
 }
+
+/* Light theme overrides */
+:root[data-theme="light"] {
+  --donut-regular: #059669;
+  --donut-suggested: #d97706;
+  --donut-media: #9333ea;
+  --donut-ads: #dc2626;
+  --donut-other: #2563eb;
+  --donut-regular-dim: rgba(5, 150, 105, 0.15);
+  --donut-suggested-dim: rgba(217, 119, 6, 0.15);
+  --donut-media-dim: rgba(147, 51, 234, 0.15);
+  --donut-ads-dim: rgba(220, 38, 38, 0.15);
+  --donut-other-dim: rgba(37, 99, 235, 0.15);
+}
+
+[data-theme="light"] .title {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .feature-select {
+  color-scheme: light;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M1 1l4 4 4-4' fill='none' stroke='%2365676b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+}
+
+[data-theme="light"] .feature-select option {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+}

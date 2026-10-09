@@ -102,6 +102,7 @@ function run(checker) {
   checker.equals('settings.alwaysShowFoldBar is true', settings && settings.alwaysShowFoldBar, true);
   checker.equals('settings.showTitleMode is whenFolded', settings && settings.showTitleMode, 'whenFolded');
   checker.equals('settings.tooltipMode is large', settings && settings.tooltipMode, 'large');
+  checker.equals('settings.themeMode is auto', settings && settings.themeMode, 'auto');
   checker.equals('settings.debugProbe is false', settings && settings.debugProbe, false);
   checker.equals('settings.restrictFoldScope is true', settings && settings.restrictFoldScope, true);
 
