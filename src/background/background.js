@@ -22,6 +22,9 @@ chrome.runtime.onInstalled.addListener(async () => {
   });
 
   pushSettingsToFacebookTabs(mergedSettings);
+  // A freshly installed build makes every already-open Facebook tab stale; that is exactly the
+  // state the red marker exists for, so the badges are re-labelled here rather than on next load.
+  updateFacebookBadges();
 });
 
 /** Fan-out settings to MAIN world of every Facebook tab (authoritative path). */
@@ -61,7 +64,12 @@ async function pushSettingsToFacebookTabs(providedSettings) {
 }
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && changes.settings) pushSettingsToFacebookTabs(changes.settings.newValue);
+  if (area === 'local' && changes.settings) {
+    pushSettingsToFacebookTabs(changes.settings.newValue);
+    // Tabs that are already open would otherwise keep claiming the extension is on until the
+    // user reloads them, which is the one moment the badge has to be right.
+    updateFacebookBadges();
+  }
 });
 
 /** Fresh counter row for today; never throws (Reset button waits on it). */
@@ -129,6 +137,65 @@ async function readTabHookState(tabId) {
   } catch (e) {
     return unavailable;
   }
+}
+
+/** Writes one tab's badge. Empty text clears the icon; a closed tab is never worth a rejection. */
+async function setTabBadge(tabId, text, color) {
+  if (typeof tabId !== 'number' || !chrome.action) return;
+  try {
+    await chrome.action.setBadgeText({ tabId, text: text || '' });
+    if (color) await chrome.action.setBadgeBackgroundColor({ tabId, color });
+  } catch (e) {}
+}
+
+/**
+ * Resolves one tab's badge: two signals only - `off` while the master switch is off, `!` when our
+ * code is missing from the page, failed to install, or disagrees with the installed version.
+ * Anything else, including a Facebook page we simply do not fold, clears it.
+ */
+async function updateTabBadge(tabId, tabUrl) {
+  try {
+    // No url is not a verdict about Facebook: keep the icon this tab already has.
+    if (typeof tabId !== 'number' || typeof tabUrl !== 'string' || !chrome.action) return;
+    const defaults = globalThis.FB_DIET_DEFAULTS;
+    if (!defaults || typeof defaults.resolveActionBadge !== 'function') return;
+
+    if (typeof defaults.isFacebookUrl === 'function' && !defaults.isFacebookUrl(tabUrl)) {
+      await setTabBadge(tabId, '', '');
+      return;
+    }
+
+    const data = await chrome.storage.local.get('settings');
+    const settings = { ...DEFAULT_SETTINGS, ...(data && data.settings ? data.settings : {}) };
+    // The switch-off answer needs nothing from the page, so no tab is injected to give it.
+    const state = settings.enabled === false ? null : await readTabHookState(tabId);
+    const badge = defaults.resolveActionBadge(state, settings, tabUrl);
+    await setTabBadge(tabId, badge.text, badge.color);
+  } catch (e) {
+    // Fail open: a badge we cannot compute must never become a page problem.
+  }
+}
+
+/** Re-labels every open Facebook tab. */
+async function updateFacebookBadges() {
+  if (!chrome.tabs || typeof chrome.tabs.query !== 'function') return;
+  let tabs = [];
+  try {
+    tabs = await chrome.tabs.query({ url: FACEBOOK_URL_PATTERNS });
+  } catch (e) {
+    return;
+  }
+  for (const tab of tabs) {
+    if (tab && typeof tab.id === 'number') updateTabBadge(tab.id, tab.url);
+  }
+}
+
+if (chrome.tabs && chrome.tabs.onUpdated && typeof chrome.tabs.onUpdated.addListener === 'function') {
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.status === 'complete' || changeInfo.url) {
+      updateTabBadge(tabId, changeInfo.url || (tab && tab.url));
+    }
+  });
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

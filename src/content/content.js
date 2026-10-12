@@ -199,8 +199,21 @@
   }
 
   /**
+   * MAIN-world diagnostic event (comet.js lifecycle / crash context). Persisted for
+   * post-mortem analysis only: never enters mainReports, never touches the counters.
+   */
+  function storeDiagnostic(payload) {
+    pushPersistedLog('diag' + (payload.kind ? '-' + payload.kind : ''), {
+      moduleName: payload.moduleName || null,
+      reason: payload.reason || null,
+      detail: payload.detail !== undefined ? payload.detail : null
+    });
+  }
+
+  /**
    * Normalized single entry for the persistent diagnostic log. The full unitId is
    * shortened: the raw base64 blob is unreadable in a log table and bloats storage.
+   * `detail` is the free-form context of MAIN-world 'diag' events (stack, call shape).
    */
   function toLogEntry(type, payload) {
     return {
@@ -212,6 +225,7 @@
       unitId: shortUnitId(payload.unitId) || null,
       moduleName: payload.moduleName || null,
       evidence: payload.evidence || null,
+      detail: payload.detail !== undefined ? payload.detail : null,
       page: window.location && window.location.pathname ? window.location.pathname : null
     };
   }
@@ -261,6 +275,11 @@
           handshakeDone = true;
           sendSettingsToMain();
         }
+        return;
+      }
+
+      if (data.type === 'diag') {
+        storeDiagnostic(data.payload || {});
         return;
       }
 

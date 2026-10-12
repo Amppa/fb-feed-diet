@@ -42,7 +42,8 @@ window.FBDietFold = (() => {
   /**
    * Session-level drift verdict built from the Comet hook's loader counters, the Relay
    * capture state and the fold scope. `seen === 0` while the loader is streaming
-   * means no registered module name matched anymore.
+   * means no registered module name matched anymore - unless we retired those modules
+   * ourselves, which is our own doing and never a Facebook rename.
    */
   function computeModuleDrift() {
     const comet = window.FBDietComet;
@@ -65,6 +66,7 @@ window.FBDietFold = (() => {
       registered: health ? health.registered : 0,
       seen: health ? health.seen : 0,
       patched: health ? health.patched : 0,
+      fused: health && health.fused ? health.fused : [],
       hydration: getHydration().count,
       relayReady,
       scopeAllowed
@@ -74,6 +76,7 @@ window.FBDietFold = (() => {
       health &&
       health.dCalls >= getConfig().DRIFT_MIN_DCALLS &&
       health.seen === 0 &&
+      report.fused.length === 0 &&
       relayReady &&
       scopeAllowed
     );

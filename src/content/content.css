@@ -78,6 +78,11 @@ html[data-fb-diet-theme="dark"] {
   background-color: color-mix(in srgb, var(--fb-diet-bar-bg) 95%, var(--fb-diet-bar-hover-tint)) !important;
 }
 
+.fb-diet-titlebar:focus-visible {
+  outline: 2px solid var(--accent-gradient, #1877F2) !important;
+  outline-offset: 1px !important;
+}
+
 /* 18px compact variant for Minimized Fold Bar */
 .fb-diet-titlebar.fb-diet-titlebar-mini {
   margin: 0 0 4px 0 !important;

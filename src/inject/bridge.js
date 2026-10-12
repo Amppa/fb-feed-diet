@@ -10,7 +10,7 @@
  *     writing the throttled counters to chrome.storage
  *
  * Message protocol
- *   MAIN    -> content : { source: 'fb-diet/main',    type: ready | blocked | allowed | regular | settings-applied }
+ *   MAIN    -> content : { source: 'fb-diet/main',    type: ready | blocked | allowed | regular | settings-applied | diag }
  *   content -> MAIN    : { source: 'fb-diet/content', type: ping | settings }
  *
  * Loading order (manifest): comet.js -> relay.js -> relay-classify.js -> bridge.js -> fold.js
@@ -80,6 +80,12 @@ window.FBDietBridge = (() => {
     } catch (e) {
       recordError(e);
     }
+  }
+
+  /** Debug channel from comet.js: lifecycle/crash context, persisted by content.js, never counted. */
+  function postDiagnostic(payload) {
+    post('diag', payload);
+    debugLog('diag', payload);
   }
 
   /** FIFO-bounded set insert. Returns false when the key was already present. */
@@ -263,6 +269,17 @@ window.FBDietBridge = (() => {
   // Entry point used by the service worker through chrome.scripting.executeScript
   window.__fbDietSetSettings = setSettings;
 
+  // Boot line for the diagnostic log. comet.js loads before this module, so its own boot
+  // emission cannot be posted yet; this module is the first one able to persist it
+  // (document_start, still ahead of any page script).
+  postDiagnostic({
+    kind: 'boot',
+    detail: {
+      pathname: (window.location && window.location.pathname) || null,
+      hookActive: window.FBDietComet ? window.FBDietComet.getStats().hookActive === true : false
+    }
+  });
+
   // Console helper: window.__fbDietDebug(true) enables bounded diagnostic logs.
   window.__fbDietDebug = (enabled) => {
     if (typeof enabled === 'boolean') debugEnabled = enabled;
@@ -311,6 +328,7 @@ window.FBDietBridge = (() => {
     reportBlocked,
     reportAllowed,
     reportRegular,
+    postDiagnostic,
     debugLog,
     isDebugEnabled: () => debugEnabled,
     announceReady,

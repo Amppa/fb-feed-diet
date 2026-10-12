@@ -301,7 +301,47 @@
     return (fallbackTable && fallbackTable[key]) || '';
   }
 
-  const EXTENSION_VERSION = '2.10.5';
+  /** True for any Facebook host over http(s). The badge and the tab fan-out share this one test. */
+  function isFacebookUrl(url) {
+    return typeof url === 'string' && /^https?:\/\/([\w-]+\.)*facebook\.com(\/.*)?$/i.test(url);
+  }
+
+  // The palette is deliberately two deep. A third colour would mean a third thing worth saying,
+  // and the states this extension can report honestly are: it is off, or it is not running here.
+  const ACTION_BADGE_COLORS = {
+    disabled: '#6B7280',
+    error: '#EF4444'
+  };
+
+  /**
+   * Resolves the toolbar badge for one tab: `off` in grey while the master switch is off, `!` in
+   * red when our code is missing from the page, failed to install, never armed its hook, or still
+   * running an older build than the one installed. Everything else - including a Facebook page we
+   * deliberately do not fold - clears the icon, because a badge that is never silent is a badge
+   * that stops being read.
+   */
+  function resolveActionBadge(tabState, settings, tabUrl) {
+    if (typeof tabUrl === 'string' && !isFacebookUrl(tabUrl)) return { text: '', color: '' };
+
+    if (settings && settings.enabled === false) {
+      return { text: 'off', color: ACTION_BADGE_COLORS.disabled };
+    }
+
+    if (
+      !tabState ||
+      tabState.available === false ||
+      tabState.present === false ||
+      tabState.staleBuild === true ||
+      tabState.installFailed === true ||
+      tabState.hookActive === false
+    ) {
+      return { text: '!', color: ACTION_BADGE_COLORS.error };
+    }
+
+    return { text: '', color: '' };
+  }
+
+  const EXTENSION_VERSION = '2.10.7';
 
   globalThis.FB_DIET_DEFAULTS = {
     SETTINGS: DEFAULT_SETTINGS,
@@ -332,6 +372,9 @@
     resolveBadgeText,
     CATEGORY_BADGE_TEXT,
     isFoldScopeAllowed,
+    isFacebookUrl,
+    ACTION_BADGE_COLORS,
+    resolveActionBadge,
     readProp
   };
 })();

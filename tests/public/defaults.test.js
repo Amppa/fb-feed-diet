@@ -341,6 +341,34 @@ function run(checker) {
   checker.equals('an empty query is not the flag', defaults.isDebugUrl(''), false);
   checker.equals('a missing query is not the flag', defaults.isDebugUrl(undefined), false);
 
+  /* --- action badge resolution: two signals, everything else silent --- */
+  checker.ok('resolveActionBadge exists', typeof defaults.resolveActionBadge === 'function');
+  checker.ok('ACTION_BADGE_COLORS exists', Boolean(defaults.ACTION_BADGE_COLORS));
+  checker.equals('…and carries no whitelist colour any more', defaults.ACTION_BADGE_COLORS.whitelist, undefined);
+
+  checker.equals('a non-Facebook tab has an empty badge', defaults.resolveActionBadge(null, { enabled: true }, 'https://google.com/').text, '');
+
+  // 1. Master switch off -> grey off, and it outranks every page state.
+  checker.equals('a switched-off extension reads off', defaults.resolveActionBadge(null, { enabled: false }, 'https://www.facebook.com/').text, 'off');
+  checker.equals('…in grey', defaults.resolveActionBadge(null, { enabled: false }, 'https://www.facebook.com/').color, defaults.ACTION_BADGE_COLORS.disabled);
+  checker.equals('a broken page still reads off while the switch is off', defaults.resolveActionBadge({ present: false, available: false }, { enabled: false }, 'https://www.facebook.com/').text, 'off');
+
+  // 2a. Version error -> red !
+  checker.equals('a stale build reads !', defaults.resolveActionBadge({ present: true, available: true, hookActive: true, staleBuild: true }, { enabled: true }, 'https://www.facebook.com/').text, '!');
+  checker.equals('…in red', defaults.resolveActionBadge({ present: true, available: true, hookActive: true, staleBuild: true }, { enabled: true }, 'https://www.facebook.com/').color, defaults.ACTION_BADGE_COLORS.error);
+
+  // 2b. Mount error -> red !, whichever way the mount failed.
+  checker.equals('a failed hook install reads !', defaults.resolveActionBadge({ present: true, available: true, hookActive: false, installFailed: true }, { enabled: true }, 'https://www.facebook.com/').text, '!');
+  checker.equals('an armed hook that never installed reads !', defaults.resolveActionBadge({ present: true, available: true, hookActive: false, installFailed: false }, { enabled: true }, 'https://www.facebook.com/').text, '!');
+  checker.equals('a page we never injected reads !', defaults.resolveActionBadge({ present: false, available: false }, { enabled: true }, 'https://www.facebook.com/').text, '!');
+  checker.equals('a tab we could not read at all reads !', defaults.resolveActionBadge(null, { enabled: true }, 'https://www.facebook.com/').text, '!');
+
+  // 3. Everything else: the page is fine, so the icon says nothing.
+  const healthy = { present: true, available: true, hookActive: true, installFailed: false, staleBuild: false };
+  checker.equals('a working page has empty badge text', defaults.resolveActionBadge(healthy, { enabled: true }, 'https://www.facebook.com/').text, '');
+  checker.equals('…and empty badge colour', defaults.resolveActionBadge(healthy, { enabled: true }, 'https://www.facebook.com/').color, '');
+  checker.equals('a page we do not fold gets no marker at all', defaults.resolveActionBadge(healthy, { enabled: true }, 'https://www.facebook.com/friends').text, '');
+
   // Idempotency: repeated execution does not throw
   let threw = false;
   try {

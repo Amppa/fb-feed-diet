@@ -275,10 +275,8 @@ window.FBDietUI = (() => {
       const badgeText = resolveBadgeText(props.category);
       const contentKids = [];
 
-      // Tooltip source text: folded shows the full post text (the visible snippet
-      // is CSS-truncated), expanded offers collapse on the bar and the full text
-      // on the badge. Computed once; each tooltip mode below decides whether and
-      // how to present it.
+      // Tooltip source text: folded bars show the full post text on hover (the visible
+      // snippet is CSS-truncated); expanded bars arm hover on the badge instead.
       let tooltipText = null;
       let badgeTooltipText = null;
 
@@ -341,7 +339,7 @@ window.FBDietUI = (() => {
         badgeTooltipText = (effectiveMsg && cleanPostSnippet(effectiveMsg, effectiveActor, effectiveGroup, titleBarTooltipLimits())) || null;
       }
 
-      if (isExpanded) tooltipText = getCollapseLabel();
+
 
       // Tooltip mode: 'off' shows nothing, 'normal'/'large' show the portal
       // popup at 16px/28px. Folded bars arm hover on the bar; expanded bars arm
@@ -443,10 +441,25 @@ window.FBDietUI = (() => {
       if (isMini) className += ' fb-diet-titlebar-mini';
       if (isExpanded) className += ' fb-diet-state-expanded';
 
+      const handleKeyDown = (event) => {
+        if (event && (event.key === 'Enter' || event.key === ' ')) {
+          if (typeof event.preventDefault === 'function') event.preventDefault();
+          if (useCustomTooltip) {
+            handleBarClick(event);
+          } else if (typeof props.onToggle === 'function') {
+            props.onToggle(event);
+          }
+        }
+      };
+
       const barProps = {
         ref: barRef,
         className: className,
-        onClick: props.onToggle
+        role: 'button',
+        tabIndex: 0,
+        'aria-expanded': isExpanded,
+        onClick: props.onToggle,
+        onKeyDown: handleKeyDown
       };
       if (useCustomTooltip) {
         barProps.onMouseEnter = handleBarMouseEnter;
