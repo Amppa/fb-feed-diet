@@ -175,7 +175,7 @@
 
   // Fold scope: allowlisted surfaces only; fail-open on unknown pathname.
   // per docs/architecture.md
-  const FOLD_SCOPE_PREFIXES = ['/', '/home.php', '/search', '/marketplace'];
+  const FOLD_SCOPE_PREFIXES = ['/', '/home.php', '/search', '/marketplace', '/groups/feed', '/feeds'];
 
   function isFoldScopeAllowed(pathname) {
     if (typeof pathname !== 'string' || !pathname) return true;

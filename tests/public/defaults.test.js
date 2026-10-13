@@ -210,7 +210,12 @@ function run(checker) {
   checker.equals('search root allowed', defaults.isFoldScopeAllowed('/search'), true);
   checker.equals('search subpage allowed', defaults.isFoldScopeAllowed('/search/top'), true);
   checker.equals('marketplace item allowed', defaults.isFoldScopeAllowed('/marketplace/item/1'), true);
-  checker.equals('groups feed rejected', defaults.isFoldScopeAllowed('/groups/feed'), false);
+  checker.equals('groups feed allowed', defaults.isFoldScopeAllowed('/groups/feed'), true);
+  checker.equals('groups feed subpage allowed', defaults.isFoldScopeAllowed('/groups/feed/'), true);
+  checker.equals('feeds allowed', defaults.isFoldScopeAllowed('/feeds'), true);
+  checker.equals('feeds subpage allowed', defaults.isFoldScopeAllowed('/feeds/'), true);
+  checker.equals('groups landing rejected', defaults.isFoldScopeAllowed('/groups'), false);
+  checker.equals('individual group rejected', defaults.isFoldScopeAllowed('/groups/123'), false);
   checker.equals('profile page rejected', defaults.isFoldScopeAllowed('/mypage'), false);
   checker.equals('search prefix boundary rejected', defaults.isFoldScopeAllowed('/searchabc'), false);
   checker.equals('empty path fails open', defaults.isFoldScopeAllowed(''), true);

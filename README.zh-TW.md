@@ -4,6 +4,7 @@
 
 [![GitHub release](https://img.shields.io/github/v/release/Amppa/fb-feed-diet)](https://github.com/Amppa/fb-feed-diet/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Sponsor](https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/Amppa)
 
 ## 👉 直接下載 [release](https://github.com/Amppa/fb-feed-diet/releases)
 
@@ -143,7 +144,15 @@ FB Feed Diet 的設計以本機處理為主。
 * [ESUIT | ADBlocker for Facebook](https://addons.mozilla.org/zh-TW/firefox/addon/esuit-ad-blocker-for-facebook/)
 * [F.B. Sponsored/Ad Post Blocker](https://github.com/browseraddonsupport-wq/fb-sponsored-ad-post-blocker)
 
-本專案採用不同的內容判斷路徑，以確保偵測的準確性。
+## 贊助支持
+
+Facebook 頻繁改版，維護過濾器需要持續投入時間。
+
+如果它為您省下的時間與好心情，遠遠超過一杯 2～5 美元的咖啡錢，歡迎隨喜贊助請我喝杯咖啡，支持這個專案走得更遠！
+
+<a href="https://github.com/sponsors/Amppa">
+  <img src="https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub" />
+</a>
 
 ## 授權
 

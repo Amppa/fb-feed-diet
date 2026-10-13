@@ -3,6 +3,7 @@
 
 [![GitHub release](https://img.shields.io/github/v/release/Amppa/fb-feed-diet)](https://github.com/Amppa/fb-feed-diet/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Sponsor](https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/Amppa)
 
 [中文說明](README.zh-TW.md) | [Español](README.es.md) | [English](README.md)
 
@@ -145,7 +146,15 @@ This project was inspired by:
 * [ESUIT | ADBlocker for Facebook](https://addons.mozilla.org/zh-TW/firefox/addon/esuit-ad-blocker-for-facebook/)
 * [F.B. Sponsored/Ad Post Blocker](https://github.com/browseraddonsupport-wq/fb-sponsored-ad-post-blocker)
 
-FB Feed Diet adopts different classification pathways to ensure higher detection accuracy.
+## Support the Project
+
+Facebook updates frequently, and keeping the filters working requires ongoing maintenance time.
+
+If the time and frustration it saves you is worth far more than a $2–$5 cup of coffee, consider buying me a coffee to support the long-term maintenance of this project!
+
+<a href="https://github.com/sponsors/Amppa">
+  <img src="https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub" />
+</a>
 
 ## License
 

@@ -124,7 +124,7 @@ window.FBDietI18N = (() => {
     featFoldHeight36: 'Comfortable (36px)',
     featFoldScopeTitle: 'Filter Scope',
     featFoldScopeDesc: 'Choose which Facebook pages the filters apply to',
-    featFoldScopeScoped: 'Home, Search & Marketplace only (Default)',
+    featFoldScopeScoped: 'Home, Feeds, Search & Marketplace only (Default)',
     featFoldScopeAll: 'All Facebook pages',
     featThemeModeTitle: 'Theme',
     featThemeModeDesc: 'Choose light, dark, or automatic theme',
@@ -142,7 +142,10 @@ window.FBDietI18N = (() => {
     resetAppearanceBtn: 'Defaults',
     resetAppearanceDesc: 'Reset appearance settings to defaults',
     projectUrlLabel: 'Project URL:',
-    langToggleTitle: 'Switch language'
+    langToggleTitle: 'Switch language',
+    sponsorTitle: 'Buy Me a Coffee',
+    sponsorDesc: 'Facebook updates frequently, and keeping the filters working requires ongoing maintenance time. If it saves you time and frustration, consider buying me a coffee to support the project!',
+    sponsorBtn: 'Sponsor on GitHub'
   };
 
   const ZH_OPTIONS = {
@@ -188,7 +191,7 @@ window.FBDietI18N = (() => {
     featFoldHeight36: '舒適 (36px)',
     featFoldScopeTitle: '過濾範圍',
     featFoldScopeDesc: '設定過濾器要作用的頁面',
-    featFoldScopeScoped: '僅首頁、搜尋頁與市集 (預設)',
+    featFoldScopeScoped: '僅首頁、動態消息、搜尋頁與市集 (預設)',
     featFoldScopeAll: 'Facebook 全站',
     featThemeModeTitle: '主題顏色',
     featThemeModeDesc: '選擇淺色、深色或自動跟隨主題',
@@ -206,7 +209,10 @@ window.FBDietI18N = (() => {
     resetAppearanceBtn: '回復預設',
     resetAppearanceDesc: '將外觀設定回復為預設值',
     projectUrlLabel: '專案網址：',
-    langToggleTitle: '切換語言'
+    langToggleTitle: '切換語言',
+    sponsorTitle: '請作者喝杯咖啡 ☕',
+    sponsorDesc: 'Facebook 頻繁改版，維護過濾器需要持續投入時間。如果它為您省下的時間與好心情遠超一杯咖啡錢，歡迎隨喜贊助請我喝杯咖啡！',
+    sponsorBtn: '贊助支持 (GitHub Sponsors)'
   };
 
   const ES_OPTIONS = {
@@ -252,7 +258,7 @@ window.FBDietI18N = (() => {
     featFoldHeight36: 'Cómoda (36px)',
     featFoldScopeTitle: 'Ámbito del filtro',
     featFoldScopeDesc: 'Elige en qué páginas de Facebook se aplican los filtros',
-    featFoldScopeScoped: 'Solo Inicio, Búsqueda y Marketplace (predeterminado)',
+    featFoldScopeScoped: 'Solo Inicio, Feeds, Búsqueda y Marketplace (predeterminado)',
     featFoldScopeAll: 'Todas las páginas de Facebook',
     featThemeModeTitle: 'Tema',
     featThemeModeDesc: 'Elige el tema claro, oscuro o automático',
@@ -270,7 +276,10 @@ window.FBDietI18N = (() => {
     resetAppearanceBtn: 'Predeterminados',
     resetAppearanceDesc: 'Restablecer los ajustes de apariencia a los valores predeterminados',
     projectUrlLabel: 'URL del proyecto:',
-    langToggleTitle: 'Cambiar idioma'
+    langToggleTitle: 'Cambiar idioma',
+    sponsorTitle: 'Invítame a un café',
+    sponsorDesc: 'Facebook se actualiza constantemente y mantener los filtros funcionando requiere tiempo y mantenimiento. Si te ahorra tiempo y tranquilidad, ¡invítame a un café para apoyar el proyecto!',
+    sponsorBtn: 'Apoyar en GitHub'
   };
 
   // The groups must stay disjoint: a key listed in two of them is silently overwritten by the
