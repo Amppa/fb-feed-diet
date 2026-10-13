@@ -1,6 +1,7 @@
 // scripts/package.js
 // Packages the extension into clean, browser-specific release zip files (Chrome and Firefox).
-// Zero external dependencies: uses built-in system tools (tar, PowerShell Compress-Archive, or zip).
+// Zero JS dependencies: uses system tools that always emit the PK zip format
+// (Info-ZIP, Python zipfile, PowerShell Compress-Archive, or bsdtar).
 //
 // Generates:
 //   - release/fb-feed-diet-chrome-v<version>.zip   (cleans Firefox-specific fields)
@@ -49,7 +50,16 @@ function generateManifest(baseManifest, target) {
 }
 
 /**
- * Creates a zip archive using available system utilities (tar, tar.exe, powershell, or zip).
+ * Creates a real ZIP archive (PK magic) using system utilities that always
+ * emit the zip format: Info-ZIP, Python zipfile, PowerShell
+ * Compress-Archive, or bsdtar.
+ *
+ * Tool order is deliberate. `tar -a` is only trustworthy under bsdtar
+ * (Windows/macOS): GNU tar (Linux CI) silently writes a plain ustar stream
+ * even when the target is named .zip, which once shipped tar-bytes-as-zip
+ * in a public release. GNU tar is therefore never used here, and the PK
+ * magic-byte assertion at the end fails the build loudly instead of
+ * shipping a misnamed archive.
  *
  * @param {string} sourceDir - Absolute path to directory containing items to zip
  * @param {string[]} items - Relative paths of files/folders inside sourceDir to include
@@ -60,56 +70,114 @@ function archiveDirectory(sourceDir, items, destZip) {
     fs.unlinkSync(destZip);
   }
 
-  let archived = false;
+  // Python zipfile writer: no shell quoting issues (args passed directly),
+  // layout matches `zip -r` (top-level entries, relative arcnames).
+  // Newlines are fine: execFileSync passes the script as one argv entry.
+  const pythonZipScript = [
+    'import os, sys, zipfile',
+    'dest, names = sys.argv[1], sys.argv[2:]',
+    'with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as z:',
+    '    for name in names:',
+    '        if os.path.isdir(name):',
+    '            for root, _, files in os.walk(name):',
+    '                for f in files:',
+    '                    p = os.path.join(root, f)',
+    '                    z.write(p, os.path.relpath(p))',
+    '        else:',
+    '            z.write(name, name)',
+  ].join('\n');
 
-  // Try tar first (available on modern Windows 10/11, macOS, and Linux)
-  try {
-    execFileSync('tar', ['-a', '-cf', destZip, ...items], {
-      cwd: sourceDir,
-      stdio: ['ignore', 'ignore', 'inherit'],
+  const steps = [
+    {
+      label: 'zip',
+      run() {
+        execFileSync('zip', ['-q', '-r', destZip, ...items], {
+          cwd: sourceDir,
+          stdio: ['ignore', 'ignore', 'inherit'],
+        });
+      },
+    },
+    {
+      label: 'python3-zipfile',
+      run() {
+        execFileSync('python3', ['-c', pythonZipScript, destZip, ...items], {
+          cwd: sourceDir,
+          stdio: ['ignore', 'ignore', 'inherit'],
+        });
+      },
+    },
+    {
+      label: 'python-zipfile',
+      run() {
+        execFileSync('python', ['-c', pythonZipScript, destZip, ...items], {
+          cwd: sourceDir,
+          stdio: ['ignore', 'ignore', 'inherit'],
+        });
+      },
+    },
+  ];
+
+  if (process.platform === 'win32') {
+    steps.push({
+      label: 'compress-archive',
+      run() {
+        const itemsList = items.map((i) => `'${i}'`).join(',');
+        execFileSync(
+          'powershell.exe',
+          ['-NoProfile', '-Command', `Compress-Archive -Path ${itemsList} -DestinationPath '${destZip}' -Force`],
+          {
+            cwd: sourceDir,
+            stdio: ['ignore', 'ignore', 'inherit'],
+          }
+        );
+      },
     });
-    archived = true;
-  } catch {
-    if (process.platform === 'win32') {
-      try {
-        execFileSync('tar.exe', ['-a', '-cf', destZip, ...items], {
-          cwd: sourceDir,
-          stdio: ['ignore', 'ignore', 'inherit'],
-        });
-        archived = true;
-      } catch {
-        // Fallback for older Windows: PowerShell Compress-Archive
-        try {
-          const itemsList = items.map((i) => `'${i}'`).join(',');
-          execFileSync(
-            'powershell.exe',
-            ['-NoProfile', '-Command', `Compress-Archive -Path ${itemsList} -DestinationPath '${destZip}' -Force`],
-            {
-              cwd: sourceDir,
-              stdio: ['ignore', 'ignore', 'inherit'],
-            }
-          );
-          archived = true;
-        } catch (psErr) {
-          console.error('PowerShell fallback failed:', psErr.message);
-        }
+  }
+
+  // bsdtar only: `tar --version` containing "bsdtar" means libarchive, whose
+  // `-a` flag honors the .zip suffix with real PK output. GNU tar is skipped
+  // unconditionally (see docblock).
+  steps.push({
+    label: 'bsdtar',
+    run() {
+      const version = execFileSync('tar', ['--version'], { stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString();
+      if (!/bsdtar/i.test(version)) {
+        throw new Error('GNU tar cannot write zip output; skipping');
       }
-    } else {
-      // Fallback for Unix: zip command
-      try {
-        execFileSync('zip', ['-r', destZip, ...items], {
-          cwd: sourceDir,
-          stdio: ['ignore', 'ignore', 'inherit'],
-        });
+      execFileSync('tar', ['-a', '-cf', destZip, ...items], {
+        cwd: sourceDir,
+        stdio: ['ignore', 'ignore', 'inherit'],
+      });
+    },
+  });
+
+  const failures = [];
+  let archived = false;
+  for (const step of steps) {
+    try {
+      step.run();
+      if (fs.existsSync(destZip)) {
         archived = true;
-      } catch (zipErr) {
-        console.error('zip fallback failed:', zipErr.message);
+        break;
       }
+      failures.push(`${step.label}: no output file`);
+    } catch (err) {
+      failures.push(`${step.label}: ${err.message}`);
     }
   }
 
   if (!archived || !fs.existsSync(destZip)) {
-    throw new Error(`Failed to create archive at ${destZip}`);
+    throw new Error(`Failed to create archive at ${destZip} (${failures.join('; ')})`);
+  }
+
+  // Fail closed: never ship non-zip bytes under a .zip name again.
+  const header = fs.readFileSync(destZip).subarray(0, 2);
+  if (header.length < 2 || header[0] !== 0x50 || header[1] !== 0x4b) {
+    fs.unlinkSync(destZip);
+    throw new Error(
+      `Refusing to ship non-zip bytes as ${path.basename(destZip)} (${failures.join('; ') || 'no tool reported an error'})`
+    );
   }
 }
 
