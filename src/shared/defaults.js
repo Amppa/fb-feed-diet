@@ -306,19 +306,20 @@
     return typeof url === 'string' && /^https?:\/\/([\w-]+\.)*facebook\.com(\/.*)?$/i.test(url);
   }
 
-  // The palette is deliberately two deep. A third colour would mean a third thing worth saying,
-  // and the states this extension can report honestly are: it is off, or it is not running here.
+  // The palette is deliberately three deep: disabled (grey), fatal error (red),
+  // and warning/degraded when a module was fused/stood down (yellow).
   const ACTION_BADGE_COLORS = {
     disabled: '#6B7280',
-    error: '#EF4444'
+    error: '#EF4444',
+    warning: '#F59E0B'
   };
 
   /**
    * Resolves the toolbar badge for one tab: `off` in grey while the master switch is off, `!` in
    * red when our code is missing from the page, failed to install, never armed its hook, or still
-   * running an older build than the one installed. Everything else - including a Facebook page we
-   * deliberately do not fold - clears the icon, because a badge that is never silent is a badge
-   * that stops being read.
+   * running an older build than the one installed. `!` in yellow when a module was fused / retired
+   * (degraded operation). Everything else - including a Facebook page we deliberately do not fold -
+   * clears the icon, because a badge that is never silent is a badge that stops being read.
    */
   function resolveActionBadge(tabState, settings, tabUrl) {
     if (typeof tabUrl === 'string' && !isFacebookUrl(tabUrl)) return { text: '', color: '' };
@@ -338,10 +339,14 @@
       return { text: '!', color: ACTION_BADGE_COLORS.error };
     }
 
+    if (tabState.fusedCount > 0 || (Array.isArray(tabState.fused) && tabState.fused.length > 0)) {
+      return { text: '!', color: ACTION_BADGE_COLORS.warning };
+    }
+
     return { text: '', color: '' };
   }
 
-  const EXTENSION_VERSION = '2.10.7';
+  const EXTENSION_VERSION = '2.10.8';
 
   globalThis.FB_DIET_DEFAULTS = {
     SETTINGS: DEFAULT_SETTINGS,

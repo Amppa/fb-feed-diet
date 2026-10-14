@@ -279,7 +279,13 @@
       }
 
       if (data.type === 'diag') {
-        storeDiagnostic(data.payload || {});
+        const payload = data.payload || {};
+        storeDiagnostic(payload);
+        if (payload.kind === 'stand-down') {
+          try {
+            chrome.runtime.sendMessage({ type: 'MODULE_STAND_DOWN', moduleName: payload.moduleName }).catch(() => {});
+          } catch (e) {}
+        }
         return;
       }
 

@@ -282,8 +282,21 @@ window.FBDietDOMSurface = (() => {
     const groupEvidence = Boolean(groupLabel);
     const matches = (reelsEvidence ? 1 : 0) + (storiesEvidence ? 1 : 0) + (groupEvidence ? 1 : 0);
 
-    // Ambiguity fails open; missed fold is cheaper. // per STRATEGY.md §4
+    // Unknown-tray fallback (Decision #61): a structural tray on the unit's own
+    // surface that no surface claimed folds as suggestedGroup — provided the
+    // tray routes somewhere (≥1 own-surface link of any kind). A tray with no
+    // routing at all is more likely chrome or content than a recommendation
+    // rail, so it still declines; the probe-UI-only and content-only guards
+    // below stay green on exactly this distinction. Ambiguity still declines —
+    // guessing between two named surfaces is not the same as naming none —
+    // and a unit with no tray at all still declines as before.
     if (matches !== 1) {
+      if (matches === 0 && tray && countSurfaceLinks(container, 'a[href]').count > 0) {
+        read.category = 'suggestedGroup';
+        read.reason = 'dom:unknown_tray';
+        read.evidence = tray;
+        return read;
+      }
       read.declined = matches === 0 ? 'no_surface_evidence' : 'ambiguous_surface';
       return read;
     }
@@ -320,7 +333,11 @@ window.FBDietDOMSurface = (() => {
         read.evidence = distinct + ' link(s)';
         return read;
       }
-      read.declined = 'single_tray_link';
+      // A lone link in a tray is still a tray (Decision #61): the pair rule
+      // above names reels/stories, it no longer decides whether to fold.
+      read.category = 'suggestedGroup';
+      read.reason = 'dom:unknown_tray';
+      read.evidence = tray;
       return read;
     }
 

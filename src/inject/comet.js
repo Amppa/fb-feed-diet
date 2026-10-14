@@ -419,6 +419,22 @@ window.FBDietComet = (() => {
       try {
         lastCmp = SourceComponent.apply(this, callingArgs);
       } catch (error) {
+        // Frame probe call (args.len === 0, e.g. React DetermineComponentFrameRoot):
+        // Re-throw so React catches it to describe component frame, but DO NOT fuse the module.
+        if (callingArgs.length === 0) {
+          emitDiag('probe-error', {
+            moduleName,
+            reason: error && error.message ? error.message : String(error),
+            detail: {
+              pathname: currentPathname(),
+              invocation,
+              stage: 'frame-probe',
+              stack: error && error.stack ? String(error.stack).slice(0, 500) : null
+            }
+          });
+          throw error;
+        }
+
         recordError('source ' + moduleName, error);
         const cause = describeCause(error);
         emitDiag('render-error', {

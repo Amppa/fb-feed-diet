@@ -114,12 +114,16 @@ async function readTabHookState(tabId) {
             return { present: version !== null || Boolean(window.FBDietComet), version: version, available: false };
           }
           const errors = typeof comet.getErrors === 'function' ? comet.getErrors() : [];
+          const health = comet.getModuleHealth();
+          const fused = (health && Array.isArray(health.fused)) ? health.fused : [];
           return {
             present: true,
             version: version,
             available: true,
-            hookActive: comet.getModuleHealth().hookActive === true,
-            installFailed: errors.some((entry) => entry && entry.context === 'installDDHook')
+            hookActive: health && health.hookActive === true,
+            installFailed: errors.some((entry) => entry && entry.context === 'installDDHook'),
+            fusedCount: fused.length,
+            fused: fused
           };
         } catch (e) {
           return { available: false };
@@ -213,5 +217,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: true, counts: fresh });
     });
     return true; // Keep message channel open for async response
+  }
+
+  if (message.type === 'MODULE_STAND_DOWN') {
+    const tabId = sender && sender.tab && typeof sender.tab.id === 'number' ? sender.tab.id : null;
+    const tabUrl = sender && sender.tab ? sender.tab.url : null;
+    if (tabId !== null) {
+      updateTabBadge(tabId, tabUrl);
+    }
+    return;
   }
 });

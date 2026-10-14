@@ -49,7 +49,8 @@ window.FBDietI18N = (() => {
     statusNeedsReload: 'Folding is not armed on this tab yet: reload it.',
     statusHookBlocked: 'Facebook blocked the module hook, please check F12.',
     statusVersionMismatch: 'This tab is running another build of the extension. Restart your browser to finish the update.',
-    statusNotInjected: 'This tab was never hooked. Restart your browser, then reopen this tab.'
+    statusNotInjected: 'This tab was never hooked. Restart your browser, then reopen this tab.',
+    statusModuleFused: 'Degraded: folding suspended for module'
   };
 
   const ZH_POPUP = {
@@ -63,7 +64,8 @@ window.FBDietI18N = (() => {
     statusNeedsReload: '此分頁還沒掛上過濾器，請重新整理。',
     statusHookBlocked: '過濾器 hook 掛載失敗，可能 facebook 改版，或是有其他外掛搶占，請打開 F12 檢查錯誤訊息。',
     statusVersionMismatch: '此分頁正在執行另一個版本的外掛，請完全重啟瀏覽器以完成更新。',
-    statusNotInjected: '此分頁從未掛上過濾器，請完全重啟瀏覽器後再重新開啟此分頁。'
+    statusNotInjected: '此分頁從未掛上過濾器，請完全重啟瀏覽器後再重新開啟此分頁。',
+    statusModuleFused: '降級運行中：已暫停特定模組折疊'
   };
 
   const ES_POPUP = {
@@ -77,7 +79,8 @@ window.FBDietI18N = (() => {
     statusNeedsReload: 'El plegado todavía no está activo en esta pestaña: recárgala.',
     statusHookBlocked: 'Facebook bloqueó el enganche del módulo; revisa la consola con F12.',
     statusVersionMismatch: 'Esta pestaña está ejecutando otra versión de la extensión. Reinicia el navegador por completo para terminar la actualización.',
-    statusNotInjected: 'Esta pestaña nunca fue enganchada. Reinicia el navegador por completo y vuelve a abrirla.'
+    statusNotInjected: 'Esta pestaña nunca fue enganchada. Reinicia el navegador por completo y vuelve a abrirla.',
+    statusModuleFused: 'Degradado: plegado suspendido para el módulo'
   };
 
   // options.html only, in the order the page lays them out.

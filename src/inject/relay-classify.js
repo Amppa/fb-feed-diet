@@ -17,6 +17,9 @@ window.FBDietRelayClassify = (() => {
   };
 
   const SUGGESTED_GROUP_TYPENAMES = ['GroupsYouShouldJoinFeedUnit', 'GroupSuggestionsFeedUnit'];
+  // Location-based Quick Promotion tray ("Popular in <city>", type=location_based_qp_minifeed
+  // in the card hrefs). Own typename only, same guard as the other tray rules. // per STRATEGY.md §2.1
+  const QP_LOCATION_TYPENAMES = ['QuickPromotionNativeTemplateFeedUnit'];
   // Own typename only, never nested. // per STRATEGY.md §2.1
   const STORIES_TYPENAMES = ['DiscoverFeedUnit'];
   // Only CAN_SUBSCRIBE trusted; NOT_SUBSCRIBED folds ordinary friend activity. // per STRATEGY.md §4
@@ -299,10 +302,29 @@ window.FBDietRelayClassify = (() => {
       return { category: CATEGORY.REELS, reason: 'unitTypename:ShowcaseFeedUnit', signal: own };
     }
 
+    // Location minifeed tray ("Popular in <city>"): a row of unfollowed local Page
+    // posts served as location_based_qp_minifeed. Explicit case of the
+    // unknown-tray fallback below; folds as suggestedGroup (Other, default on).
+    if (own && QP_LOCATION_TYPENAMES.indexOf(own) !== -1) {
+      return { category: CATEGORY.SUGGESTED_GROUP, reason: 'unitTypename:' + own, signal: own };
+    }
+
     // GYSJ list may read the nested typename.
     const typename = own || unit.nestedTypename;
     if (typename && SUGGESTED_GROUP_TYPENAMES.indexOf(typename) !== -1) {
       return { category: CATEGORY.SUGGESTED_GROUP, reason: 'unitTypename:' + typename, signal: typename };
+    }
+
+    // Unknown-tray fallback (Decision #61): any other *FeedUnit container is a
+    // horizontal tray we have not sampled yet. Own typename only; folds as
+    // suggestedGroup (Other group, default on). Content typenames (Story, …)
+    // never match the suffix and keep falling through to the props stages.
+    // The Reels attachment wrapper stays excluded: a ShowcaseFeedUnit seen
+    // through CometFeedStoryFBReelsAttachmentStyle.react is attachments by
+    // definition, not a tray (Decision #3).
+    if (own && /FeedUnit$/.test(own) &&
+        !(own === 'ShowcaseFeedUnit' && context && context.moduleName === STORY_ATTACHMENT_MODULE)) {
+      return { category: CATEGORY.SUGGESTED_GROUP, reason: 'unitTypename:' + own + ':unknown-tray', signal: own };
     }
 
     return null;
@@ -501,6 +523,7 @@ window.FBDietRelayClassify = (() => {
     getCategoryFoldMode,
     SUGGESTED_GROUP_TYPENAMES,
     STORIES_TYPENAMES,
+    QP_LOCATION_TYPENAMES,
     RELAY_PATHS: {
       SPONSORED_PATH,
       SUBSCRIBE_PATH,

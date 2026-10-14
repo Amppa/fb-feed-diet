@@ -117,6 +117,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (!masterToggle.checked || state.hookActive) {
+      if (masterToggle.checked && state.fusedCount > 0) {
+        const names = state.fused && state.fused.length ? ' (' + state.fused.join(', ') + ')' : '';
+        statusLine.textContent = i18n.t('statusModuleFused') + names;
+        statusLine.classList.remove('error');
+        statusLine.hidden = false;
+        return;
+      }
       statusLine.hidden = true;
       return;
     }

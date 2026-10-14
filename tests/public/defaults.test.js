@@ -368,6 +368,10 @@ function run(checker) {
   checker.equals('a page we never injected reads !', defaults.resolveActionBadge({ present: false, available: false }, { enabled: true }, 'https://www.facebook.com/').text, '!');
   checker.equals('a tab we could not read at all reads !', defaults.resolveActionBadge(null, { enabled: true }, 'https://www.facebook.com/').text, '!');
 
+  // 2c. Degraded/fused warning -> yellow !
+  checker.equals('a fused module reads !', defaults.resolveActionBadge({ present: true, available: true, hookActive: true, installFailed: false, staleBuild: false, fusedCount: 1, fused: ['StoriesTrayRectangularRoot.react'] }, { enabled: true }, 'https://www.facebook.com/').text, '!');
+  checker.equals('…in yellow', defaults.resolveActionBadge({ present: true, available: true, hookActive: true, installFailed: false, staleBuild: false, fusedCount: 1, fused: ['StoriesTrayRectangularRoot.react'] }, { enabled: true }, 'https://www.facebook.com/').color, defaults.ACTION_BADGE_COLORS.warning);
+
   // 3. Everything else: the page is fine, so the icon says nothing.
   const healthy = { present: true, available: true, hookActive: true, installFailed: false, staleBuild: false };
   checker.equals('a working page has empty badge text', defaults.resolveActionBadge(healthy, { enabled: true }, 'https://www.facebook.com/').text, '');
