@@ -72,6 +72,8 @@ html[data-fb-diet-theme="dark"] {
   user-select: none !important;
   cursor: pointer !important;
   overflow: hidden !important;
+  contain: layout style !important;
+  contain-intrinsic-size: auto 36px !important;
 }
 
 .fb-diet-titlebar:hover {
@@ -92,6 +94,7 @@ html[data-fb-diet-theme="dark"] {
   padding: 1px 8px !important;
   font-size: 11px !important;
   line-height: 16px !important;
+  contain-intrinsic-size: auto 18px !important;
 }
 
 /* ------------------------------------------------------------------ *
@@ -111,6 +114,7 @@ html[data-fb-diet-theme="dark"] {
   margin: 0 0 -8px 0 !important;
   border-radius: 8px 8px 0 0 !important;
   border-bottom: none !important;
+  contain-intrinsic-size: auto 44px !important;
 }
 
 .fb-diet-titlebar.fb-diet-titlebar-mini.fb-diet-state-expanded {
@@ -241,6 +245,7 @@ html[data-fb-diet-theme="dark"] {
   overflow: hidden !important;
   contain: strict !important;
   content-visibility: hidden !important;
+  contain-intrinsic-size: 0 0 !important;
 }
 
 .fb-diet-foldsquash>* {

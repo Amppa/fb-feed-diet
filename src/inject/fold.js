@@ -87,6 +87,7 @@ window.FBDietFold = (() => {
     try {
       const bridge = window.FBDietBridge;
       if (!bridge || typeof bridge.getSettings !== 'function') return true;
+      if (typeof bridge.isSettingsConfirmed === 'function' && !bridge.isSettingsConfirmed()) return false;
       const settings = bridge.getSettings();
       return !settings || settings.enabled !== false;
     } catch (e) {
@@ -171,6 +172,14 @@ window.FBDietFold = (() => {
 
       const bridge = window.FBDietBridge;
       const settings = bridge && typeof bridge.getSettings === 'function' ? bridge.getSettings() : null;
+      // Pending settings: hide nothing; the confirmed settings-changed event re-syncs.
+      if (bridge && typeof bridge.isSettingsConfirmed === 'function' && !bridge.isSettingsConfirmed()) {
+        let style = targetDoc.getElementById ? targetDoc.getElementById(RIGHT_RAIL_STYLE_ID) : null;
+        if (style && style.parentNode) {
+          style.parentNode.removeChild(style);
+        }
+        return false;
+      }
       const shouldHide = !settings || (settings.enabled !== false && settings.foldAds !== false);
 
       let style = targetDoc.getElementById ? targetDoc.getElementById(RIGHT_RAIL_STYLE_ID) : null;

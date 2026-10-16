@@ -61,13 +61,28 @@ window.FBDietUI = (() => {
     return domMeta.collect(container, isMediaGroup);
   }
 
+  const snippetCache = new Map();
+  const SNIPPET_CACHE_MAX = 200;
+
   /** The same module owns the snippet-cleaning rules; without it the raw text stands. */
   function cleanPostSnippet(rawText, author, group, limits) {
+    if (!rawText) return '';
+    const textStr = String(rawText);
+    const keyText = textStr.length <= 200 ? textStr : (textStr.length + ':' + textStr.slice(0, 100) + ':' + textStr.slice(-50));
+    const cacheKey = keyText + '|' + (author || '') + '|' + (group || '') + '|' + (limits ? '1' : '0');
+    if (snippetCache.has(cacheKey)) return snippetCache.get(cacheKey);
+
     const domMeta = window.FBDietDOMMetadata;
+    let res = typeof rawText === 'string' ? rawText : '';
     if (domMeta && typeof domMeta.cleanPostSnippet === 'function') {
-      return domMeta.cleanPostSnippet(rawText, author, group, limits);
+      res = domMeta.cleanPostSnippet(rawText, author, group, limits);
     }
-    return typeof rawText === 'string' ? rawText : '';
+    snippetCache.set(cacheKey, res);
+    if (snippetCache.size > SNIPPET_CACHE_MAX) {
+      const first = snippetCache.keys().next().value;
+      snippetCache.delete(first);
+    }
+    return res;
   }
 
   /** Tooltip cleaning limits (20 lines, 300 chars); undefined keeps bar snippet limits. */
@@ -275,10 +290,10 @@ window.FBDietUI = (() => {
       const badgeText = resolveBadgeText(props.category);
       const contentKids = [];
 
-      // Tooltip source text: folded bars show the full post text on hover (the visible
+      // Tooltip flags: folded bars show the full post text on hover (the visible
       // snippet is CSS-truncated); expanded bars arm hover on the badge instead.
-      let tooltipText = null;
-      let badgeTooltipText = null;
+      let hasTooltip = false;
+      let hasBadgeTooltip = false;
 
       if (showTitle) {
         // Group name (with max-width: 140px in css)
@@ -324,22 +339,19 @@ window.FBDietUI = (() => {
           contentKids.push(
             createEl('span', { className: 'fb-diet-title-snippet' }, [snippetText])
           );
-          const fullText = (effectiveMsg && cleanPostSnippet(effectiveMsg, effectiveActor, effectiveGroup, titleBarTooltipLimits())) || snippetText;
           if (!isExpanded) {
-            tooltipText = fullText;
+            hasTooltip = true;
           } else {
-            badgeTooltipText = fullText;
+            hasBadgeTooltip = true;
           }
         }
       }
 
       // Expanded badge preview ignores showTitle: with 'Only When Folded' the bar
       // shows no snippet at all, but the full text is still previewable.
-      if (isExpanded && !badgeTooltipText) {
-        badgeTooltipText = (effectiveMsg && cleanPostSnippet(effectiveMsg, effectiveActor, effectiveGroup, titleBarTooltipLimits())) || null;
+      if (isExpanded && !hasBadgeTooltip && effectiveMsg) {
+        hasBadgeTooltip = true;
       }
-
-
 
       // Tooltip mode: 'off' shows nothing, 'normal'/'large' show the portal
       // popup at 16px/28px. Folded bars arm hover on the bar; expanded bars arm
@@ -348,8 +360,8 @@ window.FBDietUI = (() => {
       const tooltipMode = (DEFAULTS && typeof DEFAULTS.normalizeTooltipMode === 'function')
         ? DEFAULTS.normalizeTooltipMode(props.tooltipMode)
         : (props.tooltipMode === 'off' || props.tooltipMode === 'normal' || props.tooltipMode === 'large' ? props.tooltipMode : 'large');
-      const useCustomTooltip = tooltipMode !== 'off' && !isExpanded && Boolean(tooltipText);
-      const useBadgeTooltip = tooltipMode !== 'off' && isExpanded && Boolean(badgeTooltipText);
+      const useCustomTooltip = tooltipMode !== 'off' && !isExpanded && hasTooltip;
+      const useBadgeTooltip = tooltipMode !== 'off' && isExpanded && hasBadgeTooltip;
       const tooltipFontPx = (DEFAULTS && typeof DEFAULTS.tooltipFontSizePx === 'function')
         ? DEFAULTS.tooltipFontSizePx(props.tooltipMode)
         : 28;
@@ -374,6 +386,11 @@ window.FBDietUI = (() => {
             hover.node = null;
           }
         } catch (e) {}
+      }
+
+      /** Lazy computation of full tooltip text only on hover */
+      function getTooltipFullText() {
+        return (effectiveMsg && cleanPostSnippet(effectiveMsg, effectiveActor, effectiveGroup, titleBarTooltipLimits())) || snippetText || '';
       }
 
       /** Builds and positions the portal tooltip under the bar, on hover. */
@@ -416,7 +433,8 @@ window.FBDietUI = (() => {
         try {
           const hover = hoverRef ? hoverRef.current : null;
           if (!hover || hover.node) return;
-          showBarTooltip(tooltipText);
+          const fullText = getTooltipFullText();
+          if (fullText) showBarTooltip(fullText);
         } catch (e) {}
       }
 
@@ -424,7 +442,8 @@ window.FBDietUI = (() => {
         try {
           const hover = hoverRef ? hoverRef.current : null;
           if (!hover || hover.node) return;
-          showBarTooltip(badgeTooltipText);
+          const fullText = getTooltipFullText();
+          if (fullText) showBarTooltip(fullText);
         } catch (e) {}
       }
 

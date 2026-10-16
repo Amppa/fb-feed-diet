@@ -50,6 +50,11 @@ window.FBDietBridge = (() => {
   const MAX_REGULAR = 150;
 
   let settings = loadCachedSettings();
+  // Fail-closed gate: the cached value is only a guess until the isolated world
+  // pushes the authoritative chrome.storage copy (postMessage 'settings' or the
+  // service-worker __fbDietSetSettings entry). While unconfirmed the MAIN world
+  // renders untouched and reports nothing, so an `off` switch never flashes a bar.
+  let settingsConfirmed = false;
   let lastError = null;
   let debugEnabled = typeof defs.isDebugUrl === 'function'
     ? defs.isDebugUrl(window.location.search)
@@ -138,6 +143,11 @@ window.FBDietBridge = (() => {
     return settings;
   }
 
+  /** True once the authoritative settings arrived (content.js or service worker). */
+  function isSettingsConfirmed() {
+    return settingsConfirmed;
+  }
+
   /**
    * Applies settings coming from the extension. Only known keys are accepted so a stray
    * message cannot inject arbitrary state.
@@ -155,7 +165,9 @@ window.FBDietBridge = (() => {
     }
 
     settings = merged;
-    if (changed) {
+    const firstConfirmation = !settingsConfirmed;
+    settingsConfirmed = true;
+    if (changed || firstConfirmation) {
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
           window.localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(settings));
@@ -319,6 +331,7 @@ window.FBDietBridge = (() => {
     DEFAULT_SETTINGS,
     getSettings,
     setSettings,
+    isSettingsConfirmed,
     isEnabled,
     getFoldMode,
     getUnitVisualState,

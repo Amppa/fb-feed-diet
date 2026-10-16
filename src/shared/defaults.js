@@ -346,7 +346,7 @@
     return { text: '', color: '' };
   }
 
-  const EXTENSION_VERSION = '2.10.8';
+  const EXTENSION_VERSION = '3.0.0';
 
   globalThis.FB_DIET_DEFAULTS = {
     SETTINGS: DEFAULT_SETTINGS,

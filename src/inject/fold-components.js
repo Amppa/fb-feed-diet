@@ -87,6 +87,18 @@ window.FBDietFoldComponents = (() => {
     return window.FBDietFoldObserver || {};
   }
 
+  /** Fail-closed: no authoritative settings yet means render untouched. */
+  function isSettingsReady() {
+    try {
+      const bridge = window.FBDietBridge;
+      if (!bridge) return false;
+      if (typeof bridge.isSettingsConfirmed === 'function') return bridge.isSettingsConfirmed();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function setupDomObserver(containerRef, options) {
     const observer = getObserver();
     if (typeof observer.setupDomObserver !== 'function') return undefined;
@@ -110,18 +122,22 @@ window.FBDietFoldComponents = (() => {
 
   /** Folded: bar + 1x1 squashed tree (never unmounted) so IntersectionObserver stays visible. // per docs/architecture.md */
   /** __fbDietHideMode='none' swaps in display:none for memory comparison. */
+  /** __fbDietStubMode=true unmounts the squashed subtree until expanded for phantom stub benchmark. */
   function renderFoldedView(React, FoldContext, bar, rendered, containerRef) {
     const hideClass = (typeof window !== 'undefined' && window.__fbDietHideMode === 'none')
       ? 'fb-diet-fold-hidden'
       : 'fb-diet-fold-hidden fb-diet-foldsquash';
+    const isStubMode = (typeof window !== 'undefined' && (window.__fbDietStubMode === true || window.__fbDietStubMode === 'true'));
+    const hiddenChildren = isStubMode ? [] : [rendered];
     const hidden = createEl(
       'div',
       {
         ref: containerRef,
         className: hideClass,
-        'aria-hidden': 'true'
+        'aria-hidden': 'true',
+        'data-phantom-stub': isStubMode ? '1' : undefined
       },
-      [rendered]
+      hiddenChildren
     );
     if (!bar || !hidden) return null;
     return wrapWithFoldContext(React, FoldContext, [bar, hidden]);
@@ -188,9 +204,12 @@ window.FBDietFoldComponents = (() => {
       React.useEffect(() => {
         // Run after hydration commit (ref mounted); nested units never schedule work.
         if (!isHydrated || isNested) return;
+        // Pending settings: schedule nothing; the confirmed render re-arms if needed.
+        if (!isSettingsReady()) return;
         const bridge = window.FBDietBridge;
         if (bridge && typeof bridge.getSettings === 'function') {
           const currentSettings = bridge.getSettings();
+          if (!currentSettings || currentSettings.enabled === false) return;
           // 'dom' owns its engine: one observer re-arms for still-open slots. // per STRATEGY.md §1
           const mode = resolveDetectionMode(currentSettings);
           if (mode === 'dom') {
@@ -239,6 +258,8 @@ window.FBDietFoldComponents = (() => {
       if (!bridge) return rendered;
 
       const settings = bridge.getSettings();
+      // Pending or off: untouched, no verdict, no report, no probe.
+      if (!isSettingsReady()) return rendered;
       if (!settings.enabled) return rendered;
 
       // Fold scope: outside allowlist skip everything; probe stays with null. // per docs/architecture.md
@@ -393,6 +414,7 @@ window.FBDietFoldComponents = (() => {
     if (!bridge) return rendered;
 
     const settings = bridge.getSettings();
+    if (!isSettingsReady()) return rendered;
     if (!settings.enabled || settings.foldAds === false) return rendered;
 
     // Pure visual hide, never counted/logged. // per docs/architecture.md

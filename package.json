@@ -1,6 +1,6 @@
 {
   "name": "fb-diet",
-  "version": "2.10.8",
+  "version": "3.0.0",
   "description": "Clean up Facebook sponsored posts, suggested content, and ads with lightweight folding placeholders and live stats.",
   "keywords": [
     "facebook",
@@ -12,9 +12,17 @@
   "license": "MIT",
   "scripts": {
     "test": "node tests/run.js",
+    "test:browser": "node tests/e2e/check-browser.js",
+    "test:browser:keep": "node tests/e2e/check-browser.js --keep-open",
+    "test:facebook": "node tests/e2e/test-facebook.js",
+    "test:perf": "node tests/e2e/test-performance.js",
+    "test:ab": "node tests/e2e/test-ab.js",
     "package": "node scripts/package.js",
     "bump-version": "node scripts/bump-version.js",
     "bump_version": "node scripts/bump-version.js",
     "sync:public": "node scripts/sync-public.js"
+  },
+  "devDependencies": {
+    "puppeteer": "^25.14.0"
   }
 }
