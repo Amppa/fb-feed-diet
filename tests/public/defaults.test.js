@@ -214,10 +214,18 @@ function run(checker) {
   checker.equals('groups feed subpage allowed', defaults.isFoldScopeAllowed('/groups/feed/'), true);
   checker.equals('feeds allowed', defaults.isFoldScopeAllowed('/feeds'), true);
   checker.equals('feeds subpage allowed', defaults.isFoldScopeAllowed('/feeds/'), true);
+  checker.equals('photo overlay root allowed', defaults.isFoldScopeAllowed('/photo'), true);
+  checker.equals('photo overlay subpage allowed', defaults.isFoldScopeAllowed('/photo/?fbid=123'), true);
+  checker.equals('photo.php allowed', defaults.isFoldScopeAllowed('/photo.php'), true);
+  checker.equals('photo.php query allowed', defaults.isFoldScopeAllowed('/photo.php?fbid=123'), true);
+  checker.equals('photos overlay allowed', defaults.isFoldScopeAllowed('/photos/123'), true);
+  checker.equals('user photo path allowed', defaults.isFoldScopeAllowed('/user/photos/123/'), true);
+  checker.equals('media set overlay allowed', defaults.isFoldScopeAllowed('/media/set/?set=123'), true);
   checker.equals('groups landing rejected', defaults.isFoldScopeAllowed('/groups'), false);
   checker.equals('individual group rejected', defaults.isFoldScopeAllowed('/groups/123'), false);
   checker.equals('profile page rejected', defaults.isFoldScopeAllowed('/mypage'), false);
   checker.equals('search prefix boundary rejected', defaults.isFoldScopeAllowed('/searchabc'), false);
+  checker.equals('photo prefix boundary rejected', defaults.isFoldScopeAllowed('/photoabc'), false);
   checker.equals('empty path fails open', defaults.isFoldScopeAllowed(''), true);
   checker.equals('undefined path fails open', defaults.isFoldScopeAllowed(undefined), true);
 

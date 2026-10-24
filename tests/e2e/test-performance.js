@@ -15,14 +15,15 @@ const puppeteer = require('puppeteer');
  * 支援參數：
  *   --scrolls=N        模擬向下滾動次數 (預設 10 次)
  *   --delay=N          每次滾動後等待毫秒數 (預設 2000ms)
- *   --save-report      將詳細數據輸出為 tests/e2e/performance-report.json
+ *   --save-report      將詳細數據輸出為 tests/e2e/reports/performance-report.json
  *   --keep-open        測試完成後保持視窗開啟供手動檢查
  *   --use-local-chrome 使用本機已安裝的 Google Chrome
  */
 
 const EXTENSION_PATH = path.resolve(__dirname, '../..');
 const USER_DATA_DIR = path.resolve(__dirname, '../../.user_data');
-const REPORT_PATH = path.resolve(__dirname, 'performance-report.json');
+const REPORT_DIR = path.resolve(__dirname, 'reports');
+const REPORT_PATH = path.resolve(REPORT_DIR, 'performance-report.json');
 
 const args = process.argv.slice(2);
 const reloadsArg = args.find(a => a.startsWith('--reloads=') || a.startsWith('--refreshes='));
@@ -362,6 +363,9 @@ async function main() {
 
     // 儲存詳細報告
     if (saveReport) {
+      if (!fs.existsSync(REPORT_DIR)) {
+        fs.mkdirSync(REPORT_DIR, { recursive: true });
+      }
       const reportData = {
         timestamp: new Date().toISOString(),
         config: { scrollCount, scrollDelay },

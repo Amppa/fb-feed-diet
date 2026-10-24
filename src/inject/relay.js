@@ -28,6 +28,7 @@ window.FBDietRelay = (() => {
     protoHooked: 0,     // prototype.get was patched (see patchPrototype)
     alreadyPatched: 0,  // prototype.get already carried our mark
     protoHits: 0,       // calls to get() seen after the prototype patch
+    reorders: 0,        // times sources had to be reorganized (new or non-MRU store)
     shapeMismatch: 0,   // accessor throws from a field of the wrong shape (never an error)
     lastShapeMismatch: null
   };
@@ -51,7 +52,18 @@ window.FBDietRelay = (() => {
     // cost an indexOf plus a splice/unshift to arrive at the same array, so return immediately.
     if (sources[0] === instance) return;
 
+    capture.reorders += 1;
     const wasReady = ready;
+
+    // Fast path: if the store is the second most recent (e.g. Feed <-> Modal interleave),
+    // an O(1) swap avoids indexOf + splice + unshift array allocation and shifting.
+    if (sources[1] === instance) {
+      sources[1] = sources[0];
+      sources[0] = instance;
+      ready = true;
+      return;
+    }
+
     const index = sources.indexOf(instance);
     if (index !== -1) sources.splice(index, 1);
     sources.unshift(instance);
@@ -80,14 +92,18 @@ window.FBDietRelay = (() => {
     }
 
     const originalGet = proto.get;
-    function patchedGet(...args) {
+    function patchedGet(dataID) {
       capture.protoHits += 1;
-      try {
-        rememberSource(this);
-      } catch (e) {
-        recordError(e);
+      if (sources[0] !== this) {
+        try {
+          rememberSource(this);
+        } catch (e) {
+          recordError(e);
+        }
       }
-      return originalGet.apply(this, args);
+      return arguments.length <= 1
+        ? originalGet.call(this, dataID)
+        : originalGet.apply(this, arguments);
     }
     try {
       Object.defineProperty(patchedGet, '__fbDietProtoPatched', { value: true });
@@ -402,6 +418,7 @@ window.FBDietRelay = (() => {
         protoHooked: capture.protoHooked,
         alreadyPatched: capture.alreadyPatched,
         protoHits: capture.protoHits,
+        reorders: capture.reorders,
         shapeMismatch: capture.shapeMismatch,
         lastShapeMismatch: capture.lastShapeMismatch
       };

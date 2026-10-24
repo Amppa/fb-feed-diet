@@ -14,6 +14,8 @@
   --fb-diet-bar-border: none;
   --fb-diet-bar-hover-tint: white 5%;
   --fb-diet-bar-text: var(--primary-text, #e4e6eb);
+  --fb-diet-card-bg: var(--card-background, #242526);
+  --fb-diet-card-shadow: none;
 }
 
 /* Light mode tokens:
@@ -28,6 +30,8 @@ html.__fb-light-mode:not([data-fb-diet-theme="dark"]) {
   --fb-diet-bar-border: 1px solid var(--media-inner-border, #ced0d4);
   --fb-diet-bar-hover-tint: black 4%;
   --fb-diet-bar-text: var(--primary-text, #050505);
+  --fb-diet-card-bg: var(--card-background, #ffffff);
+  --fb-diet-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 @media (prefers-color-scheme: light) {
@@ -36,6 +40,8 @@ html.__fb-light-mode:not([data-fb-diet-theme="dark"]) {
     --fb-diet-bar-border: 1px solid var(--media-inner-border, #ced0d4);
     --fb-diet-bar-hover-tint: black 4%;
     --fb-diet-bar-text: var(--primary-text, #050505);
+    --fb-diet-card-bg: var(--card-background, #ffffff);
+    --fb-diet-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   }
 }
 
@@ -45,6 +51,8 @@ html[data-fb-diet-theme="dark"] {
   --fb-diet-bar-border: none;
   --fb-diet-bar-hover-tint: white 5%;
   --fb-diet-bar-text: var(--primary-text, #e4e6eb);
+  --fb-diet-card-bg: var(--card-background, #242526);
+  --fb-diet-card-shadow: none;
 }
 
 /* ------------------------------------------------------------------ *
@@ -294,11 +302,17 @@ html[data-fb-diet-theme="dark"] {
  *   rails and all four corner radii.
  * ------------------------------------------------------------------ */
 
-/* The wrapper anchors the frame pseudo. It carries no border itself and stacks above the extended header. */
+/* The wrapper anchors the frame pseudo. It carries no border itself and stacks above the extended header.
+ * Acts as a placeholder card surface (fake feed) so the 8px header extension is seamlessly covered during load delay. */
 .fb-diet-titlebar.fb-diet-state-expanded~.fb-diet-expand-body {
   position: relative !important;
   z-index: 1 !important;
   border: none !important;
+  border-radius: 8px !important;
+  background-color: var(--fb-diet-card-bg) !important;
+  box-shadow: var(--fb-diet-card-shadow) !important;
+  min-height: 120px !important;
+  box-sizing: border-box !important;
   --fb-diet-strip-h: 36px;
 }
 

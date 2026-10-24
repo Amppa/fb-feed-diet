@@ -9,6 +9,28 @@ window.FBDietFoldComponents = (() => {
     byModule: {}
   };
 
+  const enrichmentCache = new Map();
+  const ENRICHMENT_CACHE_MAX = 300;
+  const enrichmentStats = { hits: 0, misses: 0 };
+
+  function collectEnrichment(store, props, unitId) {
+    if (!store || !window.FBDietRelayMetadata) return null;
+    if (unitId && enrichmentCache.has(unitId)) {
+      enrichmentStats.hits += 1;
+      return enrichmentCache.get(unitId);
+    }
+    enrichmentStats.misses += 1;
+    const res = window.FBDietRelayMetadata.collect(store, props);
+    if (res && unitId) {
+      if (enrichmentCache.size >= ENRICHMENT_CACHE_MAX) {
+        const firstKey = enrichmentCache.keys().next().value;
+        enrichmentCache.delete(firstKey);
+      }
+      enrichmentCache.set(unitId, res);
+    }
+    return res;
+  }
+
   let FBDietContext = null;
   function getFoldContext(React) {
     if (!FBDietContext && React && typeof React.createContext === 'function') {
@@ -353,9 +375,7 @@ window.FBDietFoldComponents = (() => {
       // Relay store read (record ids, no DOM), so it is always collected whenever the
       // store is available; gating it on one consumer starves the others. 'dom' mode
       // reads DOM instead.
-      const enrichment = (store && window.FBDietRelayMetadata)
-        ? window.FBDietRelayMetadata.collect(store, props)
-        : null;
+      const enrichment = collectEnrichment(store, props, unitId);
 
       const TitleBarComponent = ui.TitleBar;
       const bar = createEl(
@@ -444,6 +464,8 @@ window.FBDietFoldComponents = (() => {
     FoldUnit,
     SideAdHidden,
     RightRailUnitWrapper,
+    collectEnrichment,
+    getEnrichmentStats: () => ({ ...enrichmentStats }),
     // Live object: hydration reports committed counts so far.
     get hydration() {
       return hydrationStats;

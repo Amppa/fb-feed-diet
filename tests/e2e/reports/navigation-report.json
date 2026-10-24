@@ -1,0 +1,123 @@
+{
+  "timestamp": "2026-10-22T15:11:39.020Z",
+  "config": {
+    "roundsCount": 3
+  },
+  "baseline": {
+    "url": "https://www.facebook.com/",
+    "pathname": "/",
+    "domNodes": 2639,
+    "usedJsHeap": 126313740,
+    "foldBars": 5,
+    "squashedUnits": 3
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "navInDurationMs": 1339,
+      "navOutDurationMs": 2884,
+      "postPathname": "/photo/",
+      "isScopeBlocked": true,
+      "inProfileTopFbDiet": [
+        {
+          "name": "detectAndSyncFbTheme",
+          "file": "content.js",
+          "line": 322,
+          "selfTimeMs": 1
+        }
+      ],
+      "outProfileTopFbDiet": [
+        {
+          "name": "renderExpandedView",
+          "file": "fold-components.js",
+          "line": 117,
+          "selfTimeMs": 2
+        },
+        {
+          "name": "rememberSource",
+          "file": "relay.js",
+          "line": 42,
+          "selfTimeMs": 2
+        },
+        {
+          "name": "(anonymous)",
+          "file": "comet.js",
+          "line": 887,
+          "selfTimeMs": 1
+        },
+        {
+          "name": "handleMessage",
+          "file": "bridge.js",
+          "line": 259,
+          "selfTimeMs": 1
+        },
+        {
+          "name": "scan",
+          "file": "relay-metadata.js",
+          "line": 167,
+          "selfTimeMs": 1
+        },
+        {
+          "name": "storeMainReport",
+          "file": "content.js",
+          "line": 177,
+          "selfTimeMs": 1
+        },
+        {
+          "name": "safeStorageSet",
+          "file": "content.js",
+          "line": 121,
+          "selfTimeMs": 1
+        }
+      ],
+      "domNodesAfterReturn": 5253,
+      "heapAfterReturnMB": "127.2",
+      "foldBarsAfterReturn": 13
+    },
+    {
+      "round": 2,
+      "navInDurationMs": 466,
+      "navOutDurationMs": 2618,
+      "postPathname": "/photo/",
+      "isScopeBlocked": true,
+      "inProfileTopFbDiet": [],
+      "outProfileTopFbDiet": [
+        {
+          "name": "safeStorageSet",
+          "file": "content.js",
+          "line": 121,
+          "selfTimeMs": 7
+        },
+        {
+          "name": "flushPersistedLog",
+          "file": "content.js",
+          "line": 246,
+          "selfTimeMs": 2
+        }
+      ],
+      "domNodesAfterReturn": 3871,
+      "heapAfterReturnMB": "109.5",
+      "foldBarsAfterReturn": 13
+    },
+    {
+      "round": 3,
+      "navInDurationMs": 459,
+      "navOutDurationMs": 2668,
+      "postPathname": "/photo/",
+      "isScopeBlocked": true,
+      "inProfileTopFbDiet": [],
+      "outProfileTopFbDiet": [
+        {
+          "name": "safeStorageSet",
+          "file": "content.js",
+          "line": 121,
+          "selfTimeMs": 1
+        }
+      ],
+      "domNodesAfterReturn": 3871,
+      "heapAfterReturnMB": "93.0",
+      "foldBarsAfterReturn": 13
+    }
+  ],
+  "runtimeErrors": []
+}

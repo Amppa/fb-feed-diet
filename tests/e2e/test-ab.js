@@ -17,14 +17,15 @@ const puppeteer = require('puppeteer');
  * 支援參數：
  *   --scrolls=N        每組滾動次數 (預設 12 次)
  *   --delay=N          每次滾動後等待毫秒數 (預設 1500ms)
- *   --save-report      儲存為 tests/e2e/ab-report.json
+ *   --save-report      儲存為 tests/e2e/reports/ab-report.json
  *   --headless         改以無頭模式自動執行
  *   --use-local-chrome 使用本機 Google Chrome
  */
 
 const EXTENSION_PATH = path.resolve(__dirname, '../..');
 const USER_DATA_DIR = path.resolve(__dirname, '../../.user_data');
-const REPORT_PATH = path.resolve(__dirname, 'ab-report.json');
+const REPORT_DIR = path.resolve(__dirname, 'reports');
+const REPORT_PATH = path.resolve(REPORT_DIR, 'ab-report.json');
 
 const args = process.argv.slice(2);
 const reloadsArg = args.find(a => a.startsWith('--reloads=') || a.startsWith('--refreshes='));
@@ -313,6 +314,9 @@ async function main() {
   console.log('==============================================================================\n');
 
   if (saveReport) {
+    if (!fs.existsSync(REPORT_DIR)) {
+      fs.mkdirSync(REPORT_DIR, { recursive: true });
+    }
     const reportObj = {
       timestamp: new Date().toISOString(),
       config: { scrollCount, scrollDelay },

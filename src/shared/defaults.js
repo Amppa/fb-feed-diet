@@ -174,11 +174,25 @@
   }
 
   // Fold scope: allowlisted surfaces only; fail-open on unknown pathname.
+  // Media overlays (/photo, /photo.php, /photos, /media/set) are allowed so feed posts behind
+  // lightboxes do not strip their fold bars and cause layout shifts.
   // per docs/architecture.md
-  const FOLD_SCOPE_PREFIXES = ['/', '/home.php', '/search', '/marketplace', '/groups/feed', '/feeds'];
+  const FOLD_SCOPE_PREFIXES = [
+    '/',
+    '/home.php',
+    '/search',
+    '/marketplace',
+    '/groups/feed',
+    '/feeds',
+    '/photo',
+    '/photo.php',
+    '/photos',
+    '/media/set'
+  ];
 
   function isFoldScopeAllowed(pathname) {
     if (typeof pathname !== 'string' || !pathname) return true;
+    if (pathname.includes('/photos/') || pathname.includes('/photo/') || pathname === '/photo.php' || pathname.startsWith('/photo.php?')) return true;
     return FOLD_SCOPE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + '/'));
   }
 
@@ -346,7 +360,7 @@
     return { text: '', color: '' };
   }
 
-  const EXTENSION_VERSION = '3.0.0';
+  const EXTENSION_VERSION = '3.0.1';
 
   globalThis.FB_DIET_DEFAULTS = {
     SETTINGS: DEFAULT_SETTINGS,

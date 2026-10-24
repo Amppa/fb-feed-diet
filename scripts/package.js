@@ -124,7 +124,7 @@ function archiveDirectory(sourceDir, items, destZip) {
         const itemsList = items.map((i) => `'${i}'`).join(',');
         execFileSync(
           'powershell.exe',
-          ['-NoProfile', '-Command', `Compress-Archive -Path ${itemsList} -DestinationPath '${destZip}' -Force`],
+          ['-NoProfile', '-Command', `$ProgressPreference = 'SilentlyContinue'; Compress-Archive -Path ${itemsList} -DestinationPath '${destZip}' -Force`],
           {
             cwd: sourceDir,
             stdio: ['ignore', 'ignore', 'inherit'],
