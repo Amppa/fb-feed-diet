@@ -148,7 +148,14 @@ window.FBDietI18N = (() => {
     langToggleTitle: 'Switch language',
     sponsorTitle: 'Buy Me a Coffee',
     sponsorDesc: 'Facebook updates frequently, and keeping the filters working requires ongoing maintenance time. If it saves you time and frustration, consider buying me a coffee to support the project!',
-    sponsorBtn: 'Sponsor on GitHub'
+    sponsorBtn: 'Sponsor on GitHub',
+    sectionPerfDiet: 'Performance Optimization (Experimental)',
+    featPerfStubModeTitle: 'Deep DOM Diet (Stub Mode)',
+    featPerfStubModeDesc: 'Completely unmount folded ads and suggested subtrees instead of keeping 1x1 squash nodes. Significantly cuts memory and global reflow overhead.',
+    featPerfCvTitle: 'Skip Offscreen Rendering',
+    featPerfCvDesc: 'Tell browser to skip layout and paint passes for posts outside viewport via content-visibility: auto. Zero scroll jump.',
+    featPerfModalIsolationTitle: 'Lightbox Backdrop Isolation',
+    featPerfModalIsolationDesc: 'Isolate feed reflows when opening photos or dialogs, preventing 1~3s freeze when pressing Esc or clicking Close.'
   };
 
   const ZH_OPTIONS = {
@@ -215,7 +222,14 @@ window.FBDietI18N = (() => {
     langToggleTitle: '切換語言',
     sponsorTitle: '請作者喝杯咖啡 ☕',
     sponsorDesc: 'Facebook 頻繁改版，維護過濾器需要持續投入時間。如果它為您省下的時間與好心情遠超一杯咖啡錢，歡迎隨喜贊助請我喝杯咖啡！',
-    sponsorBtn: '贊助支持 (GitHub Sponsors)'
+    sponsorBtn: '贊助支持 (GitHub Sponsors)',
+    sectionPerfDiet: '效能優化（實驗性）',
+    featPerfStubModeTitle: '深度 DOM 減肥（Stub 模式）',
+    featPerfStubModeDesc: '折疊廣告與推薦時徹底卸載 DOM 節點（而非 1x1 擠壓），大幅釋放記憶體並降低全頁重排負擔。',
+    featPerfCvTitle: '離屏渲染跳過（Content Visibility）',
+    featPerfCvDesc: '指示瀏覽器跳過視窗外貼文的排版與繪製計算，確保滾動平順且零捲軸跳動。',
+    featPerfModalIsolationTitle: '相片燈箱背景隔離',
+    featPerfModalIsolationDesc: '開啟相片或彈窗時隔離動態牆背景重排，防止按 Esc 關閉時引發 1~3 秒全頁卡死。'
   };
 
   const ES_OPTIONS = {
@@ -282,7 +296,14 @@ window.FBDietI18N = (() => {
     langToggleTitle: 'Cambiar idioma',
     sponsorTitle: 'Invítame a un café',
     sponsorDesc: 'Facebook se actualiza constantemente y mantener los filtros funcionando requiere tiempo y mantenimiento. Si te ahorra tiempo y tranquilidad, ¡invítame a un café para apoyar el proyecto!',
-    sponsorBtn: 'Apoyar en GitHub'
+    sponsorBtn: 'Apoyar en GitHub',
+    sectionPerfDiet: 'Optimización de rendimiento (Experimental)',
+    featPerfStubModeTitle: 'Dieta DOM profunda (Modo Stub)',
+    featPerfStubModeDesc: 'Desmonta por completo los anuncios y sugerencias plegados en lugar de mantener nodos 1x1. Reduce notablemente la memoria y los reflujos globales.',
+    featPerfCvTitle: 'Omitir renderizado fuera de pantalla',
+    featPerfCvDesc: 'Indica al navegador que omita el diseño y pintado de publicaciones fuera de la vista mediante content-visibility: auto.',
+    featPerfModalIsolationTitle: 'Aislamiento de fondo en visor de fotos',
+    featPerfModalIsolationDesc: 'Aísla el feed de reflujos al abrir fotos o cuadros de diálogo, evitando congelamientos de 1 a 3 s al presionar Esc o Cerrar.'
   };
 
   // The groups must stay disjoint: a key listed in two of them is silently overwritten by the

@@ -373,22 +373,14 @@ body {
   margin-bottom: 0;
 }
 
-.feature-item {
+/* Features List - Unified Card Layout */
+.features-list {
   background: var(--surface-inset);
   border: var(--border-width) solid var(--divider);
-  border-radius: var(--radius-tile);
-  transition: all var(--motion-fast) ease;
-}
-
-.feature-item:hover {
-  background: var(--bg-hover);
-}
-
-/* Features List */
-.features-list {
+  border-radius: var(--radius-card);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: var(--space-row);
   transition: opacity var(--motion-base) ease;
 }
 
@@ -402,6 +394,22 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: var(--pad-row);
+  background: transparent;
+  transition: background-color var(--motion-fast) ease;
+}
+
+.feature-item + .feature-item {
+  border-top: var(--border-width) solid var(--divider);
+}
+
+.feature-item:hover {
+  background: var(--bg-hover);
+}
+
+.divider {
+  border: 0;
+  border-top: var(--border-width) solid var(--divider);
+  margin: 0;
 }
 
 .feature-meta {
@@ -648,3 +656,6 @@ body {
   background-color: var(--bg-card);
   color: var(--text-primary);
 }
+
+
+

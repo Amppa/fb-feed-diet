@@ -19,7 +19,11 @@
     themeMode: 'auto',
     restrictFoldScope: true,
     debugProbe: false,
-    lang: 'auto'
+    lang: 'auto',
+    perfMode: true,
+    perfStubMode: false,
+    perfContentVisibility: true,
+    perfModalIsolation: true
   };
 
   // Counts row: base metadata plus one counter per group.
@@ -360,7 +364,7 @@
     return { text: '', color: '' };
   }
 
-  const EXTENSION_VERSION = '3.0.1';
+  const EXTENSION_VERSION = '3.0.2';
 
   globalThis.FB_DIET_DEFAULTS = {
     SETTINGS: DEFAULT_SETTINGS,

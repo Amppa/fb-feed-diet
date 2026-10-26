@@ -1,0 +1,31 @@
+/* ==========================================================================
+   FB Feed Diet — Performance Diet Module (perf.css)
+   Declarative CSS Containment & Layout Isolation
+   ========================================================================== */
+
+/* Geometry estimates consumed by contain-intrinsic-size. They live here rather than in
+   theme.css because they describe Facebook's feed, not this extension's own UI. */
+:root {
+  --fb-diet-perf-post-intrinsic: 650px;
+  --fb-diet-perf-folded-intrinsic: 42px;
+}
+
+/* 1. Content Visibility: Skip offscreen feed posts layout & rendering */
+html.fb-diet-perf-cv div[role="feed"] > div {
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--fb-diet-perf-post-intrinsic);
+}
+
+/* Intrinsic size adjustments for folded units (prevents scroll jumps) */
+html.fb-diet-perf-cv div[role="feed"] > div:has(.fb-diet-fold-bar),
+html.fb-diet-perf-cv div[role="feed"] > div:has(.fb-diet-titlebar) {
+  contain-intrinsic-size: auto var(--fb-diet-perf-folded-intrinsic);
+}
+
+/* 2. Photo Lightbox / Modal Backdrop Isolation */
+/* contain: layout paint stops global reflow without collapsing feed height (avoids scroll reset) */
+html.fb-diet-perf-modal-active div[role="feed"] {
+  contain: layout paint !important;
+  pointer-events: none !important;
+}
+

@@ -149,7 +149,13 @@ window.FBDietFoldComponents = (() => {
     const hideClass = (typeof window !== 'undefined' && window.__fbDietHideMode === 'none')
       ? 'fb-diet-fold-hidden'
       : 'fb-diet-fold-hidden fb-diet-foldsquash';
-    const isStubMode = (typeof window !== 'undefined' && (window.__fbDietStubMode === true || window.__fbDietStubMode === 'true'));
+    const bridge = typeof window !== 'undefined' ? window.FBDietBridge : null;
+    const settings = bridge && typeof bridge.getSettings === 'function' ? bridge.getSettings() : null;
+    const isStubMode = (typeof window !== 'undefined' && (
+      window.__fbDietStubMode === true ||
+      window.__fbDietStubMode === 'true' ||
+      Boolean(settings && settings.perfMode !== false && settings.perfStubMode !== false)
+    ));
     const hiddenChildren = isStubMode ? [] : [rendered];
     const hidden = createEl(
       'div',

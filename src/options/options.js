@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const SETTING_KEYS_BY_GROUP = DEFAULTS_MAP.SETTING_KEYS_BY_GROUP || {};
 
   const switches = {};
-  document.querySelectorAll('#featuresList input[type="checkbox"], #appearanceList input[type="checkbox"], #classifierList input[type="checkbox"]').forEach(input => {
+  document.querySelectorAll('#featuresList input[type="checkbox"], #appearanceList input[type="checkbox"], #classifierList input[type="checkbox"], #perfList input[type="checkbox"]').forEach(input => {
     if (input.id) switches[input.id] = input;
   });
 
@@ -233,19 +233,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+
   function updateMasterUI(isEnabled) {
     if (masterToggle) masterToggle.checked = isEnabled;
     if (masterStatus) masterStatus.textContent = i18n ? i18n.t(isEnabled ? 'masterStatusActive' : 'masterStatusDisabled') : (isEnabled ? 'Active' : 'Disabled');
     const appearanceList = document.getElementById('appearanceList');
     const classifierList = document.getElementById('classifierList');
+    const perfList = document.getElementById('perfList');
     if (isEnabled) {
       featuresList.classList.remove('disabled');
       if (appearanceList) appearanceList.classList.remove('disabled');
       if (classifierList) classifierList.classList.remove('disabled');
+      if (perfList) perfList.classList.remove('disabled');
     } else {
       featuresList.classList.add('disabled');
       if (appearanceList) appearanceList.classList.add('disabled');
       if (classifierList) classifierList.classList.add('disabled');
+      if (perfList) perfList.classList.add('disabled');
     }
     updateHighlighting();
     refreshDonut();
