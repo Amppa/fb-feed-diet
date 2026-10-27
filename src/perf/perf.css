@@ -8,17 +8,21 @@
 :root {
   --fb-diet-perf-post-intrinsic: 650px;
   --fb-diet-perf-folded-intrinsic: 42px;
+  --fb-diet-perf-comment-intrinsic: 60px;
 }
 
 /* 1. Content Visibility: Skip offscreen feed posts layout & rendering */
-html.fb-diet-perf-cv div[role="feed"] > div {
+html.fb-diet-perf-cv div[role="feed"] > div,
+html.fb-diet-perf-cv div[role="main"] [role="article"] {
   content-visibility: auto;
   contain-intrinsic-size: auto var(--fb-diet-perf-post-intrinsic);
 }
 
 /* Intrinsic size adjustments for folded units (prevents scroll jumps) */
 html.fb-diet-perf-cv div[role="feed"] > div:has(.fb-diet-fold-bar),
-html.fb-diet-perf-cv div[role="feed"] > div:has(.fb-diet-titlebar) {
+html.fb-diet-perf-cv div[role="feed"] > div:has(.fb-diet-titlebar),
+html.fb-diet-perf-cv div[role="main"] [role="article"]:has(.fb-diet-fold-bar),
+html.fb-diet-perf-cv div[role="main"] [role="article"]:has(.fb-diet-titlebar) {
   contain-intrinsic-size: auto var(--fb-diet-perf-folded-intrinsic);
 }
 
@@ -27,5 +31,25 @@ html.fb-diet-perf-cv div[role="feed"] > div:has(.fb-diet-titlebar) {
 html.fb-diet-perf-modal-active div[role="feed"] {
   contain: layout paint !important;
   pointer-events: none !important;
+}
+html.fb-diet-perf-modal-active div[role="main"] {
+  contain: layout paint !important;
+}
+
+/* 3. Modal Comments & Sidebar Progressive Layout */
+html.fb-diet-perf-cv div[role="dialog"] div[aria-label*="留言"] > div,
+html.fb-diet-perf-cv div[role="dialog"] div[aria-label*="Comments"] > div,
+html.fb-diet-perf-cv div[role="dialog"] div[aria-label*="Comentarios"] > div {
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--fb-diet-perf-comment-intrinsic);
+}
+
+/* 4. Instant Visual Exit on Dialog Dismissal */
+div[role="dialog"].fb-diet-dialog-exiting,
+div[aria-modal="true"].fb-diet-dialog-exiting {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transition: none !important;
 }
 

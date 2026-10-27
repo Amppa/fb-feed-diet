@@ -14,6 +14,7 @@
   // CSS token classes
   const CLASS_CONTENT_VISIBILITY = 'fb-diet-perf-cv';
   const CLASS_MODAL_ACTIVE = 'fb-diet-perf-modal-active';
+  const CLASS_DIALOG_EXITING = 'fb-diet-dialog-exiting';
 
   // How long the containment shield outlives the dialog it was armed for. Facebook restores
   // `body { overflow }` on teardown, and dropping the shield in that same tick left the feed
@@ -27,6 +28,88 @@
   };
 
   let modalObserver = null;
+  let modalGraceTimer = null;
+  let exitListenersAttached = false;
+
+  function getActiveDialog() {
+    if (typeof document === 'undefined') return null;
+    if (typeof document.querySelectorAll !== 'function') {
+      return typeof document.querySelector === 'function' ? document.querySelector('div[role="dialog"]') : null;
+    }
+    const dialogs = document.querySelectorAll('div[role="dialog"], div[aria-modal="true"]');
+    // Traverse backwards to target the top-most/latest mounted dialog (e.g. Photo Theater)
+    for (let i = dialogs.length - 1; i >= 0; i--) {
+      const d = dialogs[i];
+      if (!d) continue;
+      const hasAttr = typeof d.getAttribute === 'function';
+      const isAriaModal = hasAttr && d.getAttribute('aria-modal') === 'true';
+      // Skip background hidden zero-size elements like unmounted notification popups
+      const isVisible = isAriaModal ||
+                        (typeof d.offsetWidth === 'number' && d.offsetWidth > 0) ||
+                        (typeof d.offsetHeight === 'number' && d.offsetHeight > 0) ||
+                        (typeof d.getClientRects === 'function' && d.getClientRects().length > 0) ||
+                        (typeof d.offsetWidth === 'undefined' && typeof d.offsetHeight === 'undefined');
+      if (isVisible) {
+        return d;
+      }
+    }
+    return null;
+  }
+
+  function hasSubmenuOrUnsavedInput() {
+    if (typeof document === 'undefined') return false;
+    // 1. If an inner popup / menu is open (e.g. emoji picker, reaction list, more menu)
+    if (document.querySelector('div[role="menu"], div[role="listbox"], [data-surface*="menu"]')) {
+      return true;
+    }
+    // 2. If user is actively typing in an input with text (avoid eating confirmation modal)
+    const active = document.activeElement;
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+      const text = active.value || active.textContent || '';
+      if (text.trim().length > 0) return true;
+    }
+    return false;
+  }
+
+  function triggerInstantExit() {
+    const dialog = getActiveDialog();
+    if (!dialog) return;
+    // Do not hide if nested menu or unsaved comment is active
+    if (hasSubmenuOrUnsavedInput()) return;
+    if (!dialog.classList.contains(CLASS_DIALOG_EXITING)) {
+      dialog.classList.add(CLASS_DIALOG_EXITING);
+    }
+  }
+
+  function handleExitKey(e) {
+    if (e.key === 'Escape' && !e.defaultPrevented) {
+      triggerInstantExit();
+    }
+  }
+
+  function handleExitClick(e) {
+    if (!e.target || typeof e.target.closest !== 'function') return;
+    const closeBtn = e.target.closest(
+      'div[aria-label="Close"], div[aria-label="關閉"], div[aria-label="Cerrar"], [aria-label*="Close" i], [aria-label*="關閉"]'
+    );
+    if (closeBtn) {
+      triggerInstantExit();
+    }
+  }
+
+  function attachExitListeners() {
+    if (exitListenersAttached || typeof document === 'undefined') return;
+    document.addEventListener('keydown', handleExitKey, true);
+    document.addEventListener('click', handleExitClick, true);
+    exitListenersAttached = true;
+  }
+
+  function detachExitListeners() {
+    if (!exitListenersAttached || typeof document === 'undefined') return;
+    document.removeEventListener('keydown', handleExitKey, true);
+    document.removeEventListener('click', handleExitClick, true);
+    exitListenersAttached = false;
+  }
 
   function updateRootTokens() {
     if (typeof document === 'undefined' || !document.documentElement) return;
@@ -40,11 +123,13 @@
     // 2. Modal Isolation state
     if (!isMasterOn || currentSettings.perfModalIsolation === false) {
       docEl.classList.remove(CLASS_MODAL_ACTIVE);
+      detachExitListeners();
       if (modalObserver) {
         modalObserver.disconnect();
         modalObserver = null;
       }
     } else {
+      attachExitListeners();
       checkAndObserveModals();
     }
   }
@@ -52,13 +137,8 @@
   function checkDialogPresence() {
     if (typeof document === 'undefined') return false;
     // Check for Facebook photo theater or modal dialog
-    return Boolean(
-      document.querySelector('div[role="dialog"]') ||
-      document.querySelector('div[aria-modal="true"]')
-    );
+    return Boolean(getActiveDialog());
   }
-
-  let modalGraceTimer = null;
 
   function syncModalState() {
     if (typeof document === 'undefined' || !document.documentElement) return;
@@ -67,6 +147,10 @@
       if (modalGraceTimer) {
         clearTimeout(modalGraceTimer);
         modalGraceTimer = null;
+      }
+      const active = getActiveDialog();
+      if (active && active.classList && active.classList.contains(CLASS_DIALOG_EXITING)) {
+        active.classList.remove(CLASS_DIALOG_EXITING);
       }
       document.documentElement.classList.add(CLASS_MODAL_ACTIVE);
     } else {

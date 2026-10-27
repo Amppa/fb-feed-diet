@@ -353,12 +353,12 @@
         <div class="feature-meta">
           <span class="feature-icon">🧬</span>
           <div>
-            <div class="feature-title" data-i18n="featPerfStubModeTitle">Deep DOM Diet (Stub Mode)</div>
-            <div class="feature-desc" data-i18n="featPerfStubModeDesc">Completely unmount folded ads and suggested subtrees instead of keeping 1x1 squash nodes. Significantly cuts memory and global reflow overhead.</div>
+            <div class="feature-title" data-i18n="featPerfStubModeTitle">DOM Stub Mode</div>
+            <div class="feature-desc" data-i18n="featPerfStubModeDesc">Unmount folded post contents instead of keeping hidden nodes to lower memory usage and reflow cost.</div>
           </div>
         </div>
         <label class="switch">
-          <input type="checkbox" id="perfStubMode" aria-label="Deep DOM Diet (Stub Mode)" data-i18n-aria="featPerfStubModeTitle">
+          <input type="checkbox" id="perfStubMode" aria-label="DOM Stub Mode" data-i18n-aria="featPerfStubModeTitle">
           <span class="slider round"></span>
         </label>
       </div>
@@ -368,12 +368,12 @@
         <div class="feature-meta">
           <span class="feature-icon">🚀</span>
           <div>
-            <div class="feature-title" data-i18n="featPerfCvTitle">Skip Offscreen Rendering</div>
-            <div class="feature-desc" data-i18n="featPerfCvDesc">Tell browser to skip layout and paint passes for posts outside viewport via content-visibility: auto. Zero scroll jump.</div>
+            <div class="feature-title" data-i18n="featPerfCvTitle">Offscreen Rendering Optimization</div>
+            <div class="feature-desc" data-i18n="featPerfCvDesc">Defer layout and paint passes for offscreen posts and comments until scrolled into view, reducing main-thread load.</div>
           </div>
         </div>
         <label class="switch">
-          <input type="checkbox" id="perfContentVisibility" aria-label="Skip Offscreen Rendering" data-i18n-aria="featPerfCvTitle">
+          <input type="checkbox" id="perfContentVisibility" aria-label="Offscreen Rendering Optimization" data-i18n-aria="featPerfCvTitle">
           <span class="slider round"></span>
         </label>
       </div>
@@ -381,14 +381,14 @@
       <!-- 3. Lightbox / Modal Backdrop Isolation -->
       <div class="feature-item">
         <div class="feature-meta">
-          <span class="feature-icon">🛡️</span>
+          <span class="feature-icon">🖼️</span>
           <div>
-            <div class="feature-title" data-i18n="featPerfModalIsolationTitle">Lightbox Backdrop Isolation</div>
-            <div class="feature-desc" data-i18n="featPerfModalIsolationDesc">Isolate feed reflows when opening photos or dialogs, preventing 1~3s freeze when pressing Esc or clicking Close.</div>
+            <div class="feature-title" data-i18n="featPerfModalIsolationTitle">Lightbox Optimization</div>
+            <div class="feature-desc" data-i18n="featPerfModalIsolationDesc">Isolate background feed layout and hide dialogs immediately on exit (Escape/Close) to reduce dismissal delay.</div>
           </div>
         </div>
         <label class="switch">
-          <input type="checkbox" id="perfModalIsolation" aria-label="Lightbox Backdrop Isolation" data-i18n-aria="featPerfModalIsolationTitle">
+          <input type="checkbox" id="perfModalIsolation" aria-label="Lightbox Optimization" data-i18n-aria="featPerfModalIsolationTitle">
           <span class="slider round"></span>
         </label>
       </div>

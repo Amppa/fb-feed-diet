@@ -22,6 +22,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   });
 
   pushSettingsToFacebookTabs(mergedSettings);
+  updateGlobalBadge(mergedSettings.enabled !== false);
   // A freshly installed build makes every already-open Facebook tab stale; that is exactly the
   // state the red marker exists for, so the badges are re-labelled here rather than on next load.
   updateFacebookBadges();
@@ -63,9 +64,28 @@ async function pushSettingsToFacebookTabs(providedSettings) {
   }
 }
 
+/** Sets or clears the global default action badge across all tabs. */
+async function updateGlobalBadge(enabled) {
+  if (!chrome.action) return;
+  const defaults = globalThis.FB_DIET_DEFAULTS;
+  const disabledColor = (defaults && defaults.ACTION_BADGE_COLORS && defaults.ACTION_BADGE_COLORS.disabled) || '#6B7280';
+  try {
+    if (enabled === false) {
+      await chrome.action.setBadgeText({ text: 'off' });
+      await chrome.action.setBadgeBackgroundColor({ color: disabledColor });
+    } else {
+      await chrome.action.setBadgeText({ text: '' });
+    }
+  } catch (e) {}
+}
+
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.settings) {
-    pushSettingsToFacebookTabs(changes.settings.newValue);
+    const newSettings = changes.settings.newValue;
+    pushSettingsToFacebookTabs(newSettings);
+    if (newSettings && typeof newSettings.enabled === 'boolean') {
+      updateGlobalBadge(newSettings.enabled);
+    }
     // Tabs that are already open would otherwise keep claiming the extension is on until the
     // user reloads them, which is the one moment the badge has to be right.
     updateFacebookBadges();
@@ -164,15 +184,22 @@ async function updateTabBadge(tabId, tabUrl) {
     const defaults = globalThis.FB_DIET_DEFAULTS;
     if (!defaults || typeof defaults.resolveActionBadge !== 'function') return;
 
+    const data = await chrome.storage.local.get('settings');
+    const settings = { ...DEFAULT_SETTINGS, ...(data && data.settings ? data.settings : {}) };
+
+    // The switch-off answer needs nothing from the page, so no tab is injected to give it.
+    if (settings.enabled === false) {
+      const badge = defaults.resolveActionBadge(null, settings, tabUrl);
+      await setTabBadge(tabId, badge.text, badge.color);
+      return;
+    }
+
     if (typeof defaults.isFacebookUrl === 'function' && !defaults.isFacebookUrl(tabUrl)) {
       await setTabBadge(tabId, '', '');
       return;
     }
 
-    const data = await chrome.storage.local.get('settings');
-    const settings = { ...DEFAULT_SETTINGS, ...(data && data.settings ? data.settings : {}) };
-    // The switch-off answer needs nothing from the page, so no tab is injected to give it.
-    const state = settings.enabled === false ? null : await readTabHookState(tabId);
+    const state = await readTabHookState(tabId);
     const badge = defaults.resolveActionBadge(state, settings, tabUrl);
     await setTabBadge(tabId, badge.text, badge.color);
   } catch (e) {

@@ -21,7 +21,7 @@
     debugProbe: false,
     lang: 'auto',
     perfMode: true,
-    perfStubMode: false,
+    perfStubMode: true,
     perfContentVisibility: true,
     perfModalIsolation: true
   };
@@ -340,11 +340,11 @@
    * clears the icon, because a badge that is never silent is a badge that stops being read.
    */
   function resolveActionBadge(tabState, settings, tabUrl) {
-    if (typeof tabUrl === 'string' && !isFacebookUrl(tabUrl)) return { text: '', color: '' };
-
     if (settings && settings.enabled === false) {
       return { text: 'off', color: ACTION_BADGE_COLORS.disabled };
     }
+
+    if (typeof tabUrl === 'string' && !isFacebookUrl(tabUrl)) return { text: '', color: '' };
 
     if (
       !tabState ||
@@ -364,7 +364,7 @@
     return { text: '', color: '' };
   }
 
-  const EXTENSION_VERSION = '3.0.2';
+  const EXTENSION_VERSION = '3.0.3';
 
   globalThis.FB_DIET_DEFAULTS = {
     SETTINGS: DEFAULT_SETTINGS,

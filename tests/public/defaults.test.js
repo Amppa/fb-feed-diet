@@ -360,6 +360,7 @@ function run(checker) {
   checker.equals('…and carries no whitelist colour any more', defaults.ACTION_BADGE_COLORS.whitelist, undefined);
 
   checker.equals('a non-Facebook tab has an empty badge', defaults.resolveActionBadge(null, { enabled: true }, 'https://google.com/').text, '');
+  checker.equals('a non-Facebook tab reads off while the switch is off', defaults.resolveActionBadge(null, { enabled: false }, 'https://google.com/').text, 'off');
 
   // 1. Master switch off -> grey off, and it outranks every page state.
   checker.equals('a switched-off extension reads off', defaults.resolveActionBadge(null, { enabled: false }, 'https://www.facebook.com/').text, 'off');
